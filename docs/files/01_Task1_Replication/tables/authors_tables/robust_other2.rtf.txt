@@ -1,0 +1,35 @@
+Table S14. Excluding county-year observations below minimum birdwatching record thresholds.
+
+  --------------- ----------------- ----------------- ---------------- ----------------
+                  (1)               (2)               (3)              (4)
+                  Trim bottom 20%   Trim bottom 10%   Trim bottom 5%   Trim bottom 3%
+  PI              -0.0079*       -0.0079**      -0.0081**     -0.0081**
+                  (0.0047)          (0.0039)          (0.0034)         (0.0032)
+  Temp            -0.0190           -0.0328*       -0.0266          -0.0275*
+                  (0.0243)          (0.0199)          (0.0170)         (0.0154)
+  Wind            -0.0017           0.0101            0.0254           0.0186
+                  (0.1039)          (0.0831)          (0.0655)         (0.0619)
+  Pop             -0.0715           -0.0435           -0.0527          -0.0275
+                  (0.1682)          (0.1647)          (0.1302)         (0.1019)
+  Duration        0.0322***      0.0524***      0.0642***     0.0693***
+                  (0.0059)          (0.0056)          (0.0047)         (0.0043)
+  Carbon          -0.0752           -0.0429           -0.0699*      -0.0622*
+                  (0.0631)          (0.0467)          (0.0382)         (0.0367)
+  Water           1.1165            0.2338            0.4891           0.2972
+                  (1.7449)          (1.2517)          (1.0889)         (0.9644)
+  Green           0.1207            -0.0836           0.2236           0.1695
+                  (1.4519)          (0.8650)          (0.7360)         (0.7699)
+  Farm            -0.5212           -0.5413           -0.3796          -0.2600
+                  (0.8543)          (0.5426)          (0.5100)         (0.5300)
+  Grass           4.0359**       2.3847**       1.5275           1.4735
+                  (1.6300)          (1.0533)          (1.0926)         (1.0359)
+  Year-month FE   YES               YES               YES              YES
+  County FE       YES               YES               YES              YES
+  Observations    7954              15160             22314            26918
+  R-squared       0.4724            0.3929            0.3491           0.3296
+  --------------- ----------------- ----------------- ---------------- ----------------
+
+Notes: Columns (1) to (4) report results after excluding county-month observations with low birdwatching activity to address potential measurement error from limited observer effort. Specifically, Column (1) excludes observations falling below the bottom 20% threshold of total birdwatching records per county-month. Columns (2), (3), and (4) exclude observations below the bottom 10%, 5%, and 3%
+thresholds, respectively. The dependent variable is ShannonBD (the negative sum of the proportion of each bird species multiplied by its natural logarithm). The independent variable is PSI (the weighted sum of policies at the provincial, municipal, and county levels). Other control variables include Temp (annual average temperature), Wind (annual average wind speed), Pop (the logarithm of the
+ratio of total population to regional area), Duration (the logarithm of the ratio of birdwatching duration to the number of birdwatchers), Carbon (the logarithm of the carbon emissions), Water (the area of water divided by the total area), Green (the sum of the area of forests and shrubs divided by the total area), Farm (the area of farmland divided by the total area), Grass (the area of the
+grassland divided by the total area). All specifications include county and Year-month fixed effects. The robust standard errors clustered by the county are reported in parenthesis. ***, **, * denote the significance at the 1%, 5%, and 10% levels, respectively.

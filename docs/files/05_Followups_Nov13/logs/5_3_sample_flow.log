@@ -1,0 +1,384 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/logs/5_3_sample_flow
+> .log
+  log type:  text
+ opened on:  18 Nov 2026, 20:49:40
+
+. *==========================================================================
+. * 5_3_sample_flow.do
+. * PURPOSE : Action items 5 and 6 (13 Nov). Trace every row and county from
+. *           the raw bird file to the regression sample, and explain the
+. *           "2,324 vs 2,344 counties" question.
+. * LOGIC   : Step 0  possible county-months  = counties x 120 months
+. *           Step 1  Bird.dta                = county-months with >= 1 record
+. *           Step 2  drop rows missing any control (authors' line
+. *                   "drop if missing(Temp, Wind, PD, BTN, CO2, ...)")
+. *           Step 3  reghdfe drops singleton counties (1 row only)
+. *           Step 4  IV sample: also needs sunshine and city CPU
+. *==========================================================================
+. if "$ROOT" == "" quietly do "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/00_config.do"
+
+. global T5 "$ROOT/05_Followups_Nov13"
+
+. cd "$DATA"
+/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/00_Original_Package/DATA
+
+. 
+. *------------------------------------------------ Step 0: the universe
+. use "PD.dta", clear
+
+. keep id
+
+. duplicates drop
+
+Duplicates in terms of all variables
+
+(25,002 observations deleted)
+
+. local n_univ = _N
+
+. di as res "Step 0: counties with population data = `n_univ'  ->  possible county-months = " `n_univ'*120
+Step 0: counties with population data = 2778  ->  possible county-months = 333360
+
+. 
+. *------------------------------------------------ Step 1: raw bird file
+. use "Bird.dta", clear
+
+. local n1 = _N
+
+. egen tag = tag(id)
+
+. count if tag
+  2,561
+
+. local c1 = r(N)
+
+. drop tag
+
+. di as res "Step 1: Bird.dta rows = `n1', counties = `c1'"
+Step 1: Bird.dta rows = 48900, counties = 2561
+
+. 
+. *------------------------------------------------ Step 2: missing controls
+. * same merges as the authors' CODE.do (only the variables in the drop rule)
+. merge 1:1 id year using "BTN.dta", keepus(BT BN) keep(master match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           543
+        from master                       543  
+        from using                          0  
+
+    Matched                            48,357  
+    -----------------------------------------
+
+. merge m:1 id YEAR using "Climate.dta", keepus(Avt Wind) keep(master match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         1,705
+        from master                     1,705  
+        from using                          0  
+
+    Matched                            47,195  
+    -----------------------------------------
+
+. rename Avt Temp
+
+. merge m:1 id YEAR using "PD.dta",  keepus(PD)  keep(master match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                            11
+        from master                        11  
+        from using                          0  
+
+    Matched                            48,889  
+    -----------------------------------------
+
+. merge m:1 id YEAR using "air.dta", keepus(CO2) keep(master match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             4
+        from master                         4  
+        from using                          0  
+
+    Matched                            48,896  
+    -----------------------------------------
+
+. merge m:1 id YEAR using "TD.dta",  keepus(Water Green Farm Grass) keep(master match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                            11
+        from master                        11  
+        from using                          0  
+
+    Matched                            48,889  
+    -----------------------------------------
+
+. gen BTN = BT/BN
+(543 missing values generated)
+
+. 
+. * which control is missing? (one row can miss several)
+. foreach v in Temp Wind PD BTN CO2 Water Green Farm Grass {
+  2.     quietly count if missing(`v')
+  3.     di "   rows missing `v': " r(N)
+  4. }
+   rows missing Temp: 1839
+   rows missing Wind: 1839
+   rows missing PD: 11
+   rows missing BTN: 543
+   rows missing CO2: 4
+   rows missing Water: 11
+   rows missing Green: 11
+   rows missing Farm: 11
+   rows missing Grass: 11
+
+. gen byte drop_ctrl = missing(Temp, Wind, PD, BTN, CO2, Water, Green, Farm, Grass)
+
+. count if drop_ctrl
+  2,372
+
+. local d2 = r(N)
+
+. tab YEAR drop_ctrl
+
+           |       drop_ctrl
+      YEAR |         0          1 |     Total
+-----------+----------------------+----------
+      2014 |       535         28 |       563 
+      2015 |     2,023        135 |     2,158 
+      2016 |     1,825        141 |     1,966 
+      2017 |     1,856        158 |     2,014 
+      2018 |     2,932        182 |     3,114 
+      2019 |     2,664        207 |     2,871 
+      2020 |     4,757        248 |     5,005 
+      2021 |     7,642        347 |     7,989 
+      2022 |     9,060        426 |     9,486 
+      2023 |    13,234        500 |    13,734 
+-----------+----------------------+----------
+     Total |    46,528      2,372 |    48,900 
+
+. * counties that lose ALL their rows
+. bysort id: egen allgone = min(drop_ctrl)
+
+. egen tag = tag(id)
+
+. count if tag & allgone
+  60
+
+. local cgone = r(N)
+
+. drop if drop_ctrl
+(2,372 observations deleted)
+
+. local n2 = _N
+
+. drop tag
+
+. egen tag = tag(id)
+
+. count if tag
+  2,501
+
+. local c2 = r(N)
+
+. di as res "Step 2: rows dropped for missing controls = `d2'; counties lost entirely = `cgone'"
+Step 2: rows dropped for missing controls = 2372; counties lost entirely = 60
+
+. di as res "        analysis file: rows = `n2', counties = `c2'"
+        analysis file: rows = 46528, counties = 2501
+
+. 
+. *------------------------------------------------ Step 3: singletons
+. use "$SAMPLE", clear
+
+. bysort county: gen nrow = _N
+
+. egen tag = tag(county)
+
+. count if tag & nrow==1
+  157
+
+. local s3 = r(N)
+
+. count if nrow > 1
+  46,371
+
+. local n3 = r(N)
+
+. count if tag & nrow > 1
+  2,344
+
+. local c3 = r(N)
+
+. di as res "Step 3: singleton counties dropped by reghdfe = `s3' (one row each)"
+Step 3: singleton counties dropped by reghdfe = 157 (one row each)
+
+. di as res "        regression sample: rows = `n3', counties = `c3'"
+        regression sample: rows = 46371, counties = 2344
+
+. reghdfe ShannonBD PI $control, absorb(county year) cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      88.45
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3372
+                                                  Adj R-squared   =     0.2999
+                                                  Within R-sq.    =     0.0398
+Number of clusters (county)  =      2,344         Root MSE        =     0.8208
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0125283   .0036551    -3.43   0.001    -.0196958   -.0053607
+        Temp |   -.007307   .0180907    -0.40   0.686    -.0427824    .0281685
+        Wind |   .0434958    .073623     0.59   0.555    -.1008772    .1878688
+         Pop |  -.0885085   .1286504    -0.69   0.492    -.3407889    .1637719
+    Duration |   .1638102   .0057239    28.62   0.000     .1525857    .1750346
+      Carbon |  -.1117558   .0430827    -2.59   0.010    -.1962399   -.0272716
+       Water |   -1.27986   1.126966    -1.14   0.256    -3.489814    .9300936
+       Green |   1.151814   .9518596     1.21   0.226     -.714761    3.018388
+        Farm |   .0657308   .7087708     0.09   0.926    -1.324153    1.455614
+       Grass |   1.264197   .9469432     1.34   0.182    -.5927372    3.121131
+       _cons |   3.893401   1.140562     3.41   0.001     1.656784    6.130017
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. di as res "        check from reghdfe: N = " e(N) ", clusters = " e(N_clust)
+        check from reghdfe: N = 46371, clusters = 2344
+
+. 
+. *------------------------------------------------ Where does 2,324 come from?
+. * number of DIFFERENT counties observed in each calendar year
+. preserve
+
+.     contract YEAR county
+
+.     contract YEAR, freq(counties_observed)
+
+.     list, noobs sep(0)
+
+  +-----------------+
+  | YEAR   counti~d |
+  |-----------------|
+  | 2014        323 |
+  | 2015        766 |
+  | 2016        696 |
+  | 2017        725 |
+  | 2018        999 |
+  | 2019        924 |
+  | 2020       1376 |
+  | 2021       1764 |
+  | 2022       1926 |
+  | 2023       2324 |
+  +-----------------+
+
+. restore
+
+. * -> 2023 has 2,324 counties. It is a one-year count, not a sample size.
+. 
+. *------------------------------------------------ months per county
+. preserve
+
+.     contract county, freq(months)
+
+.     summarize months, detail
+
+                           months
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%            1              1
+ 5%            1              1
+10%            2              1       Obs               2,501
+25%            4              1       Sum of wgt.       2,501
+
+50%           11                      Mean           18.60376
+                        Largest       Std. dev.      20.12905
+75%           26            112
+90%           45            113       Variance       405.1785
+95%           63            114       Skewness       1.824038
+99%           90            115       Kurtosis       6.453131
+
+. restore
+
+. 
+. *------------------------------------------------ Step 4: IV sample
+. count if !missing(Sun_ccpu)
+  37,503
+
+. di as res "Step 4: IV sample rows (sunshine and city CPU available) = " r(N)
+Step 4: IV sample rows (sunshine and city CPU available) = 37503
+
+. count if missing(CCPU)
+  8,287
+
+. di "   rows with missing city CPU = " r(N)
+   rows with missing city CPU = 8287
+
+. count if missing(sun)
+  744
+
+. di "   rows with missing sunshine = " r(N)
+   rows with missing sunshine = 744
+
+. 
+. *------------------------------------------------ summary table
+. clear
+
+. input str60 step rows counties
+
+                                                             step       rows   counties
+  1. "0 Possible county-months (2,778 counties x 120)" 333360 2778
+  2. "1 Bird.dta: county-months with a record"         48900  2561
+  3. "2 Drop rows missing a control (authors)"         46528  2501
+  4. "3 Drop singleton counties (reghdfe)"             46371  2344
+  5. "4 IV sample (needs sunshine and city CPU)"       37503  2077
+  6. end
+
+. list, noobs sep(0)
+
+  +---------------------------------------------------------------------+
+  |                                            step     rows   counties |
+  |---------------------------------------------------------------------|
+  | 0 Possible county-months (2,778 counties x 120)   333360       2778 |
+  |         1 Bird.dta: county-months with a record    48900       2561 |
+  |         2 Drop rows missing a control (authors)    46528       2501 |
+  |             3 Drop singleton counties (reghdfe)    46371       2344 |
+  |       4 IV sample (needs sunshine and city CPU)    37503       2077 |
+  +---------------------------------------------------------------------+
+
+. export delimited using "$T5/tables/5_3_sample_flow.csv", replace
+(file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/tables/5_3_sample_flow.csv not found)
+file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/tables/5_3_sample_flow.csv s
+> aved
+
+. * Expected numbers (verified): rows dropped in step 2 = 2,372
+. *   (1,839 missing Temp/Wind because the county is not in Climate.dta,
+. *    543 missing BTN, 11 missing land/population, 4 missing CO2;
+. *    overlapping), 60 counties lost entirely.
+. 
+end of do-file
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/logs/5_3_sample_flow
+> .log
+  log type:  text
+ closed on:  18 Nov 2026, 20:49:40
+------------------------------------------------------------------------------------------------------------------------

@@ -1,0 +1,182 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern,microtype,amsmath}
+\usepackage{booktabs,array,graphicx,enumitem}
+\usepackage[table]{xcolor}
+\usepackage{titlesec,fancyhdr}
+\usepackage[most]{tcolorbox}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+\definecolor{jhublue}{RGB}{0,45,114}
+\definecolor{jhuorange}{RGB}{207,69,32}
+\definecolor{boxgray}{RGB}{244,246,250}
+\titleformat{\section}{\Large\bfseries\color{jhublue}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\color{jhublue}}{\thesubsection}{0.6em}{}
+\pagestyle{fancy}\fancyhf{}
+\lhead{\small de Chaisemartin--D'Haultf\oe uille estimators}
+\rhead{\small Zhang et al.\ (2026), \textit{Science} 393, 831}
+\cfoot{\small\thepage}
+\setlength{\parindent}{0pt}\setlength{\parskip}{5pt}
+\renewcommand{\arraystretch}{1.17}
+\newtcolorbox{keybox}[1]{breakable,colback=boxgray,colframe=jhublue,fonttitle=\bfseries,title={#1},boxrule=0.6pt,arc=2pt}
+\newtcolorbox{answerbox}{breakable,colback=white,colframe=jhuorange,boxrule=0.8pt,arc=2pt}
+\lstset{basicstyle=\ttfamily\scriptsize,backgroundcolor=\color{gray!6},frame=single,rulecolor=\color{gray!40},breaklines=true,columns=fullflexible,showstringspaces=false}
+
+\begin{document}
+\begin{center}
+{\LARGE\bfseries de Chaisemartin \& D'Haultf\oe uille Estimators}\\[4pt]
+{\large Applied to ``China's solar expansion policy reduces bird diversity''}\\[5pt]
+{\small Prepared for Prof.\ Paul J.\ Ferraro by Sahil, 20 November 2026. All estimates from Stata (StataNow/BE 19.5).}
+\end{center}
+
+\begin{answerbox}
+\textbf{Summary.}
+\begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=2pt]
+\item \textbf{What we ran.} Both dCDH packages:
+\begin{itemize}[leftmargin=12pt,itemsep=1pt]
+\item \texttt{did\_multiplegt\_dyn}: event-study effects of PSI changes (de Chaisemartin \& D'Haultf\oe uille, \textit{REStat} 108(4)).
+\item \texttt{did\_multiplegt\_stat}: average slope of the outcome per unit of treatment change (de Chaisemartin, D'Haultf\oe uille, Pasquier, Sow \& Vazquez-Bare, continuous treatments with stayers).
+\end{itemize}
+Both treat PSI as a \emph{dose} and use every change in it.
+\item \textbf{The headline estimate is negative.} $-0.055$ (SE 0.018) per PSI point. The placebo (pre-trend) tests on Shannon pass ($p=0.74$). The estimate stays negative comparing within urban or within rural counties ($-0.041$), and in counties with real PSI data ($-0.037$).
+\item \textbf{Adding controls weakens it.} With the paper's nine controls the estimate is $-0.024$ to $-0.029$. It is not significant in the real-PSI and within-urban/rural samples, or in \texttt{stat} with controls.
+\item \textbf{The effort pre-trend test fails.} Run on ln(birdwatcher records), the placebos fail ($p=0.001$). Counties whose PSI rose already had faster-growing birding before the change. So part of the Shannon effect may reflect observation, not birds.
+\item \textbf{The binary estimators disagree.} Callaway--Sant'Anna, Sun--Abraham and BJS, which reduce PSI to adopt/not adopt, find no harm ($+0.02$ to $+0.08$, not significant).
+\end{itemize}
+\textbf{Bottom line.} dCDH gives the most supportive evidence for the paper among the modern estimators. It does not remove the concern that the outcome partly measures birdwatching effort.
+\end{answerbox}
+
+\section{Why dCDH here}
+\begin{itemize}[leftmargin=14pt,itemsep=2pt]
+\item \textbf{The problem with the paper's TWFE.} It compares counties whose PSI changed with counties already treated. When effects differ across counties or over time, some of the implicit weights are negative, and the estimate can even have the wrong sign.
+\item \textbf{What the binary estimators (CS, SA, BJS) need.} PSI has to become 0/1 (first year with PSI $>0$). This throws away the dose, drops the 838 counties already treated in 2014, and ignores that PSI often falls again.
+\item \textbf{What dCDH does instead.} It compares each county whose PSI changes (a ``switcher'') with counties that started at the \textbf{same PSI} and have not changed yet. It works with a non-binary treatment that can rise and fall, so it uses the variation the paper actually relies on.
+\end{itemize}
+
+\section{Which dCDH method fits these data}
+The two dCDH papers cover different designs. We matched the method to the PSI data.
+\begin{center}\small
+\begin{tabular}{>{\raggedright\arraybackslash}p{4.6cm}>{\raggedright\arraybackslash}p{5.2cm}>{\raggedright\arraybackslash}p{4.6cm}}
+\toprule
+Paper / command & Design it needs & Fits PSI? \\
+\midrule
+Intertemporal effects (\textit{REStat}); \texttt{did\_multiplegt\_dyn} & Treatment can be non-binary, start at different times, and move up or down & \textbf{Yes. Run.} \\
+Continuous treatment \emph{with} stayers; \texttt{did\_multiplegt\_stat} & Some units keep the same treatment between two consecutive periods & \textbf{Yes. Run.} About 74\% of county-years are stayers \\
+Continuous treatment, \emph{no} stayers (\textit{AEA P\&P} 2024); \texttt{did\_had} & All units untreated at first, then all get a positive dose at the \emph{same} date & \textbf{No. Not run.} \\
+\bottomrule
+\end{tabular}
+\end{center}
+\textbf{Why the no-stayers method was not run.} It is built for the case where nobody keeps the same treatment, so no untreated comparison exists. Its requirements do not hold here:
+\begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=2pt]
+\item \textbf{Not all untreated at the start.} 838 counties already have PSI $>0$ in 2014.
+\item \textbf{No single adoption date.} PSI changes in different years in different counties, and falls as well as rises.
+\item \textbf{There are stayers.} PSI is unchanged in about 74\% of year-to-year steps, so comparison counties exist. The stayers-based estimator uses them.
+\end{itemize}
+A two-period version restricted to counties with PSI $=0$ in 2014 could be run if useful. It would drop most of the PSI variation.
+
+\section{Data built for dCDH}
+\begin{itemize}[leftmargin=14pt,itemsep=2pt]
+\item \textbf{Panel.} County $\times$ year, 2014--2023, built from all 2,501 counties in the paper's sample. PSI is defined by year, so a yearly panel matches the treatment.
+\item \textbf{Outcome.} Shannon index with calendar-month effects removed (birding is seasonal), averaged over the months a county is observed that year.
+\item \textbf{Treatment variation.} Year-to-year, PSI rises in 20\% of county-years and falls in 5.5\%. 1,016 counties change PSI at least once.
+\item \textbf{Inference.} Standard errors clustered by county. Placebo (pre-trend) tests come from the packages.
+\end{itemize}
+
+\section{Results}
+\subsection{Bird diversity (Shannon)}
+\begin{center}\small\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lcc}
+\toprule
+Specification & Effect per PSI point (SE) & Placebo test \\
+\midrule
+\multicolumn{3}{l}{\textit{did\_multiplegt\_dyn, normalized (average total effect per unit of PSI)}}\\
+All counties & $-0.055$ (0.018)$^{***}$ & pass ($p=0.74$) \\
+Within urban / within rural (\texttt{trends\_nonparam(urban)}) & $-0.041$ (0.019)$^{**}$ & pass \\
+Counties with real PSI only & $-0.037$ (0.019)$^{**}$ & pass \\
+All counties, outcome adjusted for 9 controls & $-0.041$ (0.018)$^{**}$ & pass ($p=0.77$) \\
+Real-PSI, adjusted for 9 controls & $-0.025$ (0.019) & pass \\
+Within urban/rural, adjusted for 9 controls & $-0.029$ (0.018) & pass \\
+\midrule
+\multicolumn{3}{l}{\textit{did\_multiplegt\_stat, weighted average of slopes (WAS)}}\\
+All counties & $-0.035$ (0.016)$^{**}$ & pass \\
+Counties with real PSI only & $-0.027$ (0.013)$^{**}$ & pass \\
+All counties, with the 9 controls & $-0.024$ (0.015) & pass \\
+All counties, holding ln(birdwatcher records) fixed & $-0.043$ (0.017)$^{**}$ & pass \\
+\midrule
+\multicolumn{3}{l}{\textit{Benchmark: TWFE on the same county-year panel}}\\
+All counties / real-PSI & $-0.009$ (0.004)$^{**}$ / $-0.003$ & -- \\
+\bottomrule
+\end{tabular}\\[2pt]
+{\footnotesize $^{**}p<0.05$, $^{***}p<0.01$.}
+\end{center}
+
+\subsection{Effect over time}
+Year-by-year effects after the first PSI change: $-0.054$, $-0.027$, $-0.025$, $-0.027$, $-0.016$ (years 1--5). The number of switchers behind each estimate falls from 523 to 77, so later years are imprecise.
+\begin{center}
+\includegraphics[width=0.66\linewidth]{/home/claude/fu/nov19/fig/6_2_dcdh_dyn_eventstudy.png}
+\end{center}
+
+\subsection{Birdwatching effort as the outcome}
+\begin{center}\small
+\begin{tabular}{lcc}
+\toprule
+Outcome: ln(number of birdwatcher records) & Estimate (SE) & Placebo test \\
+\midrule
+dyn, all counties & $-0.019$ (0.010) & \textbf{fail} ($p=0.001$) \\
+dyn, real-PSI counties & $+0.006$ (0.011) & \textbf{fail} ($p=0.001$) \\
+stat (WAS), all counties & $-0.026$ (0.012)$^{**}$ & -- \\
+\bottomrule
+\end{tabular}
+\end{center}
+\textbf{Interpretation.} The placebos are positive ($+0.053$, $+0.021$, $+0.029$). In the years \emph{before} PSI rose, switching counties were gaining birding activity faster than their comparison counties. So switchers and their controls were not on the same observation path, and Shannon, which rises with effort, is not cleanly comparable between them.
+
+\subsection{Solar-plant area as the treatment (for comparison)}
+Using dCDH with installed solar area (km$^2$) instead of PSI, nothing is significant:
+\begin{itemize}[leftmargin=14pt,itemsep=1pt]
+\item \texttt{dyn}: $-0.106$ (0.068) in all counties; $-0.053$ (0.078) in counties in the capacity file.
+\item \texttt{stat}: $+0.012$ (0.371) in all counties; $+0.026$ (0.048) in capacity-file counties.
+\end{itemize}
+
+\section{Comparison with the other staggered estimators}
+\begin{center}\small
+\begin{tabular}{llc}
+\toprule
+Estimator & Treatment & Estimate \\
+\midrule
+Paper TWFE (county-month) & PSI dose & $-0.0125^{***}$ \\
+Callaway--Sant'Anna & first year PSI $>0$ & $+0.057$ (n.s.) \\
+Sun--Abraham & first year PSI $>0$ & $+0.024$ (n.s.) \\
+Borusyak--Jaravel--Spiess & first year PSI $>0$ & $+0.078$ (n.s.) \\
+dCDH \texttt{dyn} (normalized) & PSI dose & $-0.055^{***}$ \\
+dCDH \texttt{stat} (WAS) & PSI dose & $-0.035^{**}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\textbf{Why they differ.} The binary estimators use only the first adoption, in counties untreated in 2014. dCDH also uses later \emph{increases} in counties already treated in 2014, which is most of the PSI variation. So they estimate different things: the effect of \emph{any} first policy versus the effect of \emph{more} policy.
+
+\section{Limitations}
+\begin{itemize}[leftmargin=14pt,itemsep=2pt]
+\item \textbf{Controls.} \texttt{did\_multiplegt\_dyn} with \texttt{controls()} stops in Stata/BE (``no room to add more variables''). Instead we removed the controls' effect from the outcome first, using coefficients from the paper's fixed-effects regression, and ran dCDH on that adjusted outcome. \texttt{did\_multiplegt\_stat} takes the controls directly.
+\item \textbf{Continuous-baseline option.} \texttt{continuous(1)} with bootstrap ran over 12 minutes in Stata/BE without finishing and was stopped.
+\item \textbf{Dropped switchers.} Switchers whose starting PSI value no other county shares have no valid comparison and are dropped.
+\item Both the controls and the continuous option can be rerun quickly in Stata/MP or R.
+\end{itemize}
+
+\section{Code}
+File: \texttt{06\_Followups\_Nov19/code/6\_2\_dcdh\_estimators.do} (main runs) and \texttt{6\_4\_extra\_checks.do} (covariate-adjusted and Area runs).\\ Both run from \texttt{run\_everything.do}.
+\begin{lstlisting}
+* Event-study dCDH, PSI as a dose
+did_multiplegt_dyn shannon_sa county YEAR PI, effects(5) placebo(3) normalized cluster(county)
+did_multiplegt_dyn shannon_sa county YEAR PI, effects(5) placebo(3) trends_nonparam(urban) cluster(county)
+did_multiplegt_dyn shannon_sa county YEAR PI if in_PI_file==1, effects(5) placebo(3) cluster(county)
+* Weighted average of slopes
+did_multiplegt_stat shannon_sa county YEAR PI, estimator(as was) placebo(1) cluster(county)
+did_multiplegt_stat shannon_sa county YEAR PI, estimator(was) controls($ctrl) placebo(1) cluster(county)
+* Covariate-adjusted outcome (controls cannot enter dyn in Stata/BE)
+reghdfe shannon_sa $ctrl, absorb(county YEAR) keepsingleton
+predict xbc, xb
+gen shannon_adj = shannon_sa - (xbc - _b[_cons])
+did_multiplegt_dyn shannon_adj county YEAR PI, effects(5) placebo(3) normalized cluster(county)
+\end{lstlisting}
+\end{document}

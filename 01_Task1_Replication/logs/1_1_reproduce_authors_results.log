@@ -1,0 +1,3399 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/logs/1_1_reproduce
+> _authors_results.log
+  log type:  text
+ opened on:  12 Nov 2026, 15:34:20
+
+================ 1_1_reproduce_authors_results ================
+
+. *==========================================================================
+. * 00_config.do
+. * Project : Replication of Zhang et al. (2026), "China's solar expansion
+. *           policy reduces bird diversity", Science 393, 831.
+. * Purpose : One place for paths, globals and package installation.
+. *           Every task do-file starts with:  do "<ROOT>/00_config.do"
+. * Author  : Sahil (Research Assistant, Johns Hopkins University)
+. *==========================================================================
+. version 16
+
+. set more off
+
+. set linesize 120
+
+. 
+. *---------------------------------------------------------------- paths
+. global ROOT "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication"
+
+. global ORIG "$ROOT/00_Original_Package"
+
+. global DATA "$ORIG/DATA"
+
+. global T1   "$ROOT/01_Task1_Replication"
+
+. global T2   "$ROOT/02_Task2_Sensitivity"
+
+. global T3   "$ROOT/03_Task3_Staggered_DiD"
+
+. 
+. * analysis sample built in Task 1 (used by all tasks)
+. global SAMPLE "$T1/data/analysis_sample.dta"
+
+. 
+. *---------------------------------------------------------------- model
+. * the authors' nine control variables (Table 1, column 3)
+. global control     "Temp Wind Pop Duration Carbon Water Green Farm Grass"
+
+. global control_noD "Temp Wind Pop Carbon Water Green Farm Grass"
+
+. 
+. *---------------------------------------------------------------- packages
+. * installed only if missing
+. foreach p in require ftools reghdfe ivreg2 ranktest ivreghdfe estout winsor2 ///
+>              psmatch2 binscatter sensemakr drdid csdid did_imputation       ///
+>              event_plot avar eventstudyinteract {
+  2.     capture which `p'
+  3.     if _rc {
+  4.         di as txt "installing `p' ..."
+  5.         capture noisily ssc install `p', replace
+  6.     }
+  7. }
+
+. set scheme s2color
+
+. 
+end of do-file
+
+. *==========================================================================
+. * 1_1_reproduce_authors_results.do
+. * PURPOSE : Run the authors' complete replication code (paths changed only)
+. *           and produce every table and figure in the paper.
+. * INPUT   : 00_Original_Package/DATA (all .dta files)
+. * CODE    : 1_1a_authors_code_localpaths.do (authors' CODE.do; [PATH] lines)
+. * OUTPUT  : tables/authors_tables (.rtf)  (Tables 1-2, S4, S7-S19, R1-R2)
+. *           figures/authors_figures (.pdf) (Figs S2, S3)
+. * WHY     : Task 1, item 3 — check the published numbers can be reproduced
+. *           from the authors' own code and data before analysing them.
+. *==========================================================================
+. do "$T1/code/1_1a_authors_code_localpaths.do"
+
+. *==========================================================================
+. * 1_1a_authors_code_localpaths.do
+. * The authors' CODE.do with ONLY file paths changed (lines marked [PATH]).
+. * Generated from 00_Original_Package/authors_CODE.do. Do not edit by hand.
+. * Run through 1_1_reproduce_authors_results.do (which loads 00_config.do).
+. *==========================================================================
+. *------------------------------------------------------------------------
+. * Data preparation
+. *------------------------------------------------------------------------
+. cd "$DATA"   // [PATH] originally the authors' local DATA folder
+/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/00_Original_Package/DATA
+
+. 
+. *核心变量+控制变量
+. use "Bird.dta",clear
+
+. merge 1:1 id year using "BTN.dta",keepus(BT BN)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         1,088
+        from master                       543  (_merge==1)
+        from using                        545  (_merge==2)
+
+    Matched                            48,357  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(545 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "PI.dta",keepus(PI)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        33,957
+        from master                    22,273  (_merge==1)
+        from using                     11,684  (_merge==2)
+
+    Matched                            26,627  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(11,684 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "Climate.dta",keepus(Avt Wind)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        16,996
+        from master                     1,705  (_merge==1)
+        from using                     15,291  (_merge==2)
+
+    Matched                            47,195  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(15,291 observations deleted)
+
+. drop _merge
+
+. rename Avt Temp
+
+. merge m:1 id YEAR using "PD.dta",keepus(PD)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        15,540
+        from master                        11  (_merge==1)
+        from using                     15,529  (_merge==2)
+
+    Matched                            48,889  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(15,529 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "air.dta",keepus(CO2 PM)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        15,531
+        from master                         4  (_merge==1)
+        from using                     15,527  (_merge==2)
+
+    Matched                            48,896  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(15,527 observations deleted)
+
+. drop _merge
+
+. rename PM PM25
+
+. merge m:1 id YEAR using "TD.dta",keepus(Water Green Farm Grass)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        15,538
+        from master                        11  (_merge==1)
+        from using                     15,527  (_merge==2)
+
+    Matched                            48,889  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(15,527 observations deleted)
+
+. drop _merge
+
+. 
+. 
+. *稳健性
+. **替换PI
+. merge m:1 id YEAR using "PI1.dta",keepus(PI1)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        35,910
+        from master                    22,273  (_merge==1)
+        from using                     13,637  (_merge==2)
+
+    Matched                            26,627  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(13,637 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "PI2.dta",keepus(PI2)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        35,910
+        from master                    22,273  (_merge==1)
+        from using                     13,637  (_merge==2)
+
+    Matched                            26,627  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(13,637 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "PI3.dta",keepus(PI3)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        35,910
+        from master                    22,273  (_merge==1)
+        from using                     13,637  (_merge==2)
+
+    Matched                            26,627  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(13,637 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "PI4.dta",keepus(PI4)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        35,910
+        from master                    22,273  (_merge==1)
+        from using                     13,637  (_merge==2)
+
+    Matched                            26,627  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(13,637 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "PI5.dta",keepus(PI5)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        35,910
+        from master                    22,273  (_merge==1)
+        from using                     13,637  (_merge==2)
+
+    Matched                            26,627  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(13,637 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "PI6.dta",keepus(PI6)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        35,910
+        from master                    22,273  (_merge==1)
+        from using                     13,637  (_merge==2)
+
+    Matched                            26,627  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(13,637 observations deleted)
+
+. drop _merge
+
+. replace PI1 = 0 if missing(PI1)
+(22,273 real changes made)
+
+. replace PI2 = 0 if missing(PI2)
+(22,273 real changes made)
+
+. replace PI3 = 0 if missing(PI3)
+(22,273 real changes made)
+
+. replace PI4 = 0 if missing(PI4)
+(22,273 real changes made)
+
+. replace PI5 = 0 if missing(PI5)
+(22,273 real changes made)
+
+. replace PI6 = 0 if missing(PI6)
+(22,273 real changes made)
+
+. **王老师装机规模
+. merge m:1 id YEAR using "IC.dta",keepus(ICtotal)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        44,263
+        from master                    27,377  (_merge==1)
+        from using                     16,886  (_merge==2)
+
+    Matched                            21,523  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(16,886 observations deleted)
+
+. drop _merge
+
+. replace ICtotal=0 if missing(ICtotal)
+(27,377 real changes made)
+
+. **省会城市直辖市cities
+. merge m:1 省 市 using "cities.dta",keepus(cities)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        34,589
+        from master                    34,586  (_merge==1)
+        from using                          3  (_merge==2)
+
+    Matched                            14,314  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(3 observations deleted)
+
+. drop _merge
+
+. replace cities = 0 if missing(cities)
+(34,586 real changes made)
+
+. **环保督察政策CEI
+. merge m:1 省 YEAR using "enin.dta",keepus(enin)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            48,900  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(0 observations deleted)
+
+. drop _merge
+
+. rename enin CEI
+
+. **煤电厂
+. merge m:1 id YEAR using "Coal.dta",keepus(FFP)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        48,651
+        from master                    48,537  (_merge==1)
+        from using                        114  (_merge==2)
+
+    Matched                               363  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(114 observations deleted)
+
+. drop _merge     
+
+. gen 煤电厂=0 
+
+. replace 煤电厂=1 if FFP !=.  
+(363 real changes made)
+
+. rename 煤电厂 Coal
+
+. **风电扩张
+. merge m:1 id YEAR using "Windexp.dta",keepus(风电数量)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        40,744
+        from master                    36,086  (_merge==1)
+        from using                      4,658  (_merge==2)
+
+    Matched                            12,814  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(4,658 observations deleted)
+
+. drop _merge     
+
+. gen 风电扩张=0 
+
+. replace 风电扩张=1 if 风电数量 !=0      
+(39,105 real changes made)
+
+. rename 风电扩张 Windexp
+
+. **绿色金融
+. gen 绿色金融 = 0
+
+. local group1 "湖州市 衢州市 广州市 哈密市 昌吉回族自治州 克拉玛依市"
+
+. foreach city in `group1' {
+  2.     replace 绿色金融 = 1 if strpos(市, "`city'") > 0 & (YEAR > 2017 | (YEAR == 2017 & month >= 7))
+  3. }
+(165 real changes made)
+(109 real changes made)
+(564 real changes made)
+(18 real changes made)
+(150 real changes made)
+(79 real changes made)
+
+. *赣江新区
+. replace 绿色金融 = 1 if (strpos(市, "南昌市") > 0 & (strpos(县, "新建区") > 0 | strpos(县, "青山湖区") > 0)) ///
+>                 & (YEAR > 2017 | (YEAR == 2017 & month >= 7))
+(119 real changes made)
+
+. replace 绿色金融 = 1 if (strpos(市, "九江市") > 0 & (strpos(县, "共青城市") > 0 | strpos(县, "永修县") > 0)) ///
+>                 & (YEAR > 2017 | (YEAR == 2017 & month >= 7))
+(46 real changes made)
+
+. *贵安新区
+. replace 绿色金融 = 1 if (strpos(市, "贵阳市") > 0) ///
+>                 & (YEAR > 2017 | (YEAR == 2017 & month >= 7))
+(199 real changes made)
+
+. replace 绿色金融 = 1 if (strpos(市, "安顺市") > 0 & strpos(县, "平坝区") > 0) ///
+>                 & (YEAR > 2017 | (YEAR == 2017 & month >= 7))
+(19 real changes made)
+
+. * 兰州新区
+. replace 绿色金融 = 1 if (strpos(市, "兰州市") > 0 & (strpos(县, "皋兰县") > 0 | strpos(县, "永登县") > 0)) ///
+>                 & (YEAR > 2019 | (YEAR == 2019 & month >= 12))
+(39 real changes made)
+
+. * 重庆市
+. replace 绿色金融 = 1 if strpos(市, "重庆市") > 0 ///
+>                 & (YEAR > 2022 | (YEAR == 2022 & month >= 9))
+(304 real changes made)
+
+. rename 绿色金融 Greenfin
+
+. **IV 
+. ***sun算术平均1984-2013
+. merge m:1 id YEAR using "sunshine.dta",keepus(sun)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        89,680
+        from master                     2,593  (_merge==1)
+        from using                     87,087  (_merge==2)
+
+    Matched                            46,307  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(87,087 observations deleted)
+
+. drop _merge
+
+. ***地级市CPU
+. merge m:1 市 YEAR using "CCPU.dta",keepus(CCPU)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        13,570
+        from master                     8,863  (_merge==1)
+        from using                      4,707  (_merge==2)
+
+    Matched                            40,037  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(4,707 observations deleted)
+
+. drop _merge
+
+. **高PI县相邻县
+. merge m:1 id using "highPI.dta",keepus(is_neighbor_of_highPI)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        25,873
+        from master                    25,759  (_merge==1)
+        from using                        114  (_merge==2)
+
+    Matched                            23,141  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(114 observations deleted)
+
+. drop _merge
+
+. replace is_neighbor_of_highPI=0 if missing(is_neighbor_of_highPI)
+(25,759 real changes made)
+
+. **剔除低于最低观鸟记录阈值的观测值
+. merge 1:1 id year using "BirdDrop3.dta",keepus(ShannonBD3)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        20,369
+        from master                    20,362  (_merge==1)
+        from using                          7  (_merge==2)
+
+    Matched                            28,538  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(7 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "BirdDrop5.dta",keepus(ShannonBD5)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        25,222
+        from master                    25,216  (_merge==1)
+        from using                          6  (_merge==2)
+
+    Matched                            23,684  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(6 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "BirdDrop10.dta",keepus(ShannonBD10)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        32,699
+        from master                    32,697  (_merge==1)
+        from using                          2  (_merge==2)
+
+    Matched                            16,203  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(2 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "BirdDrop20.dta",keepus(ShannonBD20)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        40,310
+        from master                    40,310  (_merge==1)
+        from using                          0  (_merge==2)
+
+    Matched                             8,590  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(0 observations deleted)
+
+. drop _merge
+
+. 
+. 
+. *异质性
+. **贫困县poverty_county、三北地区north_region、低碳试点low_carbon_city
+. merge m:1 县 using "poverty.dta",keepus(poverty_county)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           101
+        from master                         1  (_merge==1)
+        from using                        100  (_merge==2)
+
+    Matched                            48,899  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(100 observations deleted)
+
+. drop _merge
+
+. replace poverty_county = 0 if missing(poverty_county)
+(1 real change made)
+
+. merge m:1 省 using "north_region.dta",keepus(north_region)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        36,659
+        from master                    36,659  (_merge==1)
+        from using                          0  (_merge==2)
+
+    Matched                            12,241  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(0 observations deleted)
+
+. drop _merge
+
+. replace north_region = 0 if missing(north_region)
+(36,659 real changes made)
+
+. merge m:1 id using "Gebi.dta",keepus(desert_gobi)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           223
+        from master                         4  (_merge==1)
+        from using                        219  (_merge==2)
+
+    Matched                            48,896  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(219 observations deleted)
+
+. drop _merge
+
+. **候鸟Migratory、留鸟Resident+特有物种Endemic、非特有物种non_Endemic+国家保护Protected、非国家保护non_Protected
+. merge 1:1 id year using "Migratory.dta", keepus(Migratory)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         6,857
+        from master                     6,854  (_merge==1)
+        from using                          3  (_merge==2)
+
+    Matched                            42,046  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(3 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "Resident.dta", keepus(Resident)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           985
+        from master                       983  (_merge==1)
+        from using                          2  (_merge==2)
+
+    Matched                            47,917  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(2 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "Endemic.dta", keepus(Endemic)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        22,587
+        from master                    22,584  (_merge==1)
+        from using                          3  (_merge==2)
+
+    Matched                            26,316  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(3 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "non_Endemic.dta", keepus(non_Endemic)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           167
+        from master                       166  (_merge==1)
+        from using                          1  (_merge==2)
+
+    Matched                            48,734  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(1 observation deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "Protected.dta", keepus(Protected)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        13,606
+        from master                    13,604  (_merge==1)
+        from using                          2  (_merge==2)
+
+    Matched                            35,296  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(2 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "non_Protected.dta", keepus(non_Protected)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           744
+        from master                       740  (_merge==1)
+        from using                          4  (_merge==2)
+
+    Matched                            48,160  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(4 observations deleted)
+
+. drop _merge
+
+. **植物筑巢Nest_veg、水上筑巢Land_water+食肉杂食non_herbivorous、食草Herbivorous+小群落Small_flock、大群落Large_flock
+. merge 1:1 id year using "Nest_veg.dta", keepus(Nest_veg)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         1,683
+        from master                     1,680  (_merge==1)
+        from using                          3  (_merge==2)
+
+    Matched                            47,220  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(3 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "Land_water.dta", keepus(Land_water)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         2,500
+        from master                     2,497  (_merge==1)
+        from using                          3  (_merge==2)
+
+    Matched                            46,403  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(3 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "non_Herbivorous.dta", keepus(non_Herbivorous)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           127
+        from master                       125  (_merge==1)
+        from using                          2  (_merge==2)
+
+    Matched                            48,775  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(2 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "Herbivorous.dta", keepus(Herbivorous)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        38,322
+        from master                    38,322  (_merge==1)
+        from using                          0  (_merge==2)
+
+    Matched                            10,578  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(0 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "Small_flock.dta", keepus(Small_flock)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           350
+        from master                       346  (_merge==1)
+        from using                          4  (_merge==2)
+
+    Matched                            48,554  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(4 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "Large_flock.dta", keepus(Large_flock)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         8,046
+        from master                     8,041  (_merge==1)
+        from using                          5  (_merge==2)
+
+    Matched                            40,859  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(5 observations deleted)
+
+. drop _merge
+
+. 
+. 
+. *机制
+. merge m:1 id YEAR using "Ndvi.dta",keepus(Ndvi)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        15,540
+        from master                        11  (_merge==1)
+        from using                     15,529  (_merge==2)
+
+    Matched                            48,889  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(15,529 observations deleted)
+
+. drop _merge
+
+. replace Ndvi = Ndvi*100
+(48,889 real changes made)
+
+. merge m:1 id YEAR using "NL.dta",keepus(Nightlight)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        15,540
+        from master                        11  (_merge==1)
+        from using                     15,529  (_merge==2)
+
+    Matched                            48,889  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(15,529 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "LAI.dta",keepus(LAI)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        15,557
+        from master                        37  (_merge==1)
+        from using                     15,520  (_merge==2)
+
+    Matched                            48,863  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(15,520 observations deleted)
+
+. drop _merge
+
+. 
+. 
+. *经济后果
+. **丰富度与均匀度
+. merge 1:1 id year using "Richeven.dta",keepus(丰富度)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         2,620
+        from master                     2,617  (_merge==1)
+        from using                          3  (_merge==2)
+
+    Matched                            46,283  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(3 observations deleted)
+
+. drop _merge
+
+. gen 均匀度 = ShannonBD/ln(丰富度)
+(4,284 missing values generated)
+
+. rename 丰富度 Richness
+
+. rename 均匀度 Evenness
+
+. **农作物产量
+. merge m:1 id YEAR using "AP.dta",keepus(APtotal)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        33,949
+        from master                    22,910  (_merge==1)
+        from using                     11,039  (_merge==2)
+
+    Matched                            25,990  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(11,039 observations deleted)
+
+. drop _merge
+
+. 
+. 
+. *数据预处理
+. **生成人均观鸟时长
+. gen BTN=BT/BN
+(543 missing values generated)
+
+. **PI缺失值替换为0
+. replace PI = 0 if missing(PI)
+(22,273 real changes made)
+
+. **剔除控制变量存在缺失的样本
+. drop if missing(Temp, Wind, PD, BTN, CO2, Water, Green, Farm, Grass)
+(2,372 observations deleted)
+
+. **王老师装机规模换算成面积
+. gen Area = ICtotal*1000/0.15
+
+. replace Area = Area / 1000000
+(17,048 real changes made)
+
+. label var Area "集中式光伏电站面积平方千米"
+
+. **取对数
+. gen Pop=ln(PD)
+
+. gen Duration=ln(BTN+1)
+
+. gen Carbon=ln(CO2)
+
+. gen PM=ln(PM25)
+(406 missing values generated)
+
+. gen Output = ln(APtotal) 
+(21,228 missing values generated)
+
+. **所有连续变量缩尾
+. local var "ShannonBD SimpsonBD PI Temp Wind Pop Duration Carbon Water Green Farm Grass PM ICtotal Area Ndvi Nightlight
+>  LAI PI1 PI2 PI3 PI4 PI5 PI6 Migratory Resident Endemic non_Endemic Protected non_Protected Nest_veg Land_water non_He
+> rbivorous Herbivorous Small_flock Large_flock Richness Evenness Output ShannonBD3 ShannonBD5 ShannonBD10 ShannonBD20 s
+> un CCPU"
+
+. winsor2 `var', cuts(1 99) replace
+
+. **生成IV
+. gen lnsun = ln(sun)
+(744 missing values generated)
+
+. gen inv_CCPU = 1 / CCPU
+(8,287 missing values generated)
+
+. gen Sun_ccpu = lnsun / CCPU
+(9,025 missing values generated)
+
+. **生成county
+. egen county = group(id)
+
+. 
+. 
+. 
+. cd "$T1/tables/authors_tables"   // [PATH] originally authors' OneDrive Documents
+/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/tables/authors_tables
+
+. *------------------------------------------------------------------------
+. * Descriptive statistics
+. *------------------------------------------------------------------------
+. preserve
+
+. local var "ShannonBD SimpsonBD PI Temp Wind Pop Duration Carbon Water Green Farm Grass CCPU lnsun Sun_ccpu"
+
+. estpost tabstat `var', stats(count mean sd min max) c(s) 
+
+Summary statistics: count mean sd min max
+     for variables: ShannonBD SimpsonBD PI Temp Wind Pop Duration Carbon Water Green Farm Grass CCPU lnsun Sun_ccpu
+
+             |  e(count)    e(mean)      e(sd)     e(min)     e(max) 
+-------------+-------------------------------------------------------
+   ShannonBD |     46528   2.445786   .9814019          0     4.3425 
+   SimpsonBD |     46528   .8067373   .2202429          0   .9833333 
+          PI |     46528   2.662263   4.115859          0       15.5 
+        Temp |     46528   14.83318   5.912504  -3.642264   24.51558 
+        Wind |     46528   2.235481   .8413617   .8091945   4.800765 
+         Pop |     46528   5.568004   1.817211   .2308434   9.508018 
+    Duration |     46528   1.501909   1.107091          0   5.890262 
+      Carbon |     46528   14.55893   1.392708   11.35319   17.45982 
+       Water |     46528   .0358038   .0541957   .0001446   .2836888 
+       Green |     46528    .331773   .3196504          0   .9377428 
+        Farm |     46528   .3633653   .2456701   .0000206   .8882126 
+       Grass |     46528   .0893466   .2108012          0   .9103295 
+        CCPU |     38241   1.213235   .7405974    .090846   3.223747 
+       lnsun |     45784   7.553472    .259596   6.901282   8.022653 
+    Sun_ccpu |     37503   12.39122   14.50676   2.208101   87.89507 
+
+. eststo stats
+
+. esttab  stats using sum_stats.rtf, replace title("Table S4. Descriptive statistics.") ///
+>         cells("count(fmt(%9.0fc) label(N)) mean(fmt(%9.4fc) label(Mean)) sd(fmt(%9.4fc) label(S.D.)) min(fmt(%9.4fc) l
+> abel(Min)) max(fmt(%9.4fc) label(Max))") ///
+>         nomtitle nonumber noobs 
+(output written to sum_stats.rtf)
+
+. restore
+
+. /*
+> sum2docx ShannonBD SimpsonBD PI Temp Wind Pop Duration Carbon Water Green Farm Grass CCPU lnsun Sun_ccpu using "summar
+> y.docx", replace stats(N mean(%9.4f) sd(%9.4f) min(%9.4f)  max(%9.4f)) title("Table S4：Descriptive statistics")
+> */
+. 
+. 
+. 
+. *------------------------------------------------------------------------
+. * Pearson Correlation Matrix
+. *------------------------------------------------------------------------
+. preserve
+
+. estpost correlate ShannonBD PI Temp Wind Pop Duration Carbon Water Green Farm Grass CCPU lnsun, matrix listwise
+
+             |      e(b)     e(rho)       e(p)   e(count) 
+-------------+--------------------------------------------
+ShannonBD    |                                            
+   ShannonBD |         1          1                 37503 
+          PI |  .0190398   .0190398   .0002266      37503 
+        Temp |  .1563012   .1563012   1.0e-203      37503 
+        Wind | -.0985595  -.0985595   1.35e-81      37503 
+         Pop |   .037329    .037329   4.78e-13      37503 
+    Duration |  .2314132   .2314132          0      37503 
+      Carbon |  -.014697   -.014697    .004424      37503 
+       Water |  .0449195   .0449195   3.23e-18      37503 
+       Green |  .1146443   .1146443   6.5e-110      37503 
+        Farm | -.0591993  -.0591993   1.78e-30      37503 
+       Grass | -.1044373  -.1044373   1.94e-91      37503 
+        CCPU |  -.003181   -.003181   .5378935      37503 
+       lnsun |  -.164797   -.164797   1.5e-226      37503 
+PI           |                                            
+          PI |         1          1                 37503 
+        Temp |  .1052623   .1052623   7.24e-93      37503 
+        Wind | -.1725395  -.1725395   1.9e-248      37503 
+         Pop |  -.232034   -.232034          0      37503 
+    Duration | -.0062053  -.0062053   .2294891      37503 
+      Carbon | -.1087729  -.1087729   4.53e-99      37503 
+       Water |  -.150979   -.150979   4.6e-190      37503 
+       Green |  .3041276   .3041276          0      37503 
+        Farm |  .0064761   .0064761   .2098019      37503 
+       Grass | -.1270864  -.1270864   8.2e-135      37503 
+        CCPU | -.1860052  -.1860052   4.1e-289      37503 
+       lnsun | -.2344549  -.2344549          0      37503 
+Temp         |                                            
+        Temp |         1          1                 37503 
+        Wind |  .0893246   .0893246   2.68e-67      37503 
+         Pop |  .5045389   .5045389          0      37503 
+    Duration | -.0081173  -.0081173   .1159646      37503 
+      Carbon |  .1187091   .1187091   9.3e-118      37503 
+       Water |  .2273624   .2273624          0      37503 
+       Green |  .1743952   .1743952   7.3e-254      37503 
+        Farm |  .1865275   .1865275   9.4e-291      37503 
+       Grass | -.6564594  -.6564594          0      37503 
+        CCPU |    .01158     .01158   .0249256      37503 
+       lnsun | -.5405243  -.5405243          0      37503 
+Wind         |                                            
+        Wind |         1          1                 37503 
+         Pop |  .3162578   .3162578          0      37503 
+    Duration |  -.069747   -.069747   1.14e-41      37503 
+      Carbon |  .3424231   .3424231          0      37503 
+       Water |  .3450687   .3450687          0      37503 
+       Green | -.5184264  -.5184264          0      37503 
+        Farm |  .3029821   .3029821          0      37503 
+       Grass | -.0450391  -.0450391   2.63e-18      37503 
+        CCPU |  .0220471   .0220471   .0000196      37503 
+       lnsun |  .3504226   .3504226          0      37503 
+Pop          |                                            
+         Pop |         1          1                 37503 
+    Duration | -.0747531  -.0747531   1.28e-47      37503 
+      Carbon |  .3047416   .3047416          0      37503 
+       Water |  .2845896   .2845896          0      37503 
+       Green | -.4010642  -.4010642          0      37503 
+        Farm |  .2924888   .2924888          0      37503 
+       Grass | -.4198736  -.4198736          0      37503 
+        CCPU |  .1158126   .1158126   3.9e-112      37503 
+       lnsun | -.2174661  -.2174661          0      37503 
+Duration     |                                            
+    Duration |         1          1                 37503 
+      Carbon | -.0480813  -.0480813   1.20e-20      37503 
+       Water | -.0212921  -.0212921   .0000373      37503 
+       Green |  .0975367   .0975367   6.08e-80      37503 
+        Farm | -.0689902  -.0689902   8.36e-41      37503 
+       Grass | -.0136567  -.0136567   .0081753      37503 
+        CCPU |  .0747303   .0747303   1.36e-47      37503 
+       lnsun | -.0411238  -.0411238   1.63e-15      37503 
+Carbon       |                                            
+      Carbon |         1          1                 37503 
+       Water |  .2520338   .2520338          0      37503 
+       Green | -.3747135  -.3747135          0      37503 
+        Farm |  .3393119   .3393119          0      37503 
+       Grass | -.1033276  -.1033276   1.55e-89      37503 
+        CCPU |  .0234384   .0234384   5.64e-06      37503 
+       lnsun |  .1710462   .1710462   3.8e-244      37503 
+Water        |                                            
+       Water |         1          1                 37503 
+       Green | -.3661387  -.3661387          0      37503 
+        Farm |  .1809154   .1809154   2.3e-273      37503 
+       Grass | -.1788728  -.1788728   3.6e-267      37503 
+        CCPU |  .1178669   .1178669   4.2e-116      37503 
+       lnsun |  .0199048   .0199048   .0001158      37503 
+Green        |                                            
+       Green |         1          1                 37503 
+        Farm | -.5928307  -.5928307          0      37503 
+       Grass | -.2166257  -.2166257          0      37503 
+        CCPU | -.0708421  -.0708421   6.19e-43      37503 
+       lnsun | -.3251781  -.3251781          0      37503 
+Farm         |                                            
+        Farm |         1          1                 37503 
+       Grass | -.3187788  -.3187788          0      37503 
+        CCPU | -.0486077  -.0486077   4.58e-21      37503 
+       lnsun | -.0847785  -.0847785   8.81e-61      37503 
+Grass        |                                            
+       Grass |         1          1                 37503 
+        CCPU |  .0341983   .0341983   3.49e-11      37503 
+       lnsun |   .482025    .482025          0      37503 
+CCPU         |                                            
+        CCPU |         1          1                 37503 
+       lnsun | -.0364572  -.0364572   1.64e-12      37503 
+lnsun        |                                            
+       lnsun |         1          1                 37503 
+
+. eststo corr
+
+. esttab corr using sum_stats.rtf, append title("Table S4. Pearson Correlation Matrix.") ///
+>         star(* 0.1 ** 0.05 *** 0.01) b(%6.2f) ///
+>         nomtitle nonumber noobs unstack compress nonotes not ///
+>         note("Notes: Panel A shows the descriptive statistics for the key variables covering the period from 2014 to 2
+> 023. ShannonBD refers to the bird diversity in the sample area (the negative sum of the proportion of each bird specie
+> s multiplied by its natural logarithm). SimpsonBD refers to the Simpson Diversity Index, an alternative measure of bir
+> d diversity in the sample area (one minus the sum of the squared proportions of each bird species in the community). P
+> SI refers to the stringency of photovoltaic policies in the sample area (the weighted sum of policies at the provincia
+> l, municipal, and county levels). Other control variables include Temp (annual average temperature), Wind (annual aver
+> age wind speed), Pop (the logarithm of the ratio of total population to regional area), Duration (the logarithm of the
+>  ratio of birdwatching duration to the number of birdwatchers), Carbon (the logarithm of the carbon emissions), Water 
+> (the area of water divided by the total area), Green (the sum of the area of forests and shrubs divided by the total a
+> rea), Farm (the area of farmland divided by the total area), Grass (the area of the grassland divided by the total are
+> a). Panel B shows the correlation matrix of the main variables in this study. Each cell shows the Pearson correlation 
+> coefficient between the two variables.")
+(output written to sum_stats.rtf)
+
+. restore
+
+. 
+. 
+. 
+. *------------------------------------------------------------------------
+. * Baseline Regression
+. *------------------------------------------------------------------------
+. preserve
+
+. reghdfe ShannonBD PI, absorb(county year) cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(   1,   2343) =      18.21
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3102
+                                                  Adj R-squared   =     0.2715
+                                                  Within R-sq.    =     0.0007
+Number of clusters (county)  =      2,344         Root MSE        =     0.8373
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   -.015749   .0036903    -4.27   0.000    -.0229855   -.0085124
+       _cons |   2.489679   .0098071   253.87   0.000     2.470447     2.50891
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local year "YES"
+
+added macro:
+               e(year) : "YES"
+
+. estadd local county "YES"
+
+added macro:
+             e(county) : "YES"
+
+. est store s1
+
+. reghdfe ShannonBD PI Temp Wind Pop Duration Carbon, absorb(county year) cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(   6,   2343) =     146.45
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3370
+                                                  Adj R-squared   =     0.2998
+                                                  Within R-sq.    =     0.0396
+Number of clusters (county)  =      2,344         Root MSE        =     0.8209
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   -.012694   .0036259    -3.50   0.000    -.0198043   -.0055837
+        Temp |  -.0098891   .0180165    -0.55   0.583    -.0452189    .0254408
+        Wind |   .0478929   .0735446     0.65   0.515    -.0963264    .1921121
+         Pop |  -.0997711   .1287064    -0.78   0.438    -.3521615    .1526193
+    Duration |   .1639008   .0057161    28.67   0.000     .1526917      .17511
+      Carbon |  -.1006995   .0420865    -2.39   0.017    -.1832302   -.0181688
+       _cons |   4.297006   .9929838     4.33   0.000     2.349787    6.244224
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local year "YES"
+
+added macro:
+               e(year) : "YES"
+
+. estadd local county "YES"
+
+added macro:
+             e(county) : "YES"
+
+. est store s2
+
+. reghdfe ShannonBD PI Temp Wind Pop Duration Carbon Water Green Farm Grass, absorb(county year) cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      88.45
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3372
+                                                  Adj R-squared   =     0.2999
+                                                  Within R-sq.    =     0.0398
+Number of clusters (county)  =      2,344         Root MSE        =     0.8208
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0125283   .0036551    -3.43   0.001    -.0196958   -.0053607
+        Temp |   -.007307   .0180907    -0.40   0.686    -.0427824    .0281685
+        Wind |   .0434958    .073623     0.59   0.555    -.1008772    .1878688
+         Pop |  -.0885085   .1286504    -0.69   0.492    -.3407889    .1637719
+    Duration |   .1638102   .0057239    28.62   0.000     .1525857    .1750346
+      Carbon |  -.1117558   .0430827    -2.59   0.010    -.1962399   -.0272716
+       Water |   -1.27986   1.126966    -1.14   0.256    -3.489814    .9300936
+       Green |   1.151814   .9518596     1.21   0.226     -.714761    3.018388
+        Farm |   .0657308   .7087708     0.09   0.926    -1.324153    1.455614
+       Grass |   1.264197   .9469432     1.34   0.182    -.5927372    3.121131
+       _cons |   3.893401   1.140562     3.41   0.001     1.656784    6.130017
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local year "YES"
+
+added macro:
+               e(year) : "YES"
+
+. estadd local county "YES"
+
+added macro:
+             e(county) : "YES"
+
+. est store s3
+
+. esttab s1 s2 s3 using baseline.rtf, replace title("Table 1. Solar policy intensity significantly reduces bird diversit
+> y.") ///
+>         stats(year county N r2_a, labels("Year-month FE" "County FE" "Observations" "R-squared") fmt(0 0 0 4)) ///
+>         star(* 0.10 ** 0.05 *** 0.01) nonotes nocons b(4) se compress nogaps /// 
+>         note("Notes: This table presents the association between the bird diversity and intensity of photovoltaic poli
+> cies for a sample of 2,344 counties from 2014 to 2023. The dependent variable is ShannonBD (the negative sum of the pr
+> oportion of each bird species multiplied by its natural logarithm). The independent variable is PSI (the weighted sum 
+> of policies at the provincial, municipal, and county levels). Other control variables include Temp (annual average tem
+> perature), Wind (annual average wind speed), Pop (the logarithm of the ratio of total population to regional area), Du
+> ration (the logarithm of the ratio of birdwatching duration to the number of birdwatchers), Carbon (the logarithm of t
+> he carbon emissions), Water (the area of water divided by the total area), Green (the sum of the area of forests and s
+> hrubs divided by the total area), Farm (the area of farmland divided by the total area), Grass (the area of the grassl
+> and divided by the total area). All specifications include county and Year-month fixed effects. The robust standard er
+> rors clustered by the county are reported in parenthesis. ***, **, * denote the significance at the 1%, 5%, and 10% le
+> vels, respectively.")
+(output written to baseline.rtf)
+
+. restore
+
+. 
+. 
+.  
+. *------------------------------------------------------------------------
+. * Endogeneity Treatment
+. *------------------------------------------------------------------------
+. *Instrumental variables regression 
+. preserve
+
+. global control "Temp Wind Pop Duration Carbon Water Green Farm Grass"
+
+. reghdfe PI Sun_ccpu $control , absorb(county year) cluster(county) keepsingleton //Sun_ccpu即Ln Sunshine / city CPU
+WARNING: Singleton observations not dropped; statistical significance is biased (link)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     37,503
+Absorbing 2 HDFE groups                           F(  10,   2076) =       6.26
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.9012
+                                                  Adj R-squared   =     0.8951
+                                                  Within R-sq.    =     0.0250
+Number of clusters (county)  =      2,077         Root MSE        =     1.3729
+
+                             (Std. err. adjusted for 2,077 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+          PI | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |   .0252042   .0045879     5.49   0.000      .016207    .0342015
+        Temp |  -.0623441   .0825637    -0.76   0.450    -.2242604    .0995722
+        Wind |   .6206414   .2106038     2.95   0.003     .2076247    1.033658
+         Pop |  -.2240931   .3239966    -0.69   0.489    -.8594852    .4112989
+    Duration |  -.0273412    .009644    -2.84   0.005    -.0462542   -.0084282
+      Carbon |  -.1220019   .2071882    -0.59   0.556    -.5283202    .2843164
+       Water |   14.10776   3.706033     3.81   0.000     6.839831    21.37569
+       Green |   6.536186   4.110697     1.59   0.112    -1.525333     14.5977
+        Farm |   4.352494   2.775779     1.57   0.117    -1.091106    9.796094
+       Grass |   .9890047   4.426886     0.22   0.823    -7.692594    9.670603
+       _cons |   .6769601   4.703575     0.14   0.886    -8.547256    9.901176
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2077        2077           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local year "YES"
+
+added macro:
+               e(year) : "YES"
+
+. estadd local county "YES"
+
+added macro:
+             e(county) : "YES"
+
+. est store s1
+
+. ivreghdfe ShannonBD (PI = Sun_ccpu) $control , absorb(county year) cluster(county) first keepsingleton
+WARNING: Singleton observations not dropped; statistical significance is biased (link)
+(MWFE estimator converged in 7 iterations)
+
+First-stage regressions
+-----------------------
+
+
+First-stage regression of PI:
+
+Statistics robust to heteroskedasticity and clustering on county
+Number of obs =                  37503
+Number of clusters (county) =     2077
+------------------------------------------------------------------------------
+             |               Robust
+          PI | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |   .0252042   .0045878     5.49   0.000      .016212    .0341964
+        Temp |  -.0623441   .0825626    -0.76   0.450    -.2241691    .0994809
+        Wind |   .6206414    .210601     2.95   0.003     .2078576    1.033425
+         Pop |  -.2240931   .3239922    -0.69   0.489    -.8591268    .4109405
+    Duration |  -.0273412   .0096439    -2.84   0.005    -.0462435   -.0084388
+      Carbon |  -.1220019   .2071854    -0.59   0.556    -.5280911    .2840872
+       Water |   14.10776   3.705983     3.81   0.000      6.84393    21.37159
+       Green |   6.536186   4.110642     1.59   0.112    -1.520786    14.59316
+        Farm |   4.352494   2.775742     1.57   0.117    -1.088036    9.793024
+       Grass |   .9890047   4.426827     0.22   0.823    -7.687697    9.665706
+------------------------------------------------------------------------------
+F test of excluded instruments:
+  F(  1,  2076) =    30.18
+  Prob > F      =   0.0000
+Sanderson-Windmeijer multivariate F test of excluded instruments:
+  F(  1,  2076) =    30.18
+  Prob > F      =   0.0000
+
+
+
+Summary results for first-stage regressions
+-------------------------------------------
+
+                                           (Underid)            (Weak id)
+Variable     | F(  1,  2076)  P-val | SW Chi-sq(  1) P-val | SW F(  1,  2076)
+PI           |      30.18    0.0000 |       30.30   0.0000 |       30.18
+
+NB: first-stage test statistics cluster-robust
+
+Stock-Yogo weak ID F test critical values for single endogenous regressor:
+                                   10% maximal IV size             16.38
+                                   15% maximal IV size              8.96
+                                   20% maximal IV size              6.66
+                                   25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for i.i.d. errors only.
+
+Underidentification test
+Ho: matrix of reduced form coefficients has rank=K1-1 (underidentified)
+Ha: matrix has rank=K1 (identified)
+Kleibergen-Paap rk LM statistic          Chi-sq(1)=30.78    P-val=0.0000
+
+Weak identification test
+Ho: equation is weakly identified
+Cragg-Donald Wald F statistic                                     664.36
+Kleibergen-Paap Wald rk F statistic                                30.18
+
+Stock-Yogo weak ID test critical values for K1=1 and L1=1:
+                                   10% maximal IV size             16.38
+                                   15% maximal IV size              8.96
+                                   20% maximal IV size              6.66
+                                   25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+
+Weak-instrument-robust inference
+Tests of joint significance of endogenous regressors B1 in main equation
+Ho: B1=0 and orthogonality conditions are valid
+Anderson-Rubin Wald test           F(1,2076)=     20.02     P-val=0.0000
+Anderson-Rubin Wald test           Chi-sq(1)=     20.10     P-val=0.0000
+Stock-Wright LM S statistic        Chi-sq(1)=     19.89     P-val=0.0000
+
+NB: Underidentification, weak identification and weak-identification-robust
+    test statistics cluster-robust
+
+Number of clusters             N_clust  =       2077
+Number of observations               N  =      37503
+Number of regressors                 K  =         10
+Number of endogenous regressors      K1 =          1
+Number of instruments                L  =         10
+Number of excluded instruments       L1 =          1
+
+IV (2SLS) estimation
+--------------------
+
+Estimates efficient for homoskedasticity only
+Statistics robust to heteroskedasticity and clustering on county
+
+Number of clusters (county) =     2077                Number of obs =    37503
+                                                      F( 10,  2076) =    66.45
+                                                      Prob > F      =   0.0000
+Total (centered) SS     =  24607.05633                Centered R2   =   0.0037
+Total (uncentered) SS   =  24607.05633                Uncentered R2 =   0.0037
+Residual SS             =  24517.03958                Root MSE      =    .8099
+
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   -.126368   .0346827    -3.64   0.000    -.1943845   -.0583515
+        Temp |  -.0038997   .0244611    -0.16   0.873    -.0518705    .0440711
+        Wind |   .1698432   .0847348     2.00   0.045     .0036692    .3360172
+         Pop |  -.1335079   .1372123    -0.97   0.331    -.4025959      .13558
+    Duration |    .155371    .006441    24.12   0.000     .1427395    .1680024
+      Carbon |  -.1383521   .0546384    -2.53   0.011    -.2455038   -.0312004
+       Water |    .598555   1.292563     0.46   0.643      -1.9363     3.13341
+       Green |   2.173339   1.052768     2.06   0.039     .1087486    4.237929
+        Farm |   .8203525    .816154     1.01   0.315    -.7802131    2.420918
+       Grass |   1.125832   1.390678     0.81   0.418    -1.601437    3.853101
+------------------------------------------------------------------------------
+Underidentification test (Kleibergen-Paap rk LM statistic):             30.780
+                                                   Chi-sq(1) P-val =    0.0000
+------------------------------------------------------------------------------
+Weak identification test (Cragg-Donald Wald F statistic):              664.359
+                         (Kleibergen-Paap rk Wald F statistic):         30.181
+Stock-Yogo weak ID test critical values: 10% maximal IV size             16.38
+                                         15% maximal IV size              8.96
+                                         20% maximal IV size              6.66
+                                         25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+------------------------------------------------------------------------------
+Hansen J statistic (overidentification test of all instruments):         0.000
+                                                 (equation exactly identified)
+------------------------------------------------------------------------------
+Instrumented:         PI
+Included instruments: Temp Wind Pop Duration Carbon Water Green Farm Grass
+Excluded instruments: Sun_ccpu
+Partialled-out:       _cons
+                      nb: total SS, model F and R2s are after partialling-out;
+                          any small-sample adjustments include partialled-out
+                          variables in regressor count K
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2077        2077           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local year "YES"
+
+added macro:
+               e(year) : "YES"
+
+. estadd local county "YES"
+
+added macro:
+             e(county) : "YES"
+
+. est store s2
+
+. 
+. esttab s1 s2 using IV.rtf, replace title("Table S7. Instrumental variable estimates.") ///
+>         stats(year county N, labels("Year-month FE" "County FE" "Observations") fmt(0 0 0)) ///
+>         star(* 0.10 ** 0.05 *** 0.01) nonotes nocons b(4) se compress nogaps ///
+>         order(Sun_ccpu PI $control) ///
+>         note("Notes: Column (1) shows the result of the first-stage regression. The dependent variable in Column (1) i
+> s PSI (the weighted sum of policies at the provincial, municipal, and county levels). The independent variable in Colu
+> mn (1) is Ln Sunshine / city CPU, defined as the natural logarithm of average sunshine duration from 1984 to 2013 divi
+> ded by the city-level climate policy uncertainty index. The city-level climate policy uncertainty index is sourced fro
+> m Ma et al.(66). Column (2) shows the result of the second-stage regression. The dependent variable in Column (2) is S
+> hannonBD (the negative sum of the proportion of each bird species multiplied by its natural logarithm). The independen
+> t variable in Column (2) is PSI (the weighted sum of policies at the provincial, municipal, and county levels). K-P rk
+>  LM statistic shows the result of underidentification test. K-P rk Wald F statistic shows the result of weak identific
+> ation test. Other control variables include Temp (annual average temperature), Wind (annual average wind speed), Pop (
+> the logarithm of the ratio of total population to regional area), Duration (the logarithm of the ratio of birdwatching
+>  duration to the number of birdwatchers), Carbon (the logarithm of the carbon emissions), Water (the area of water div
+> ided by the total area), Green (the sum of the area of forests and shrubs divided by the total area), Farm (the area o
+> f farmland divided by the total area), Grass (the area of the grassland divided by the total area). All specifications
+>  include county and Year-month fixed effects. The robust standard errors clustered by the county are reported in paren
+> thesis. ***, **, * denote the significance at the 1%, 5%, and 10% levels, respectively.")
+(output written to IV.rtf)
+
+. restore
+
+. 
+. 
+. *CPU Exogeneity Test (Point 2)
+. preserve
+
+. drop if missing(CCPU)
+(8,287 observations deleted)
+
+. collapse (mean) CCPU ShannonBD $control, by(市 YEAR)
+
+. egen city = group(市)
+(10 missing values generated)
+
+. *--- 2a. Cross-sectional test ---
+. tempfile citydata
+
+. save `citydata'
+file /var/folders/wt/r578njlx4vx70bfy46gk25bm0000gn/T//S_34499.000006 saved as .dta format
+
+. collapse (mean) CCPU $control ShannonBD, by(city)
+
+. reg CCPU Temp Wind Pop Duration Carbon Water Green Farm Grass, robust
+
+Linear regression                               Number of obs     =        288
+                                                F(9, 278)         =       7.86
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.2377
+                                                Root MSE          =     .31154
+
+------------------------------------------------------------------------------
+             |               Robust
+        CCPU | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Temp |  -.0001347   .0063497    -0.02   0.983    -.0126344    .0123649
+        Wind |  -.0309291   .0338169    -0.91   0.361    -.0974989    .0356407
+         Pop |   .1118714   .0234075     4.78   0.000     .0657929    .1579499
+    Duration |   .1813779   .0508478     3.57   0.000     .0812824    .2814734
+      Carbon |  -.0333733   .0248303    -1.34   0.180    -.0822526    .0155059
+       Water |    .940308   .4961895     1.90   0.059    -.0364579    1.917074
+       Green |  -.6293941   .1579462    -3.98   0.000    -.9403167   -.3184716
+        Farm |  -.9385476    .162695    -5.77   0.000    -1.258818   -.6182769
+       Grass |   .0503162    .193788     0.26   0.795     -.331162    .4317944
+       _cons |   1.499575    .410304     3.65   0.000      .691878    2.307273
+------------------------------------------------------------------------------
+
+. est store cpu_cross
+
+. *--- 2b. Panel test with city and year FE ---
+. use `citydata', clear
+
+. xtset city YEAR
+
+Panel variable: city (unbalanced)
+ Time variable: YEAR, 2014 to 2023, but with gaps
+         Delta: 1 unit
+
+. reghdfe CCPU Temp Wind Pop Duration Carbon Water Green Farm Grass, absorb(city YEAR) cluster(city) 
+(MWFE estimator converged in 6 iterations)
+
+HDFE Linear regression                            Number of obs   =      2,294
+Absorbing 2 HDFE groups                           F(   9,    286) =       1.10
+Statistics robust to heteroskedasticity           Prob > F        =     0.3600
+                                                  R-squared       =     0.5743
+                                                  Adj R-squared   =     0.5092
+                                                  Within R-sq.    =     0.0068
+Number of clusters (city)    =        287         Root MSE        =     0.4548
+
+                                 (Std. err. adjusted for 287 clusters in city)
+------------------------------------------------------------------------------
+             |               Robust
+        CCPU | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Temp |   .0194467   .0218857     0.89   0.375    -.0236307    .0625241
+        Wind |   .0188716   .0832023     0.23   0.821    -.1448949     .182638
+         Pop |  -.0432001    .046108    -0.94   0.350    -.1339541    .0475538
+    Duration |    .012369   .0138084     0.90   0.371    -.0148101     .039548
+      Carbon |   -.021713   .0219281    -0.99   0.323    -.0648739    .0214478
+       Water |    1.63085   .7579394     2.15   0.032     .1390028    3.122697
+       Green |   .2786535   .3787757     0.74   0.463    -.4668881    1.024195
+        Farm |   .3704121    .344392     1.08   0.283    -.3074522    1.048276
+       Grass |   .3696369   .4614153     0.80   0.424    -.5385637    1.277838
+       _cons |    1.18084   .6740524     1.75   0.081     -.145893    2.507573
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+        city |       287         287           0    *|
+        YEAR |        10           1           9     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. test Temp Wind Pop Duration Carbon Water Green Farm Grass
+
+ ( 1)  Temp = 0
+ ( 2)  Wind = 0
+ ( 3)  Pop = 0
+ ( 4)  Duration = 0
+ ( 5)  Carbon = 0
+ ( 6)  Water = 0
+ ( 7)  Green = 0
+ ( 8)  Farm = 0
+ ( 9)  Grass = 0
+
+       F(  9,   286) =    1.10
+            Prob > F =    0.3600
+
+. estadd scalar joint_F = r(F)
+
+added scalar:
+            e(joint_F) =  1.1037107
+
+. estadd scalar joint_p = r(p)
+
+added scalar:
+            e(joint_p) =  .35999327
+
+. estadd local year "YES"
+
+added macro:
+               e(year) : "YES"
+
+. estadd local city "YES"
+
+added macro:
+               e(city) : "YES"
+
+. est store cpu_panel
+
+. 
+. esttab cpu_cross cpu_panel using CCPU_exogeneity.rtf, ///
+>         replace title("Table S8. Exogeneity test of the shift component (city CPU).") ///
+>         mtitles("Cross-sectional OLS" "Panel with city and year FE") ///
+>         stats(city year joint_F joint_p N r2 r2_within, ///
+>                 labels("City FE" "Year FE" "Joint F-statistic" "Joint F p-value" "Observations" "R-squared" "Within R-
+> squared") ///
+>                 fmt(0 0 2 3 0 4 4)) ///
+>         star(* 0.10 ** 0.05 *** 0.01) nonotes nocons b(4) se(4) compress nogaps ///
+>         note("Notes: This table tests whether the shift component of the instrument, the city-level climate policy unc
+> ertainty index (CPU), is correlated with observable ecological and socioeconomic characteristics. The dependent variab
+> le is city CPU, sourced from Ma et al.(66). Column (1) reports a cross-sectional regression of city-level mean CPU on 
+> city-level mean covariates. Column (2) reports a panel regression controlling for city and year fixed effects with rob
+> ust standard errors clustered by city. The key result is Column (2): after absorbing city and year fixed effects (cons
+> istent with the main IV specification), none of the covariates significantly predict the within-city time variation in
+>  CPU. Control variables include Temp (annual average temperature), Wind (annual average wind speed), Pop (the logarith
+> m of the ratio of total population to regional area), Duration (the logarithm of the ratio of birdwatching duration to
+>  the number of birdwatchers), Carbon (the logarithm of the carbon emissions), Water (the area of water divided by the 
+> total area), Green (the sum of the area of forests and shrubs divided by the total area), Farm (the area of farmland d
+> ivided by the total area), Grass (the area of the grassland divided by the total area). ***, **, * denote significance
+>  at the 1%, 5%, and 10% levels, respectively.")
+(output written to CCPU_exogeneity.rtf)
+
+. restore
+
+. 
+. 
+. *Shift-Share IV Diagnostics — GPSS (Point 4)
+. *--- Overidentification test ---
+. preserve
+
+. drop if missing(lnsun) | missing(CCPU)
+(9,025 observations deleted)
+
+. xtile ccpu_tercile = CCPU, nq(3)
+
+. gen iv_ccpu_t1 = Sun_ccpu * (ccpu_tercile == 1)
+
+. gen iv_ccpu_t2 = Sun_ccpu * (ccpu_tercile == 2)
+
+. gen iv_ccpu_t3 = Sun_ccpu * (ccpu_tercile == 3)
+
+. 
+. ivreghdfe ShannonBD (PI = iv_ccpu_t1 iv_ccpu_t2 iv_ccpu_t3) $control, absorb(county year) cluster(county) keepsingleto
+> n
+WARNING: Singleton observations not dropped; statistical significance is biased (link)
+(MWFE estimator converged in 7 iterations)
+
+IV (2SLS) estimation
+--------------------
+
+Estimates efficient for homoskedasticity only
+Statistics robust to heteroskedasticity and clustering on county
+
+Number of clusters (county) =     2077                Number of obs =    37503
+                                                      F( 10,  2076) =    66.65
+                                                      Prob > F      =   0.0000
+Total (centered) SS     =  24607.05633                Centered R2   =   0.0061
+Total (uncentered) SS   =  24607.05633                Uncentered R2 =   0.0061
+Residual SS             =    24456.139                Root MSE      =    .8089
+
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.1222012   .0336264    -3.63   0.000    -.1881461   -.0562563
+        Temp |  -.0037102   .0243214    -0.15   0.879     -.051407    .0439866
+        Wind |   .1665513   .0840173     1.98   0.048     .0017844    .3313182
+         Pop |  -.1325752   .1368265    -0.97   0.333    -.4009067    .1357562
+    Duration |    .155496   .0064345    24.17   0.000     .1428772    .1681147
+      Carbon |  -.1378645   .0542809    -2.54   0.011    -.2443152   -.0314138
+       Water |   .5347269   1.283405     0.42   0.677    -1.982167    3.051621
+       Green |   2.143258   1.044502     2.05   0.040     .0948776    4.191639
+        Farm |   .7988063   .8101926     0.99   0.324    -.7900683    2.387681
+       Grass |    1.12144   1.379113     0.81   0.416    -1.583149     3.82603
+------------------------------------------------------------------------------
+Underidentification test (Kleibergen-Paap rk LM statistic):             33.138
+                                                   Chi-sq(3) P-val =    0.0000
+------------------------------------------------------------------------------
+Weak identification test (Cragg-Donald Wald F statistic):              228.099
+                         (Kleibergen-Paap rk Wald F statistic):         10.791
+Stock-Yogo weak ID test critical values:  5% maximal IV relative bias    13.91
+                                         10% maximal IV relative bias     9.08
+                                         20% maximal IV relative bias     6.46
+                                         30% maximal IV relative bias     5.39
+                                         10% maximal IV size             22.30
+                                         15% maximal IV size             12.83
+                                         20% maximal IV size              9.54
+                                         25% maximal IV size              7.80
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+------------------------------------------------------------------------------
+Hansen J statistic (overidentification test of all instruments):         0.636
+                                                   Chi-sq(2) P-val =    0.7277
+------------------------------------------------------------------------------
+Instrumented:         PI
+Included instruments: Temp Wind Pop Duration Carbon Water Green Farm Grass
+Excluded instruments: iv_ccpu_t1 iv_ccpu_t2 iv_ccpu_t3
+Partialled-out:       _cons
+                      nb: total SS, model F and R2s are after partialling-out;
+                          any small-sample adjustments include partialled-out
+                          variables in regressor count K
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2077        2077           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local year "YES"
+
+added macro:
+               e(year) : "YES"
+
+. estadd local county "YES"
+
+added macro:
+             e(county) : "YES"
+
+. estadd local sample "Over-identification"
+
+added macro:
+             e(sample) : "Over-identification"
+
+. est store overid
+
+. 
+. di "=============================================="
+==============================================
+
+. di "Overidentification Test (Hansen J)"
+Overidentification Test (Hansen J)
+
+. di "Hansen J statistic: " e(j)
+Hansen J statistic: .6356016
+
+. di "Hansen J p-value:   " e(jp)
+Hansen J p-value:   .72774774
+
+. di "=============================================="
+==============================================
+
+. restore
+
+. *--- Sensitivity analysis ---
+. preserve
+
+. bysort county: egen county_sun = mean(lnsun)
+(744 missing values generated)
+
+. quietly sum county_sun, detail
+
+. scalar p5  = r(p5)
+
+. scalar p10 = r(p10)
+
+. scalar p90 = r(p90)
+
+. scalar p95 = r(p95)
+
+. 
+. gen extreme_sun = (county_sun < p5 | county_sun > p95)
+
+. gen high_sun    = (county_sun > p90)
+
+. gen low_sun     = (county_sun < p10)
+
+. 
+. ivreghdfe ShannonBD (PI = Sun_ccpu) $control, absorb(county year) cluster(county) keepsingleton
+WARNING: Singleton observations not dropped; statistical significance is biased (link)
+(MWFE estimator converged in 7 iterations)
+
+IV (2SLS) estimation
+--------------------
+
+Estimates efficient for homoskedasticity only
+Statistics robust to heteroskedasticity and clustering on county
+
+Number of clusters (county) =     2077                Number of obs =    37503
+                                                      F( 10,  2076) =    66.45
+                                                      Prob > F      =   0.0000
+Total (centered) SS     =  24607.05633                Centered R2   =   0.0037
+Total (uncentered) SS   =  24607.05633                Uncentered R2 =   0.0037
+Residual SS             =  24517.03958                Root MSE      =    .8099
+
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   -.126368   .0346827    -3.64   0.000    -.1943845   -.0583515
+        Temp |  -.0038997   .0244611    -0.16   0.873    -.0518705    .0440711
+        Wind |   .1698432   .0847348     2.00   0.045     .0036692    .3360172
+         Pop |  -.1335079   .1372123    -0.97   0.331    -.4025959      .13558
+    Duration |    .155371    .006441    24.12   0.000     .1427395    .1680024
+      Carbon |  -.1383521   .0546384    -2.53   0.011    -.2455038   -.0312004
+       Water |    .598555   1.292563     0.46   0.643      -1.9363     3.13341
+       Green |   2.173339   1.052768     2.06   0.039     .1087486    4.237929
+        Farm |   .8203525    .816154     1.01   0.315    -.7802131    2.420918
+       Grass |   1.125832   1.390678     0.81   0.418    -1.601437    3.853101
+------------------------------------------------------------------------------
+Underidentification test (Kleibergen-Paap rk LM statistic):             30.780
+                                                   Chi-sq(1) P-val =    0.0000
+------------------------------------------------------------------------------
+Weak identification test (Cragg-Donald Wald F statistic):              664.359
+                         (Kleibergen-Paap rk Wald F statistic):         30.181
+Stock-Yogo weak ID test critical values: 10% maximal IV size             16.38
+                                         15% maximal IV size              8.96
+                                         20% maximal IV size              6.66
+                                         25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+------------------------------------------------------------------------------
+Hansen J statistic (overidentification test of all instruments):         0.000
+                                                 (equation exactly identified)
+------------------------------------------------------------------------------
+Instrumented:         PI
+Included instruments: Temp Wind Pop Duration Carbon Water Green Farm Grass
+Excluded instruments: Sun_ccpu
+Partialled-out:       _cons
+                      nb: total SS, model F and R2s are after partialling-out;
+                          any small-sample adjustments include partialled-out
+                          variables in regressor count K
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2077        2077           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local year "YES"
+
+added macro:
+               e(year) : "YES"
+
+. estadd local county "YES"
+
+added macro:
+             e(county) : "YES"
+
+. estadd local controls "YES"
+
+added macro:
+           e(controls) : "YES"
+
+. estadd local sample "Full sample"
+
+added macro:
+             e(sample) : "Full sample"
+
+. est store sens_full
+
+. 
+. ivreghdfe ShannonBD (PI = Sun_ccpu) $control if extreme_sun == 0, ///
+>         absorb(county year) cluster(county)
+(dropped 130 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+IV (2SLS) estimation
+--------------------
+
+Estimates efficient for homoskedasticity only
+Statistics robust to heteroskedasticity and clustering on county
+
+Number of clusters (county) =     1755                Number of obs =    34359
+                                                      F( 10,  1754) =    61.17
+                                                      Prob > F      =   0.0000
+Total (centered) SS     =  22738.89736                Centered R2   =   0.0152
+Total (uncentered) SS   =  22738.89736                Uncentered R2 =   0.0152
+Residual SS             =  22394.35909                Root MSE      =    .8088
+
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.1096482   .0308526    -3.55   0.000    -.1701599   -.0491366
+        Temp |  -.0155298   .0257789    -0.60   0.547    -.0660904    .0350308
+        Wind |   .1615112   .0852517     1.89   0.058    -.0056944    .3287168
+         Pop |  -.0716566   .1483213    -0.48   0.629    -.3625618    .2192486
+    Duration |   .1567238   .0067218    23.32   0.000     .1435403    .1699072
+      Carbon |  -.1334021   .0551291    -2.42   0.016    -.2415278   -.0252764
+       Water |   .6113244     1.2589     0.49   0.627    -1.857778    3.080426
+       Green |   2.158761   1.075746     2.01   0.045     .0488821    4.268639
+        Farm |   .8807269   .8301541     1.06   0.289    -.7474687    2.508923
+       Grass |   1.920626   1.354829     1.42   0.156    -.7366243    4.577876
+------------------------------------------------------------------------------
+Underidentification test (Kleibergen-Paap rk LM statistic):             35.990
+                                                   Chi-sq(1) P-val =    0.0000
+------------------------------------------------------------------------------
+Weak identification test (Cragg-Donald Wald F statistic):              797.904
+                         (Kleibergen-Paap rk Wald F statistic):         36.079
+Stock-Yogo weak ID test critical values: 10% maximal IV size             16.38
+                                         15% maximal IV size              8.96
+                                         20% maximal IV size              6.66
+                                         25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+------------------------------------------------------------------------------
+Hansen J statistic (overidentification test of all instruments):         0.000
+                                                 (equation exactly identified)
+------------------------------------------------------------------------------
+Instrumented:         PI
+Included instruments: Temp Wind Pop Duration Carbon Water Green Farm Grass
+Excluded instruments: Sun_ccpu
+Partialled-out:       _cons
+                      nb: total SS, model F and R2s are after partialling-out;
+                          any small-sample adjustments include partialled-out
+                          variables in regressor count K
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1755        1755           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local year "YES"
+
+added macro:
+               e(year) : "YES"
+
+. estadd local county "YES"
+
+added macro:
+             e(county) : "YES"
+
+. estadd local controls "YES"
+
+added macro:
+           e(controls) : "YES"
+
+. estadd local sample "Excl. extreme sunshine"
+
+added macro:
+             e(sample) : "Excl. extreme sunshine"
+
+. est store sens_drop
+
+. 
+. ivreghdfe ShannonBD (PI = Sun_ccpu) $control if high_sun == 0, ///
+>         absorb(county year) cluster(county)
+(dropped 120 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+IV (2SLS) estimation
+--------------------
+
+Estimates efficient for homoskedasticity only
+Statistics robust to heteroskedasticity and clustering on county
+
+Number of clusters (county) =     1728                Number of obs =    34941
+                                                      F( 10,  1727) =    60.97
+                                                      Prob > F      =   0.0000
+Total (centered) SS     =  22879.74825                Centered R2   =   0.0128
+Total (uncentered) SS   =  22879.74825                Uncentered R2 =   0.0128
+Residual SS             =  22586.46599                Root MSE      =    .8055
+
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.1072421    .029172    -3.68   0.000    -.1644582   -.0500259
+        Temp |  -.0058944   .0252791    -0.23   0.816    -.0554754    .0436866
+        Wind |   .1541386    .084942     1.81   0.070    -.0124614    .3207387
+         Pop |  -.1413286   .1368763    -1.03   0.302    -.4097895    .1271322
+    Duration |   .1519724   .0065801    23.10   0.000     .1390666    .1648783
+      Carbon |  -.1270513   .0560629    -2.27   0.024    -.2370097   -.0170929
+       Water |   .7638817   1.272989     0.60   0.549    -1.732881    3.260645
+       Green |   2.038026    1.05705     1.93   0.054    -.0352069     4.11126
+        Farm |   .7572535   .8330781     0.91   0.363    -.8766947    2.391202
+       Grass |   1.100822   1.677938     0.66   0.512    -2.190183    4.391827
+------------------------------------------------------------------------------
+Underidentification test (Kleibergen-Paap rk LM statistic):             35.510
+                                                   Chi-sq(1) P-val =    0.0000
+------------------------------------------------------------------------------
+Weak identification test (Cragg-Donald Wald F statistic):              856.297
+                         (Kleibergen-Paap rk Wald F statistic):         35.729
+Stock-Yogo weak ID test critical values: 10% maximal IV size             16.38
+                                         15% maximal IV size              8.96
+                                         20% maximal IV size              6.66
+                                         25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+------------------------------------------------------------------------------
+Hansen J statistic (overidentification test of all instruments):         0.000
+                                                 (equation exactly identified)
+------------------------------------------------------------------------------
+Instrumented:         PI
+Included instruments: Temp Wind Pop Duration Carbon Water Green Farm Grass
+Excluded instruments: Sun_ccpu
+Partialled-out:       _cons
+                      nb: total SS, model F and R2s are after partialling-out;
+                          any small-sample adjustments include partialled-out
+                          variables in regressor count K
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1728        1728           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local year "YES"
+
+added macro:
+               e(year) : "YES"
+
+. estadd local county "YES"
+
+added macro:
+             e(county) : "YES"
+
+. estadd local controls "YES"
+
+added macro:
+           e(controls) : "YES"
+
+. estadd local sample "Excl. top 10% sunshine"
+
+added macro:
+             e(sample) : "Excl. top 10% sunshine"
+
+. est store sens_drop10
+
+. 
+. ivreghdfe ShannonBD (PI = Sun_ccpu) $control if low_sun == 0, ///
+>         absorb(county year) cluster(county)
+(dropped 129 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+IV (2SLS) estimation
+--------------------
+
+Estimates efficient for homoskedasticity only
+Statistics robust to heteroskedasticity and clustering on county
+
+Number of clusters (county) =     1750                Number of obs =    34140
+                                                      F( 10,  1749) =    59.35
+                                                      Prob > F      =   0.0000
+Total (centered) SS     =  22590.39096                Centered R2   =   0.0093
+Total (uncentered) SS   =  22590.39096                Uncentered R2 =   0.0093
+Residual SS             =  22380.36295                Root MSE      =    .8112
+
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.1220431   .0361249    -3.38   0.001    -.1928957   -.0511904
+        Temp |  -.0263221   .0271377    -0.97   0.332    -.0795478    .0269036
+        Wind |   .1771897   .0867763     2.04   0.041     .0069935    .3473859
+         Pop |  -.0970279   .1493884    -0.65   0.516    -.3900266    .1959708
+    Duration |   .1562466   .0067758    23.06   0.000     .1429571    .1695361
+      Carbon |  -.1269825   .0543482    -2.34   0.020    -.2335768   -.0203882
+       Water |   .3157908   1.268103     0.25   0.803    -2.171367    2.802948
+       Green |   1.855638   1.105748     1.68   0.093     -.313089    4.024365
+        Farm |   .8726921   .8430861     1.04   0.301    -.7808707    2.526255
+       Grass |   1.024498   1.364527     0.75   0.453    -1.651778    3.700773
+------------------------------------------------------------------------------
+Underidentification test (Kleibergen-Paap rk LM statistic):             30.914
+                                                   Chi-sq(1) P-val =    0.0000
+------------------------------------------------------------------------------
+Weak identification test (Cragg-Donald Wald F statistic):              664.416
+                         (Kleibergen-Paap rk Wald F statistic):         30.204
+Stock-Yogo weak ID test critical values: 10% maximal IV size             16.38
+                                         15% maximal IV size              8.96
+                                         20% maximal IV size              6.66
+                                         25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+------------------------------------------------------------------------------
+Hansen J statistic (overidentification test of all instruments):         0.000
+                                                 (equation exactly identified)
+------------------------------------------------------------------------------
+Instrumented:         PI
+Included instruments: Temp Wind Pop Duration Carbon Water Green Farm Grass
+Excluded instruments: Sun_ccpu
+Partialled-out:       _cons
+                      nb: total SS, model F and R2s are after partialling-out;
+                          any small-sample adjustments include partialled-out
+                          variables in regressor count K
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1750        1750           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local year "YES"
+
+added macro:
+               e(year) : "YES"
+
+. estadd local county "YES"
+
+added macro:
+             e(county) : "YES"
+
+. estadd local controls "YES"
+
+added macro:
+           e(controls) : "YES"
+
+. estadd local sample "Excl. bottom 10% sunshine"
+
+added macro:
+             e(sample) : "Excl. bottom 10% sunshine"
+
+. est store sens_drop10low
+
+. restore
+
+. *--- Share exogeneity test (balance test) ---
+. preserve
+
+. collapse (mean) lnsun Temp Wind Pop Duration Carbon Water Green Farm Grass ShannonBD PI, by(county)
+
+. 
+. reg lnsun Temp Wind Pop Duration Carbon Water Green Farm Grass, robust
+
+Linear regression                               Number of obs     =      2,471
+                                                F(9, 2461)        =     485.64
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.5808
+                                                Root MSE          =     .17912
+
+------------------------------------------------------------------------------
+             |               Robust
+       lnsun | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Temp |  -.0202319   .0007817   -25.88   0.000    -.0217649    -.018699
+        Wind |   .0925942    .006864    13.49   0.000     .0791344    .1060541
+         Pop |  -.0126162   .0031227    -4.04   0.000    -.0187396   -.0064929
+    Duration |  -.0119504   .0069681    -1.72   0.086    -.0256143    .0017135
+      Carbon |   .0238223   .0028142     8.47   0.000     .0183039    .0293407
+       Water |  -.3906035   .0640766    -6.10   0.000    -.5162531   -.2649539
+       Green |  -.3035396   .0215473   -14.09   0.000    -.3457923   -.2612868
+        Farm |  -.2832225   .0228457   -12.40   0.000    -.3280213   -.2384238
+       Grass |   -.091974   .0200735    -4.58   0.000    -.1313366   -.0526113
+       _cons |   7.623956    .045824   166.37   0.000     7.534098    7.713814
+------------------------------------------------------------------------------
+
+. estadd local note "Cross-sectional balance test"
+
+added macro:
+               e(note) : "Cross-sectional balance test"
+
+. est store balance
+
+. restore
+
+. *--- Shift-based IV: controlling for share time-varying effects ---
+. * Panel A: IV +  Ln(Sunshine) × Year-month FE
+. preserve
+
+. reghdfe PI Sun_ccpu $control, absorb(county year i.year#c.lnsun) cluster(county) keepsingleton
+WARNING: Singleton observations not dropped; statistical significance is biased (link)
+(MWFE estimator converged in 96 iterations)
+
+HDFE Linear regression                            Number of obs   =     37,503
+Absorbing 3 HDFE groups                           F(  10,   2076) =       8.78
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.9067
+                                                  Adj R-squared   =     0.9005
+                                                  Within R-sq.    =     0.0370
+Number of clusters (county)  =      2,077         Root MSE        =     1.3367
+
+                             (Std. err. adjusted for 2,077 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+          PI | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |   .0290695   .0044034     6.60   0.000      .020434     .037705
+        Temp |  -.1504205   .0787846    -1.91   0.056    -.3049256    .0040847
+        Wind |   .9537073   .2317269     4.12   0.000      .499266    1.408149
+         Pop |  -.2820748   .3204865    -0.88   0.379    -.9105832    .3464335
+    Duration |  -.0263045   .0095661    -2.75   0.006    -.0450647   -.0075444
+      Carbon |   .0430449   .1870742     0.23   0.818    -.3238278    .4099176
+       Water |   17.80663   3.844553     4.63   0.000     10.26705    25.34621
+       Green |   4.547231   4.178176     1.09   0.277     -3.64662    12.74108
+        Farm |   6.194089   2.880042     2.15   0.032     .5460173    11.84216
+       Grass |  -5.904477   4.266051    -1.38   0.166    -14.27066    2.461708
+       _cons |  -.5842306   4.468245    -0.13   0.896    -9.346938    8.178477
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2077        2077           0    *|
+         year |       120           1         119     |
+ year#c.lnsun |       120           0         120    ?|
+------------------------------------------------------+
+? = number of redundant parameters may be higher
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local yearfe "YES"
+
+added macro:
+             e(yearfe) : "YES"
+
+. estadd local countyfe "YES"
+
+added macro:
+           e(countyfe) : "YES"
+
+. estadd local sun_year "YES"
+
+added macro:
+           e(sun_year) : "YES"
+
+. est store shift_s1a
+
+. 
+. ivreghdfe ShannonBD (PI = Sun_ccpu) $control, absorb(county year i.year#c.lnsun) cluster(county) first keepsingleton
+WARNING: Singleton observations not dropped; statistical significance is biased (link)
+(MWFE estimator converged in 96 iterations)
+
+First-stage regressions
+-----------------------
+
+
+First-stage regression of PI:
+
+Statistics robust to heteroskedasticity and clustering on county
+Number of obs =                  37503
+Number of clusters (county) =     2077
+------------------------------------------------------------------------------
+             |               Robust
+          PI | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |   .0290695   .0044033     6.60   0.000     .0204389    .0377001
+        Temp |  -.1504205   .0787836    -1.91   0.056    -.3048385    .0039975
+        Wind |   .9537073   .2317238     4.12   0.000     .4995223    1.407892
+         Pop |  -.2820748   .3204822    -0.88   0.379    -.9102288    .3460791
+    Duration |  -.0263045    .009566    -2.75   0.006    -.0450541    -.007555
+      Carbon |   .0430449   .1870717     0.23   0.818    -.3236209    .4097107
+       Water |   17.80663   3.844501     4.63   0.000      10.2713    25.34196
+       Green |   4.547231    4.17812     1.09   0.276    -3.641999    12.73646
+        Farm |   6.194089   2.880004     2.15   0.032     .5492026    11.83898
+       Grass |  -5.904477   4.265994    -1.38   0.166    -14.26594    2.456989
+------------------------------------------------------------------------------
+F test of excluded instruments:
+  F(  1,  2076) =    43.58
+  Prob > F      =   0.0000
+Sanderson-Windmeijer multivariate F test of excluded instruments:
+  F(  1,  2076) =    43.58
+  Prob > F      =   0.0000
+
+
+
+Summary results for first-stage regressions
+-------------------------------------------
+
+                                           (Underid)            (Weak id)
+Variable     | F(  1,  2076)  P-val | SW Chi-sq(  1) P-val | SW F(  1,  2076)
+PI           |      43.58    0.0000 |       43.89   0.0000 |       43.58
+
+NB: first-stage test statistics cluster-robust
+
+Stock-Yogo weak ID F test critical values for single endogenous regressor:
+                                   10% maximal IV size             16.38
+                                   15% maximal IV size              8.96
+                                   20% maximal IV size              6.66
+                                   25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for i.i.d. errors only.
+
+Underidentification test
+Ho: matrix of reduced form coefficients has rank=K1-1 (underidentified)
+Ha: matrix has rank=K1 (identified)
+Kleibergen-Paap rk LM statistic          Chi-sq(1)=43.65    P-val=0.0000
+
+Weak identification test
+Ho: equation is weakly identified
+Cragg-Donald Wald F statistic                                     916.70
+Kleibergen-Paap Wald rk F statistic                                43.58
+
+Stock-Yogo weak ID test critical values for K1=1 and L1=1:
+                                   10% maximal IV size             16.38
+                                   15% maximal IV size              8.96
+                                   20% maximal IV size              6.66
+                                   25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+
+Weak-instrument-robust inference
+Tests of joint significance of endogenous regressors B1 in main equation
+Ho: B1=0 and orthogonality conditions are valid
+Anderson-Rubin Wald test           F(1,2076)=     22.96     P-val=0.0000
+Anderson-Rubin Wald test           Chi-sq(1)=     23.12     P-val=0.0000
+Stock-Wright LM S statistic        Chi-sq(1)=     22.85     P-val=0.0000
+
+NB: Underidentification, weak identification and weak-identification-robust
+    test statistics cluster-robust
+
+Number of clusters             N_clust  =       2077
+Number of observations               N  =      37503
+Number of regressors                 K  =         10
+Number of endogenous regressors      K1 =          1
+Number of instruments                L  =         10
+Number of excluded instruments       L1 =          1
+
+IV (2SLS) estimation
+--------------------
+
+Estimates efficient for homoskedasticity only
+Statistics robust to heteroskedasticity and clustering on county
+
+Number of clusters (county) =     2077                Number of obs =    37503
+                                                      F( 10,  2076) =    66.10
+                                                      Prob > F      =   0.0000
+Total (centered) SS     =  24390.46822                Centered R2   =   0.0112
+Total (uncentered) SS   =  24390.46822                Uncentered R2 =   0.0112
+Residual SS             =  24117.30413                Root MSE      =    .8046
+
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.1168601   .0287814    -4.06   0.000    -.1733034   -.0604167
+        Temp |  -.0069403   .0240845    -0.29   0.773    -.0541726     .040292
+        Wind |   .1845088   .0921502     2.00   0.045     .0037924    .3652252
+         Pop |  -.1191861   .1342538    -0.89   0.375    -.3824722       .1441
+    Duration |   .1550844   .0064705    23.97   0.000     .1423951    .1677737
+      Carbon |  -.1068776   .0526648    -2.03   0.043    -.2101589   -.0035962
+       Water |    .947478   1.293263     0.73   0.464     -1.58875    3.483706
+       Green |    1.80346   1.019146     1.77   0.077    -.1951945    3.802114
+        Farm |   1.129575    .816736     1.38   0.167    -.4721321    2.731282
+       Grass |   .1901256   1.271758     0.15   0.881    -2.303929     2.68418
+------------------------------------------------------------------------------
+Underidentification test (Kleibergen-Paap rk LM statistic):             43.649
+                                                   Chi-sq(1) P-val =    0.0000
+------------------------------------------------------------------------------
+Weak identification test (Cragg-Donald Wald F statistic):              916.700
+                         (Kleibergen-Paap rk Wald F statistic):         43.583
+Stock-Yogo weak ID test critical values: 10% maximal IV size             16.38
+                                         15% maximal IV size              8.96
+                                         20% maximal IV size              6.66
+                                         25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+------------------------------------------------------------------------------
+Hansen J statistic (overidentification test of all instruments):         0.000
+                                                 (equation exactly identified)
+------------------------------------------------------------------------------
+Instrumented:         PI
+Included instruments: Temp Wind Pop Duration Carbon Water Green Farm Grass
+Excluded instruments: Sun_ccpu
+Partialled-out:       _cons
+                      nb: total SS, model F and R2s are after partialling-out;
+                          any small-sample adjustments include partialled-out
+                          variables in regressor count K
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2077        2077           0    *|
+         year |       120           1         119     |
+ year#c.lnsun |       120           0         120    ?|
+------------------------------------------------------+
+? = number of redundant parameters may be higher
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local yearfe "YES"
+
+added macro:
+             e(yearfe) : "YES"
+
+. estadd local countyfe "YES"
+
+added macro:
+           e(countyfe) : "YES"
+
+. estadd local sun_year "YES"
+
+added macro:
+           e(sun_year) : "YES"
+
+. est store shift_s2a
+
+. * Panel B: only shift IV = 1/CPU
+. reghdfe PI inv_CCPU $control, absorb(county year) cluster(county)
+(dropped 142 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     38,099
+Absorbing 2 HDFE groups                           F(  10,   1963) =       8.00
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.8973
+                                                  Adj R-squared   =     0.8913
+                                                  Within R-sq.    =     0.0307
+Number of clusters (county)  =      1,964         Root MSE        =     1.3947
+
+                             (Std. err. adjusted for 1,964 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+          PI | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    inv_CCPU |    .205425   .0293333     7.00   0.000     .1478974    .2629526
+        Temp |  -.0599632   .0815062    -0.74   0.462    -.2198109    .0998846
+        Wind |   .3476452   .2327596     1.49   0.135    -.1088368    .8041272
+         Pop |  -.2438303   .3229925    -0.75   0.450    -.8772745    .3896139
+    Duration |  -.0294468   .0096438    -3.05   0.002      -.04836   -.0105335
+      Carbon |  -.0535557   .2032598    -0.26   0.792    -.4521833     .345072
+       Water |   15.47884   3.770044     4.11   0.000     8.085134    22.87255
+       Green |   5.325784   4.152347     1.28   0.200    -2.817687    13.46926
+        Farm |   5.134211   2.827506     1.82   0.070    -.4110174    10.67944
+       Grass |   1.585815   4.432683     0.36   0.721    -7.107444    10.27908
+       _cons |   .3527262   4.673183     0.08   0.940    -8.812195    9.517647
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1964        1964           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local yearfe "YES"
+
+added macro:
+             e(yearfe) : "YES"
+
+. estadd local countyfe "YES"
+
+added macro:
+           e(countyfe) : "YES"
+
+. estadd local sun_year "NO"
+
+added macro:
+           e(sun_year) : "NO"
+
+. est store shift_s1b
+
+. 
+. ivreghdfe ShannonBD (PI = inv_CCPU) $control, absorb(county year) cluster(county) first
+(dropped 142 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+First-stage regressions
+-----------------------
+
+
+First-stage regression of PI:
+
+Statistics robust to heteroskedasticity and clustering on county
+Number of obs =                  38099
+Number of clusters (county) =     1964
+------------------------------------------------------------------------------
+             |               Robust
+          PI | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    inv_CCPU |    .205425   .0293329     7.00   0.000     .1479318    .2629182
+        Temp |  -.0599632   .0815051    -0.74   0.462    -.2197153     .099789
+        Wind |   .3476452   .2327566     1.49   0.135    -.1085639    .8038542
+         Pop |  -.2438303   .3229882    -0.75   0.450    -.8768958    .3892351
+    Duration |  -.0294468   .0096437    -3.05   0.002    -.0483487   -.0105448
+      Carbon |  -.0535557   .2032571    -0.26   0.792    -.4519449    .3448336
+       Water |   15.47884   3.769994     4.11   0.000     8.089555    22.86813
+       Green |   5.325784   4.152292     1.28   0.200    -2.812818    13.46439
+        Farm |   5.134211   2.827469     1.82   0.069     -.407702    10.67612
+       Grass |   1.585815   4.432625     0.36   0.721    -7.102247    10.27388
+------------------------------------------------------------------------------
+F test of excluded instruments:
+  F(  1,  1963) =    49.05
+  Prob > F      =   0.0000
+Sanderson-Windmeijer multivariate F test of excluded instruments:
+  F(  1,  1963) =    49.05
+  Prob > F      =   0.0000
+
+
+
+Summary results for first-stage regressions
+-------------------------------------------
+
+                                           (Underid)            (Weak id)
+Variable     | F(  1,  1963)  P-val | SW Chi-sq(  1) P-val | SW F(  1,  1963)
+PI           |      49.05    0.0000 |       49.24   0.0000 |       49.05
+
+NB: first-stage test statistics cluster-robust
+
+Stock-Yogo weak ID F test critical values for single endogenous regressor:
+                                   10% maximal IV size             16.38
+                                   15% maximal IV size              8.96
+                                   20% maximal IV size              6.66
+                                   25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for i.i.d. errors only.
+
+Underidentification test
+Ho: matrix of reduced form coefficients has rank=K1-1 (underidentified)
+Ha: matrix has rank=K1 (identified)
+Kleibergen-Paap rk LM statistic          Chi-sq(1)=45.60    P-val=0.0000
+
+Weak identification test
+Ho: equation is weakly identified
+Cragg-Donald Wald F statistic                                     913.33
+Kleibergen-Paap Wald rk F statistic                                49.05
+
+Stock-Yogo weak ID test critical values for K1=1 and L1=1:
+                                   10% maximal IV size             16.38
+                                   15% maximal IV size              8.96
+                                   20% maximal IV size              6.66
+                                   25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+
+Weak-instrument-robust inference
+Tests of joint significance of endogenous regressors B1 in main equation
+Ho: B1=0 and orthogonality conditions are valid
+Anderson-Rubin Wald test           F(1,1963)=     12.68     P-val=0.0004
+Anderson-Rubin Wald test           Chi-sq(1)=     12.73     P-val=0.0004
+Stock-Wright LM S statistic        Chi-sq(1)=     13.03     P-val=0.0003
+
+NB: Underidentification, weak identification and weak-identification-robust
+    test statistics cluster-robust
+
+Number of clusters             N_clust  =       1964
+Number of observations               N  =      38099
+Number of regressors                 K  =         10
+Number of endogenous regressors      K1 =          1
+Number of instruments                L  =         10
+Number of excluded instruments       L1 =          1
+
+IV (2SLS) estimation
+--------------------
+
+Estimates efficient for homoskedasticity only
+Statistics robust to heteroskedasticity and clustering on county
+
+Number of clusters (county) =     1964                Number of obs =    38099
+                                                      F( 10,  1963) =    66.89
+                                                      Prob > F      =   0.0000
+Total (centered) SS     =   25166.8349                Centered R2   =   0.0185
+Total (uncentered) SS   =   25166.8349                Uncentered R2 =   0.0185
+Residual SS             =  24701.19735                Root MSE      =    .8066
+
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0937922   .0290908    -3.22   0.001    -.1508444     -.03674
+        Temp |   -.002875   .0233489    -0.12   0.902    -.0486663    .0429163
+        Wind |   .1288682   .0806824     1.60   0.110     -.029364    .2871004
+         Pop |  -.1252893   .1341096    -0.93   0.350    -.3883015    .1377229
+    Duration |   .1552147   .0063238    24.54   0.000     .1428126    .1676167
+      Carbon |  -.1142654   .0517099    -2.21   0.027    -.2156775   -.0128534
+       Water |   .3096178   1.253236     0.25   0.805    -2.148196    2.767432
+       Green |   1.657555   1.017716     1.63   0.104    -.3383621    3.653473
+        Farm |   .7884427   .7948678     0.99   0.321    -.7704307    2.347316
+       Grass |   1.108839   1.308129     0.85   0.397    -1.456629    3.674307
+------------------------------------------------------------------------------
+Underidentification test (Kleibergen-Paap rk LM statistic):             45.598
+                                                   Chi-sq(1) P-val =    0.0000
+------------------------------------------------------------------------------
+Weak identification test (Cragg-Donald Wald F statistic):              913.328
+                         (Kleibergen-Paap rk Wald F statistic):         49.045
+Stock-Yogo weak ID test critical values: 10% maximal IV size             16.38
+                                         15% maximal IV size              8.96
+                                         20% maximal IV size              6.66
+                                         25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+------------------------------------------------------------------------------
+Hansen J statistic (overidentification test of all instruments):         0.000
+                                                 (equation exactly identified)
+------------------------------------------------------------------------------
+Instrumented:         PI
+Included instruments: Temp Wind Pop Duration Carbon Water Green Farm Grass
+Excluded instruments: inv_CCPU
+Partialled-out:       _cons
+                      nb: total SS, model F and R2s are after partialling-out;
+                          any small-sample adjustments include partialled-out
+                          variables in regressor count K
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1964        1964           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local yearfe "YES"
+
+added macro:
+             e(yearfe) : "YES"
+
+. estadd local countyfe "YES"
+
+added macro:
+           e(countyfe) : "YES"
+
+. estadd local sun_year "NO"
+
+added macro:
+           e(sun_year) : "NO"
+
+. est store shift_s2b
+
+. restore
+
+. * Output Tables：Overidentification + Sensitivity
+. esttab overid sens_full sens_drop sens_drop10 sens_drop10low using SSIV_table1.rtf, ///
+>         replace title("Table S9. Shift-share IV diagnostics: Overidentification and sensitivity analysis.") ///
+>         mtitles("Over-identification" "Full sample" "Excl. extreme 5%" "Excl. top 10%" "Excl. bottom 10%") ///
+>         stats(year county sample N j jp, ///
+>                 labels("Year-month FE" "County FE" "Sample restriction" "Observations" "Hansen J statistic" "Hansen J 
+> p-value") ///
+>                 fmt(0 0 0 0 4 4)) ///
+>         star(* 0.10 ** 0.05 *** 0.01) nonotes nocons b(4) se compress nogaps ///
+>         order(PI Temp Wind Pop Duration Carbon Water Green Farm Grass) ///
+>         note("Notes: This table reports the shift-share IV diagnostics following Goldsmith-Pinkham et al. (70). The in
+> strument is Ln(Sunshine) / city CPU, where Ln(Sunshine) is the time-invariant share (natural logarithm of average suns
+> hine duration for each county during the period from 1984 to 2013) and 1 / city CPU is the time-varying shift (inverse
+>  of city-level climate policy uncertainty index). Column (1) reports the overidentification test. We divide observatio
+> ns into terciles based on the CPU level and interact each tercile indicator with the original instrument Ln(Sunshine) 
+> / city CPU, yielding three instruments that exploit the same source of identifying variation — the within-city tempora
+> l fluctuation of climate policy uncertainty — but operate under different policy uncertainty regimes (low, medium, and
+>  high CPU). We estimate the overidentified model using ivreghdfe with cluster-robust standard errors, which automatica
+> lly absorbs county and year-month fixed effects and reports the Hansen J statistic. The Hansen J statistic tests wheth
+> er all instruments are jointly valid (H0: all instruments are valid; failure to reject supports instrument validity). 
+> Columns (2)-(5) present the sensitivity analysis: Column (2) uses the full sample; Column (3) excludes counties in the
+>  top and bottom 5% of the Ln(Sunshine) distribution; Column (4) excludes the top 10%; Column (5) excludes the bottom 1
+> 0%. The dependent variable is ShannonBD (the negative sum of the proportion of each bird species multiplied by its nat
+> ural logarithm). The endogenous variable is PSI (the weighted sum of policies at the provincial, municipal, and county
+>  levels), instrumented by Ln(Sunshine) / city CPU. Other control variables include Temp (annual average temperature), 
+> Wind (annual average wind speed), Pop (the logarithm of the ratio of total population to regional area), Duration (the
+>  logarithm of the ratio of birdwatching duration to the number of birdwatchers), Carbon (the logarithm of the carbon e
+> missions), Water (the area of water divided by the total area), Green (the sum of the area of forests and shrubs divid
+> ed by the total area), Farm (the area of farmland divided by the total area), Grass (the area of the grassland divided
+>  by the total area). All specifications include county and year-month fixed effects. The robust standard errors cluste
+> red by county are reported in parentheses. ***, **, * denote significance at the 1%, 5%, and 10% levels, respectively.
+> ")
+(output written to SSIV_table1.rtf)
+
+. * Output Tables：Balance test + Shift-based IV identification tests 
+. esttab balance shift_s1a shift_s2a shift_s1b shift_s2b using SSIV_table2.rtf, ///
+>         replace title("Table S10. Share exogeneity and shift-based IV identification tests.") ///
+>         mtitles("Share exogeneity" "First stage" "Second stage" "First stage" "Second stage") ///
+>         mgroups("Balance test" "Panel A: [Ln(Sunshine) / city CPU] AND [Ln(Sunshine) x Year-month FE]" "Panel B: 1 / c
+> ity CPU only", pattern(1 1 0 1 0)) ///
+>         stats(N r2 F yearfe countyfe sun_year, ///
+>         labels("Observations" "R-squared" "F-statistic" "Year-month FE" "County FE" "Ln(Sunshine) x Year-month FE") //
+> /
+>         fmt(0 4 2 0 0 0)) ///
+>         star(* 0.10 ** 0.05 *** 0.01) nonotes nocons b(4) se(4) compress nogaps ///
+>         order(Sun_ccpu inv_CCPU PI $control) ///
+>         keep(Sun_ccpu inv_CCPU PI $control) ///
+>         note("Notes: This table reports the share exogeneity test and the shift-based IV identification results. Colum
+> n (1) tests whether the time-invariant share component Ln(Sunshine) is correlated with observable county characteristi
+> cs following Goldsmith-Pinkham et al. (70). The dependent variable in Column (1) is Ln(Sunshine), natural logarithm of
+>  average sunshine duration from 1984 to 2013. The data is collapsed to county-level means. If the share is exogenous, 
+> it should be uncorrelated with county-level covariates. Note that in the main IV specification, county fixed effects f
+> ully absorb the time-invariant cross-sectional variation in Ln(Sunshine), so any correlations observed here do not thr
+> eaten identification. Columns (2)-(5) report the shift-based IV identification results following Borusyak et al. (69).
+>  Columns (2)-(3) use the original instrument Ln(Sunshine)/CPU but additionally control for Ln(Sunshine) x Year-month F
+> E, so that any time-varying effect of sunshine operating through channels other than climate policy is fully absorbed;
+>  identification relies exclusively on within-city temporal variation in CPU. Columns (4)-(5) use a pure shift instrume
+> nt 1/CPU, which does not involve the sunshine share at all. Columns (2) and (4) report first-stage regressions where t
+> he dependent variable is PSI (the weighted sum of policies at the provincial, municipal, and county levels). Columns (
+> 3) and (5) report second-stage regressions where the dependent variable is ShannonBD (the negative sum of the proporti
+> on of each bird species multiplied by its natural logarithm). The slight variation in sample sizes across specificatio
+> ns reflects differences in the availability of the CPU index and sunshine data across county-year observations. Contro
+> l variables include Temp (annual average temperature), Wind (annual average wind speed), Pop (the logarithm of the rat
+> io of total population to regional area), Duration (the logarithm of the ratio of birdwatching duration to the number 
+> of birdwatchers), Carbon (the logarithm of carbon emissions), Water (the area of water divided by the total area), Gre
+> en (the sum of the area of forests and shrubs divided by the total area), Farm (the area of farmland divided by the to
+> tal area), Grass (the area of the grassland divided by the total area). Columns (2)-(5) include county and year-month 
+> fixed effects with robust standard errors clustered by county. Column (1) reports robust standard errors. ***, **, * d
+> enote significance at the 1%, 5%, and 10% levels, respectively.")
+(output written to SSIV_table2.rtf)
+
+. 
+.         
+. *psm
+. preserve
+
+. global control "Temp Wind Pop Duration Carbon Water Green Farm Grass"
+
+. gen treated = (PI > 0)
+
+. **1:1 邻近匹配
+. psmatch2 treated $control i.year, outcome(ShannonBD) neighbor(1) caliper(0.05) common
+
+Probit regression                                     Number of obs =   46,528
+                                                      LR chi2(128)  = 17188.97
+                                                      Prob > chi2   =   0.0000
+Log likelihood = -22876.215                           Pseudo R2     =   0.2731
+
+------------------------------------------------------------------------------
+     treated | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Temp |   .0140061    .002066     6.78   0.000     .0099568    .0180554
+        Wind |   .0263441   .0109177     2.41   0.016     .0049457    .0477424
+         Pop |  -.5003601   .0082909   -60.35   0.000    -.5166101   -.4841102
+    Duration |  -.0224558   .0064208    -3.50   0.000    -.0350404   -.0098713
+      Carbon |   .0302818   .0057272     5.29   0.000     .0190566     .041507
+       Water |   3.005874   .1701495    17.67   0.000     2.672388    3.339361
+       Green |   3.562518   .0603429    59.04   0.000     3.444248    3.680788
+        Farm |    4.80485   .0693815    69.25   0.000     4.668864    4.940835
+       Grass |   1.499712   .0695829    21.55   0.000     1.363332    1.636092
+             |
+        year |
+        649  |   .4623304   .4862172     0.95   0.342    -.4906377    1.415299
+        650  |   .6617715   .4819074     1.37   0.170    -.2827496    1.606293
+        651  |   .4213147   .5081922     0.83   0.407    -.5747237    1.417353
+        652  |   .1063481    .448673     0.24   0.813    -.7730348     .985731
+        653  |   .5781036   .4575892     1.26   0.206    -.3187546    1.474962
+        654  |  -.0344942   .4707659    -0.07   0.942    -.9571785      .88819
+        655  |  -.1823901   .4866806    -0.37   0.708    -1.136266    .7714863
+        656  |   .8844003   .4673602     1.89   0.058    -.0316089     1.80041
+        657  |   .2566986   .4395585     0.58   0.559    -.6048203    1.118218
+        658  |   -.109723   .4347278    -0.25   0.801    -.9617738    .7423278
+        659  |   .1376855   .4116921     0.33   0.738    -.6692163    .9445873
+        660  |   .0905949   .4086098     0.22   0.825    -.7102656    .8914554
+        661  |   .4371766   .4073272     1.07   0.283      -.36117    1.235523
+        662  |   .4539818   .4128301     1.10   0.271    -.3551503    1.263114
+        663  |   .5376423   .4068987     1.32   0.186    -.2598644    1.335149
+        664  |   .3033986   .4001287     0.76   0.448    -.4808392    1.087636
+        665  |   .1736337   .4141583     0.42   0.675    -.6381016    .9853691
+        666  |   .2599705   .4047376     0.64   0.521    -.5333007    1.053242
+        667  |   .2662351   .4084301     0.65   0.514    -.5342732    1.066743
+        668  |   .2551457   .4171265     0.61   0.541    -.5624073    1.072699
+        669  |   .4331951   .4121756     1.05   0.293    -.3746542    1.241044
+        670  |   .3798181   .4143364     0.92   0.359    -.4322663    1.191903
+        671  |   .2809784   .4096727     0.69   0.493    -.5219653    1.083922
+        672  |   .3931461   .4066527     0.97   0.334    -.4038785    1.190171
+        673  |   .4929643    .404789     1.22   0.223    -.3004076    1.286336
+        674  |   .2793918   .4140666     0.67   0.500    -.5321638    1.090948
+        675  |   .3959577   .4076748     0.97   0.331    -.4030702    1.194986
+        676  |   .2899515   .4064389     0.71   0.476     -.506654    1.086557
+        677  |    .258239   .4132405     0.62   0.532    -.5516974    1.068175
+        678  |   .2128313   .4114631     0.52   0.605    -.5936215    1.019284
+        679  |   .2914004   .4122155     0.71   0.480    -.5165272    1.099328
+        680  |   .2892932   .4185739     0.69   0.489    -.5310964    1.109683
+        681  |   .5084337   .4123526     1.23   0.218    -.2997625     1.31663
+        682  |   .5046015   .4161205     1.21   0.225    -.3109797    1.320183
+        683  |   .3794449   .4117358     0.92   0.357    -.4275425    1.186432
+        684  |   .4835139   .4045537     1.20   0.232    -.3093969    1.276425
+        685  |   .4990684   .4100757     1.22   0.224    -.3046651    1.302802
+        686  |   .2838657   .4145454     0.68   0.493    -.5286283     1.09636
+        687  |   .4999919   .4012589     1.25   0.213     -.286461    1.286445
+        688  |   .4242938   .4086007     1.04   0.299    -.3765488    1.225136
+        689  |   .6013072   .4198397     1.43   0.152    -.2215636    1.424178
+        690  |   .5416342   .4072189     1.33   0.183    -.2565002    1.339769
+        691  |    .266861   .4131518     0.65   0.518    -.5429016    1.076624
+        692  |    .744902   .4225407     1.76   0.078    -.0832625    1.573067
+        693  |   .6156391   .4102993     1.50   0.133    -.1885326    1.419811
+        694  |   .2404976   .4241549     0.57   0.571    -.5908308    1.071826
+        695  |   .4891146   .4110389     1.19   0.234    -.3165068    1.294736
+        696  |   .2412775   .4016513     0.60   0.548    -.5459446    1.028499
+        697  |   .4804449   .3998677     1.20   0.230    -.3032814    1.264171
+        698  |    .301006   .4048934     0.74   0.457    -.4925704    1.094582
+        699  |   .2441793   .4023928     0.61   0.544    -.5444962    1.032855
+        700  |   .1894723   .4026774     0.47   0.638     -.599761    .9787056
+        701  |   .1867689   .4041727     0.46   0.644     -.605395    .9789328
+        702  |    .108046   .4035014     0.27   0.789    -.6828022    .8988943
+        703  |   .1805408   .4015307     0.45   0.653     -.606445    .9675265
+        704  |   .2390989   .4076163     0.59   0.557    -.5598144    1.038012
+        705  |   .3641275   .4042493     0.90   0.368    -.4281866    1.156442
+        706  |   .3326622   .4056311     0.82   0.412    -.4623601    1.127685
+        707  |   .1768884   .4066878     0.43   0.664     -.620205    .9739819
+        708  |   .3870286   .4005258     0.97   0.334    -.3979876    1.172045
+        709  |   .4152489    .400301     1.04   0.300    -.3693268    1.199824
+        710  |   .3505299   .4056929     0.86   0.388    -.4446137    1.145673
+        711  |    .492689   .4036158     1.22   0.222    -.2983834    1.283761
+        712  |   .4365293   .4029497     1.08   0.279    -.3532375    1.226296
+        713  |   .3122996   .4074272     0.77   0.443    -.4862431    1.110842
+        714  |   .3685299   .4050284     0.91   0.363    -.4253111    1.162371
+        715  |   .3011991   .4041592     0.75   0.456    -.4909385    1.093337
+        716  |    .488048    .412947     1.18   0.237    -.3213133    1.297409
+        717  |   .4178718    .406635     1.03   0.304    -.3791183    1.214862
+        718  |   .6203322   .4080091     1.52   0.128    -.1793509    1.420015
+        719  |   .5673334   .4078794     1.39   0.164    -.2320955    1.366762
+        720  |    .568061   .3964799     1.43   0.152    -.2090255    1.345147
+        721  |   .4583815   .4027548     1.14   0.255    -.3310033    1.247766
+        722  |   .5070455   .3996109     1.27   0.204    -.2761774    1.290268
+        723  |   .4420063   .3974034     1.11   0.266      -.33689    1.220903
+        724  |   .3863919   .3966699     0.97   0.330    -.3910668    1.163851
+        725  |   .4200954   .3995484     1.05   0.293     -.363005    1.203196
+        726  |    .335318   .3990476     0.84   0.401     -.446801    1.117437
+        727  |   .4922491   .3985099     1.24   0.217    -.2888161    1.273314
+        728  |   .4104824   .4012125     1.02   0.306    -.3758796    1.196844
+        729  |   .4019506   .3976625     1.01   0.312    -.3774537    1.181355
+        730  |   .5696143   .3987247     1.43   0.153    -.2118717      1.3511
+        731  |   .4959698     .39839     1.24   0.213    -.2848603      1.2768
+        732  |   .6665902   .3956197     1.68   0.092    -.1088102    1.441991
+        733  |   .6771299   .3951975     1.71   0.087     -.097443    1.451703
+        734  |   .5380088   .3961012     1.36   0.174    -.2383353    1.314353
+        735  |   .6117815   .3952879     1.55   0.122    -.1629685    1.386532
+        736  |   .6663618   .3951379     1.69   0.092    -.1080942    1.440818
+        737  |   .6021618   .3961231     1.52   0.128    -.1742252    1.378549
+        738  |   .6295151   .3954247     1.59   0.111    -.1455031    1.404533
+        739  |   .6556801   .3970464     1.65   0.099    -.1225165    1.433877
+        740  |   .7358417   .3968741     1.85   0.064    -.0420172    1.513701
+        741  |   .6950958   .3961505     1.75   0.079     -.081345    1.471536
+        742  |   .6561165   .3973603     1.65   0.099    -.1226954    1.434928
+        743  |   .6801775    .396212     1.72   0.086    -.0963837    1.456739
+        744  |   .8213468   .3942863     2.08   0.037     .0485599    1.594134
+        745  |   .8015717    .394463     2.03   0.042     .0284386    1.574705
+        746  |   .6788876    .395668     1.72   0.086    -.0966073    1.454383
+        747  |   .7099021   .3960298     1.79   0.073    -.0663021    1.486106
+        748  |   .5870289   .3953302     1.48   0.138     -.187804    1.361862
+        749  |   .7419522   .3953214     1.88   0.061    -.0328634    1.516768
+        750  |   .6458982   .3946354     1.64   0.102    -.1275731    1.419369
+        751  |   .6741659   .3950095     1.71   0.088    -.1000384     1.44837
+        752  |   .6768531   .3961934     1.71   0.088    -.0996717    1.453378
+        753  |   .7207764   .3958172     1.82   0.069    -.0550111    1.496564
+        754  |   .7360654   .3969727     1.85   0.064    -.0419867    1.514118
+        755  |   .7119796   .3956858     1.80   0.072    -.0635503     1.48751
+        756  |   .8862856   .3937205     2.25   0.024     .1146076    1.657964
+        757  |   .8626595   .3944044     2.19   0.029      .089641    1.635678
+        758  |   .8203458   .3943778     2.08   0.038     .0473795    1.593312
+        759  |   .9096919    .393999     2.31   0.021     .1374681    1.681916
+        760  |   .8567359   .3940358     2.17   0.030     .0844398    1.629032
+        761  |   .7980837   .3942796     2.02   0.043     .0253099    1.570858
+        762  |   .9133135   .3938735     2.32   0.020     .1413356    1.685291
+        763  |   .8540843   .3939654     2.17   0.030     .0819263    1.626242
+        764  |   .8433014   .3943171     2.14   0.032     .0704541    1.616149
+        765  |   .9294643   .3939594     2.36   0.018      .157318    1.701611
+        766  |   .8939752   .3945757     2.27   0.023     .1206211    1.667329
+        767  |   .7592757   .3946007     1.92   0.054    -.0141274    1.532679
+             |
+       _cons |  -2.218308   .4048143    -5.48   0.000     -3.01173   -1.424887
+------------------------------------------------------------------------------
+Note: 9 failures and 0 successes completely determined.
+----------------------------------------------------------------------------------------
+        Variable     Sample |    Treated     Controls   Difference         S.E.   T-stat
+----------------------------+-----------------------------------------------------------
+       ShannonBD  Unmatched | 2.44980596   2.44300792    .00679804   .009255195     0.73
+                        ATT | 2.45007261   2.48045401  -.030381403   .016471132    -1.84
+----------------------------+-----------------------------------------------------------
+Note: S.E. does not take into account that the propensity score is estimated.
+
+ psmatch2: |   psmatch2: Common
+ Treatment |        support
+assignment | Off suppo  On suppor |     Total
+-----------+----------------------+----------
+ Untreated |         0     27,512 |    27,512 
+   Treated |        10     19,006 |    19,016 
+-----------+----------------------+----------
+     Total |        10     46,518 |    46,528 
+
+. reghdfe ShannonBD PI $control if _weight != ., absorb(county year) cluster(county)
+(dropped 246 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     27,202
+Absorbing 2 HDFE groups                           F(  10,   2027) =      63.60
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3474
+                                                  Adj R-squared   =     0.2912
+                                                  Within R-sq.    =     0.0451
+Number of clusters (county)  =      2,028         Root MSE        =     0.8507
+
+                             (Std. err. adjusted for 2,028 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0071616    .003925    -1.82   0.068    -.0148591    .0005359
+        Temp |  -.0023605   .0233563    -0.10   0.920    -.0481653    .0434443
+        Wind |  -.0082893   .0991631    -0.08   0.933    -.2027614    .1861829
+         Pop |  -.1995848    .218027    -0.92   0.360    -.6271652    .2279957
+    Duration |   .1862381   .0075036    24.82   0.000     .1715225    .2009536
+      Carbon |  -.0864885   .0522105    -1.66   0.098    -.1888804    .0159034
+       Water |  -1.354523   1.250692    -1.08   0.279    -3.807298    1.098253
+       Green |   .0350146   1.182799     0.03   0.976    -2.284614    2.354643
+        Farm |   -.307394   .9683905    -0.32   0.751    -2.206538     1.59175
+       Grass |   .5009844   1.460253     0.34   0.732     -2.36277    3.364739
+       _cons |   4.600706   1.602126     2.87   0.004      1.45872    7.742692
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2028        2028           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local year "YES"
+
+added macro:
+               e(year) : "YES"
+
+. estadd local county "YES"
+
+added macro:
+             e(county) : "YES"
+
+. est store s1
+
+. **重新匹配，1:2 邻近匹配
+. psmatch2 treated $control i.year, outcome(ShannonBD) neighbor(2) caliper(0.05) common
+
+Probit regression                                     Number of obs =   46,528
+                                                      LR chi2(128)  = 17188.97
+                                                      Prob > chi2   =   0.0000
+Log likelihood = -22876.215                           Pseudo R2     =   0.2731
+
+------------------------------------------------------------------------------
+     treated | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Temp |   .0140061    .002066     6.78   0.000     .0099568    .0180554
+        Wind |   .0263441   .0109177     2.41   0.016     .0049457    .0477424
+         Pop |  -.5003601   .0082909   -60.35   0.000    -.5166101   -.4841102
+    Duration |  -.0224558   .0064208    -3.50   0.000    -.0350404   -.0098713
+      Carbon |   .0302818   .0057272     5.29   0.000     .0190566     .041507
+       Water |   3.005874   .1701495    17.67   0.000     2.672388    3.339361
+       Green |   3.562518   .0603429    59.04   0.000     3.444248    3.680788
+        Farm |    4.80485   .0693815    69.25   0.000     4.668864    4.940835
+       Grass |   1.499712   .0695829    21.55   0.000     1.363332    1.636092
+             |
+        year |
+        649  |   .4623304   .4862172     0.95   0.342    -.4906377    1.415299
+        650  |   .6617715   .4819074     1.37   0.170    -.2827496    1.606293
+        651  |   .4213147   .5081922     0.83   0.407    -.5747237    1.417353
+        652  |   .1063481    .448673     0.24   0.813    -.7730348     .985731
+        653  |   .5781036   .4575892     1.26   0.206    -.3187546    1.474962
+        654  |  -.0344942   .4707659    -0.07   0.942    -.9571785      .88819
+        655  |  -.1823901   .4866806    -0.37   0.708    -1.136266    .7714863
+        656  |   .8844003   .4673602     1.89   0.058    -.0316089     1.80041
+        657  |   .2566986   .4395585     0.58   0.559    -.6048203    1.118218
+        658  |   -.109723   .4347278    -0.25   0.801    -.9617738    .7423278
+        659  |   .1376855   .4116921     0.33   0.738    -.6692163    .9445873
+        660  |   .0905949   .4086098     0.22   0.825    -.7102656    .8914554
+        661  |   .4371766   .4073272     1.07   0.283      -.36117    1.235523
+        662  |   .4539818   .4128301     1.10   0.271    -.3551503    1.263114
+        663  |   .5376423   .4068987     1.32   0.186    -.2598644    1.335149
+        664  |   .3033986   .4001287     0.76   0.448    -.4808392    1.087636
+        665  |   .1736337   .4141583     0.42   0.675    -.6381016    .9853691
+        666  |   .2599705   .4047376     0.64   0.521    -.5333007    1.053242
+        667  |   .2662351   .4084301     0.65   0.514    -.5342732    1.066743
+        668  |   .2551457   .4171265     0.61   0.541    -.5624073    1.072699
+        669  |   .4331951   .4121756     1.05   0.293    -.3746542    1.241044
+        670  |   .3798181   .4143364     0.92   0.359    -.4322663    1.191903
+        671  |   .2809784   .4096727     0.69   0.493    -.5219653    1.083922
+        672  |   .3931461   .4066527     0.97   0.334    -.4038785    1.190171
+        673  |   .4929643    .404789     1.22   0.223    -.3004076    1.286336
+        674  |   .2793918   .4140666     0.67   0.500    -.5321638    1.090948
+        675  |   .3959577   .4076748     0.97   0.331    -.4030702    1.194986
+        676  |   .2899515   .4064389     0.71   0.476     -.506654    1.086557
+        677  |    .258239   .4132405     0.62   0.532    -.5516974    1.068175
+        678  |   .2128313   .4114631     0.52   0.605    -.5936215    1.019284
+        679  |   .2914004   .4122155     0.71   0.480    -.5165272    1.099328
+        680  |   .2892932   .4185739     0.69   0.489    -.5310964    1.109683
+        681  |   .5084337   .4123526     1.23   0.218    -.2997625     1.31663
+        682  |   .5046015   .4161205     1.21   0.225    -.3109797    1.320183
+        683  |   .3794449   .4117358     0.92   0.357    -.4275425    1.186432
+        684  |   .4835139   .4045537     1.20   0.232    -.3093969    1.276425
+        685  |   .4990684   .4100757     1.22   0.224    -.3046651    1.302802
+        686  |   .2838657   .4145454     0.68   0.493    -.5286283     1.09636
+        687  |   .4999919   .4012589     1.25   0.213     -.286461    1.286445
+        688  |   .4242938   .4086007     1.04   0.299    -.3765488    1.225136
+        689  |   .6013072   .4198397     1.43   0.152    -.2215636    1.424178
+        690  |   .5416342   .4072189     1.33   0.183    -.2565002    1.339769
+        691  |    .266861   .4131518     0.65   0.518    -.5429016    1.076624
+        692  |    .744902   .4225407     1.76   0.078    -.0832625    1.573067
+        693  |   .6156391   .4102993     1.50   0.133    -.1885326    1.419811
+        694  |   .2404976   .4241549     0.57   0.571    -.5908308    1.071826
+        695  |   .4891146   .4110389     1.19   0.234    -.3165068    1.294736
+        696  |   .2412775   .4016513     0.60   0.548    -.5459446    1.028499
+        697  |   .4804449   .3998677     1.20   0.230    -.3032814    1.264171
+        698  |    .301006   .4048934     0.74   0.457    -.4925704    1.094582
+        699  |   .2441793   .4023928     0.61   0.544    -.5444962    1.032855
+        700  |   .1894723   .4026774     0.47   0.638     -.599761    .9787056
+        701  |   .1867689   .4041727     0.46   0.644     -.605395    .9789328
+        702  |    .108046   .4035014     0.27   0.789    -.6828022    .8988943
+        703  |   .1805408   .4015307     0.45   0.653     -.606445    .9675265
+        704  |   .2390989   .4076163     0.59   0.557    -.5598144    1.038012
+        705  |   .3641275   .4042493     0.90   0.368    -.4281866    1.156442
+        706  |   .3326622   .4056311     0.82   0.412    -.4623601    1.127685
+        707  |   .1768884   .4066878     0.43   0.664     -.620205    .9739819
+        708  |   .3870286   .4005258     0.97   0.334    -.3979876    1.172045
+        709  |   .4152489    .400301     1.04   0.300    -.3693268    1.199824
+        710  |   .3505299   .4056929     0.86   0.388    -.4446137    1.145673
+        711  |    .492689   .4036158     1.22   0.222    -.2983834    1.283761
+        712  |   .4365293   .4029497     1.08   0.279    -.3532375    1.226296
+        713  |   .3122996   .4074272     0.77   0.443    -.4862431    1.110842
+        714  |   .3685299   .4050284     0.91   0.363    -.4253111    1.162371
+        715  |   .3011991   .4041592     0.75   0.456    -.4909385    1.093337
+        716  |    .488048    .412947     1.18   0.237    -.3213133    1.297409
+        717  |   .4178718    .406635     1.03   0.304    -.3791183    1.214862
+        718  |   .6203322   .4080091     1.52   0.128    -.1793509    1.420015
+        719  |   .5673334   .4078794     1.39   0.164    -.2320955    1.366762
+        720  |    .568061   .3964799     1.43   0.152    -.2090255    1.345147
+        721  |   .4583815   .4027548     1.14   0.255    -.3310033    1.247766
+        722  |   .5070455   .3996109     1.27   0.204    -.2761774    1.290268
+        723  |   .4420063   .3974034     1.11   0.266      -.33689    1.220903
+        724  |   .3863919   .3966699     0.97   0.330    -.3910668    1.163851
+        725  |   .4200954   .3995484     1.05   0.293     -.363005    1.203196
+        726  |    .335318   .3990476     0.84   0.401     -.446801    1.117437
+        727  |   .4922491   .3985099     1.24   0.217    -.2888161    1.273314
+        728  |   .4104824   .4012125     1.02   0.306    -.3758796    1.196844
+        729  |   .4019506   .3976625     1.01   0.312    -.3774537    1.181355
+        730  |   .5696143   .3987247     1.43   0.153    -.2118717      1.3511
+        731  |   .4959698     .39839     1.24   0.213    -.2848603      1.2768
+        732  |   .6665902   .3956197     1.68   0.092    -.1088102    1.441991
+        733  |   .6771299   .3951975     1.71   0.087     -.097443    1.451703
+        734  |   .5380088   .3961012     1.36   0.174    -.2383353    1.314353
+        735  |   .6117815   .3952879     1.55   0.122    -.1629685    1.386532
+        736  |   .6663618   .3951379     1.69   0.092    -.1080942    1.440818
+        737  |   .6021618   .3961231     1.52   0.128    -.1742252    1.378549
+        738  |   .6295151   .3954247     1.59   0.111    -.1455031    1.404533
+        739  |   .6556801   .3970464     1.65   0.099    -.1225165    1.433877
+        740  |   .7358417   .3968741     1.85   0.064    -.0420172    1.513701
+        741  |   .6950958   .3961505     1.75   0.079     -.081345    1.471536
+        742  |   .6561165   .3973603     1.65   0.099    -.1226954    1.434928
+        743  |   .6801775    .396212     1.72   0.086    -.0963837    1.456739
+        744  |   .8213468   .3942863     2.08   0.037     .0485599    1.594134
+        745  |   .8015717    .394463     2.03   0.042     .0284386    1.574705
+        746  |   .6788876    .395668     1.72   0.086    -.0966073    1.454383
+        747  |   .7099021   .3960298     1.79   0.073    -.0663021    1.486106
+        748  |   .5870289   .3953302     1.48   0.138     -.187804    1.361862
+        749  |   .7419522   .3953214     1.88   0.061    -.0328634    1.516768
+        750  |   .6458982   .3946354     1.64   0.102    -.1275731    1.419369
+        751  |   .6741659   .3950095     1.71   0.088    -.1000384     1.44837
+        752  |   .6768531   .3961934     1.71   0.088    -.0996717    1.453378
+        753  |   .7207764   .3958172     1.82   0.069    -.0550111    1.496564
+        754  |   .7360654   .3969727     1.85   0.064    -.0419867    1.514118
+        755  |   .7119796   .3956858     1.80   0.072    -.0635503     1.48751
+        756  |   .8862856   .3937205     2.25   0.024     .1146076    1.657964
+        757  |   .8626595   .3944044     2.19   0.029      .089641    1.635678
+        758  |   .8203458   .3943778     2.08   0.038     .0473795    1.593312
+        759  |   .9096919    .393999     2.31   0.021     .1374681    1.681916
+        760  |   .8567359   .3940358     2.17   0.030     .0844398    1.629032
+        761  |   .7980837   .3942796     2.02   0.043     .0253099    1.570858
+        762  |   .9133135   .3938735     2.32   0.020     .1413356    1.685291
+        763  |   .8540843   .3939654     2.17   0.030     .0819263    1.626242
+        764  |   .8433014   .3943171     2.14   0.032     .0704541    1.616149
+        765  |   .9294643   .3939594     2.36   0.018      .157318    1.701611
+        766  |   .8939752   .3945757     2.27   0.023     .1206211    1.667329
+        767  |   .7592757   .3946007     1.92   0.054    -.0141274    1.532679
+             |
+       _cons |  -2.218308   .4048143    -5.48   0.000     -3.01173   -1.424887
+------------------------------------------------------------------------------
+Note: 9 failures and 0 successes completely determined.
+----------------------------------------------------------------------------------------
+        Variable     Sample |    Treated     Controls   Difference         S.E.   T-stat
+----------------------------+-----------------------------------------------------------
+       ShannonBD  Unmatched | 2.44980596   2.44300792    .00679804   .009255195     0.73
+                        ATT | 2.45007261   2.47363866  -.023566054   .014597756    -1.61
+----------------------------+-----------------------------------------------------------
+Note: S.E. does not take into account that the propensity score is estimated.
+
+ psmatch2: |   psmatch2: Common
+ Treatment |        support
+assignment | Off suppo  On suppor |     Total
+-----------+----------------------+----------
+ Untreated |         0     27,512 |    27,512 
+   Treated |        10     19,006 |    19,016 
+-----------+----------------------+----------
+     Total |        10     46,518 |    46,528 
+
+. reghdfe ShannonBD PI $control if _weight != ., absorb(county year) cluster(county)
+(dropped 219 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     30,968
+Absorbing 2 HDFE groups                           F(  10,   2105) =      71.11
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3434
+                                                  Adj R-squared   =     0.2923
+                                                  Within R-sq.    =     0.0440
+Number of clusters (county)  =      2,106         Root MSE        =     0.8451
+
+                             (Std. err. adjusted for 2,106 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0082946   .0037972    -2.18   0.029    -.0157412    -.000848
+        Temp |   .0128724   .0221506     0.58   0.561    -.0305669    .0563117
+        Wind |  -.0420027   .0907458    -0.46   0.644    -.2199635    .1359581
+         Pop |  -.2396216   .1971139    -1.22   0.224      -.62618    .1469369
+    Duration |   .1822197   .0069654    26.16   0.000     .1685598    .1958795
+      Carbon |  -.0774625   .0496568    -1.56   0.119     -.174844     .019919
+       Water |  -.6968728   1.223608    -0.57   0.569    -3.096479    1.702734
+       Green |    .479536   1.142042     0.42   0.675    -1.760113    2.719185
+        Farm |   .0238125   .8994064     0.03   0.979    -1.740006    1.787631
+       Grass |   .6740239   1.307363     0.52   0.606    -1.889834    3.237882
+       _cons |   4.182343   1.486584     2.81   0.005     1.267016     7.09767
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2106        2106           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. estadd local year "YES"
+
+added macro:
+               e(year) : "YES"
+
+. estadd local county "YES"
+
+added macro:
+             e(county) : "YES"
+
+. est store s2
+
+. **核匹配
+. psmatch2 treated $control i.year, outcome(ShannonBD) kernel common
+
+Probit regression                                     Number of obs =   46,528
+                                                      LR chi2(128)  = 17188.97
+                                                      Prob > chi2   =   0.0000
+Log likelihood = -22876.215                           Pseudo R2     =   0.2731
+
+------------------------------------------------------------------------------
+     treated | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Temp |   .0140061    .002066     6.78   0.000     .0099568    .0180554
+        Wind |   .0263441   .0109177     2.41   0.016     .0049457    .0477424
+         Pop |  -.5003601   .0082909   -60.35   0.000    -.5166101   -.4841102
+    Duration |  -.0224558   .0064208    -3.50   0.000    -.0350404   -.0098713
+      Carbon |   .0302818   .0057272     5.29   0.000     .0190566     .041507
+       Water |   3.005874   .1701495    17.67   0.000     2.672388    3.339361
+       Green |   3.562518   .0603429    59.04   0.000     3.444248    3.680788
+        Farm |    4.80485   .0693815    69.25   0.000     4.668864    4.940835
+       Grass |   1.499712   .0695829    21.55   0.000     1.363332    1.636092
+             |
+        year |
+        649  |   .4623304   .4862172     0.95   0.342    -.4906377    1.415299
+        650  |   .6617715   .4819074     1.37   0.170    -.2827496    1.606293
+        651  |   .4213147   .5081922     0.83   0.407    -.5747237    1.417353
+        652  |   .1063481    .448673     0.24   0.813    -.7730348     .985731
+        653  |   .5781036   .4575892     1.26   0.206    -.3187546    1.474962
+        654  |  -.0344942   .4707659    -0.07   0.942    -.9571785      .88819
+        655  |  -.1823901   .4866806    -0.37   0.708    -1.136266    .7714863
+        656  |   .8844003   .4673602     1.89   0.058    -.0316089     1.80041
+        657  |   .2566986   .4395585     0.58   0.559    -.6048203    1.118218
+        658  |   -.109723   .4347278    -0.25   0.801    -.9617738    .7423278
+        659  |   .1376855   .4116921     0.33   0.738    -.6692163    .9445873
+        660  |   .0905949   .4086098     0.22   0.825    -.7102656    .8914554
+        661  |   .4371766   .4073272     1.07   0.283      -.36117    1.235523
+        662  |   .4539818   .4128301     1.10   0.271    -.3551503    1.263114
+        663  |   .5376423   .4068987     1.32   0.186    -.2598644    1.335149
+        664  |   .3033986   .4001287     0.76   0.448    -.4808392    1.087636
+        665  |   .1736337   .4141583     0.42   0.675    -.6381016    .9853691
+        666  |   .2599705   .4047376     0.64   0.521    -.5333007    1.053242
+        667  |   .2662351   .4084301     0.65   0.514    -.5342732    1.066743
+        668  |   .2551457   .4171265     0.61   0.541    -.5624073    1.072699
+        669  |   .4331951   .4121756     1.05   0.293    -.3746542    1.241044
+        670  |   .3798181   .4143364     0.92   0.359    -.4322663    1.191903
+        671  |   .2809784   .4096727     0.69   0.493    -.5219653    1.083922
+        672  |   .3931461   .4066527     0.97   0.334    -.4038785    1.190171
+        673  |   .4929643    .404789     1.22   0.223    -.3004076    1.286336
+        674  |   .2793918   .4140666     0.67   0.500    -.5321638    1.090948
+        675  |   .3959577   .4076748     0.97   0.331    -.4030702    1.194986
+        676  |   .2899515   .4064389     0.71   0.476     -.506654    1.086557
+        677  |    .258239   .4132405     0.62   0.532    -.5516974    1.068175
+        678  |   .2128313   .4114631     0.52   0.605    -.5936215    1.019284
+        679  |   .2914004   .4122155     0.71   0.480    -.5165272    1.099328
+        680  |   .2892932   .4185739     0.69   0.489    -.5310964    1.109683
+        681  |   .5084337   .4123526     1.23   0.218    -.2997625     1.31663
+        682  |   .5046015   .4161205     1.21   0.225    -.3109797    1.320183
+        683  |   .3794449   .4117358     0.92   0.357    -.4275425    1.186432
+        684  |   .4835139   .4045537     1.20   0.232    -.3093969    1.276425
+        685  |   .4990684   .4100757     1.22   0.224    -.3046651    1.302802
+        686  |   .2838657   .4145454     0.68   0.493    -.5286283     1.09636
+        687  |   .4999919   .4012589     1.25   0.213     -.286461    1.286445
+        688  |   .4242938   .4086007     1.04   0.299    -.3765488    1.225136
+        689  |   .6013072   .4198397     1.43   0.152    -.2215636    1.424178
+        690  |   .5416342   .4072189     1.33   0.183    -.2565002    1.339769
+        691  |    .266861   .4131518     0.65   0.518    -.5429016    1.076624
+        692  |    .744902   .4225407     1.76   0.078    -.0832625    1.573067
+        693  |   .6156391   .4102993     1.50   0.133    -.1885326    1.419811
+        694  |   .2404976   .4241549     0.57   0.571    -.5908308    1.071826
+        695  |   .4891146   .4110389     1.19   0.234    -.3165068    1.294736
+        696  |   .2412775   .4016513     0.60   0.548    -.5459446    1.028499
+        697  |   .4804449   .3998677     1.20   0.230    -.3032814    1.264171
+        698  |    .301006   .4048934     0.74   0.457    -.4925704    1.094582
+        699  |   .2441793   .4023928     0.61   0.544    -.5444962    1.032855
+        700  |   .1894723   .4026774     0.47   0.638     -.599761    .9787056
+        701  |   .1867689   .4041727     0.46   0.644     -.605395    .9789328
+        702  |    .108046   .4035014     0.27   0.789    -.6828022    .8988943
+        703  |   .1805408   .4015307     0.45   0.653     -.606445    .9675265
+        704  |   .2390989   .4076163     0.59   0.557    -.5598144    1.038012
+        705  |   .3641275   .4042493     0.90   0.368    -.4281866    1.156442
+        706  |   .3326622   .4056311     0.82   0.412    -.4623601    1.127685
+        707  |   .1768884   .4066878     0.43   0.664     -.620205    .9739819
+        708  |   .3870286   .4005258     0.97   0.334    -.3979876    1.172045
+        709  |   .4152489    .400301     1.04   0.300    -.3693268    1.199824
+        710  |   .3505299   .4056929     0.86   0.388    -.4446137    1.145673
+        711  |    .492689   .4036158     1.22   0.222    -.2983834    1.283761
+        712  |   .4365293   .4029497     1.08   0.279    -.3532375    1.226296
+        713  |   .3122996   .4074272     0.77   0.443    -.4862431    1.110842
+        714  |   .3685299   .4050284     0.91   0.363    -.4253111    1.162371
+        715  |   .3011991   .4041592     0.75   0.456    -.4909385    1.093337
+        716  |    .488048    .412947     1.18   0.237    -.3213133    1.297409
+        717  |   .4178718    .406635     1.03   0.304    -.3791183    1.214862
+        718  |   .6203322   .4080091     1.52   0.128    -.1793509    1.420015
+        719  |   .5673334   .4078794     1.39   0.164    -.2320955    1.366762
+        720  |    .568061   .3964799     1.43   0.152    -.2090255    1.345147
+        721  |   .4583815   .4027548     1.14   0.255    -.3310033    1.247766
+        722  |   .5070455   .3996109     1.27   0.204    -.2761774    1.290268
+        723  |   .4420063   .3974034     1.11   0.266      -.33689    1.220903
+        724  |   .3863919   .3966699     0.97   0.330    -.3910668    1.163851
+        725  |   .4200954   .3995484     1.05   0.293     -.363005    1.203196
+        726  |    .335318   .3990476     0.84   0.401     -.446801    1.117437
+        727  |   .4922491   .3985099     1.24   0.217    -.2888161    1.273314
+        728  |   .4104824   .4012125     1.02   0.306    -.3758796    1.196844
+        729  |   .4019506   .3976625     1.01   0.312    -.3774537    1.181355
+        730  |   .5696143   .3987247     1.43   0.153    -.2118717      1.3511
+        731  |   .4959698     .39839     1.24   0.213    -.2848603      1.2768
+        732  |   .6665902   .3956197     1.68   0.092    -.1088102    1.441991
+        733  |   .6771299   .3951975     1.71   0.087     -.097443    1.451703
+        734  |   .5380088   .3961012     1.36   0.174    -.2383353    1.314353
+        735  |   .6117815   .3952879     1.55   0.122    -.1629685    1.386532
+        736  |   .6663618   .3951379     1.69   0.092    -.1080942    1.440818
+        737  |   .6021618   .3961231     1.52   0.128    -.1742252    1.378549
+        738  |   .6295151   .3954247     1.59   0.111    -.1455031    1.404533
+        739  |   .6556801   .3970464     1.65   0.099    -.1225165    1.433877
+        740  |   .7358417   .3968741     1.85   0.064    -.0420172    1.513701
+        741  |   .6950958   .3961505     1.75   0.079     -.081345    1.471536
+        742  |   .6561165   .3973603     1.65   0.099    -.1226954    1.434928
+        743  |   .6801775    .396212     1.72   0.086    -.0963837    1.456739
+        744  |   .8213468   .3942863     2.08   0.037     .0485599    1.594134
+        745  |   .8015717    .394463     2.03   0.042     .0284386    1.574705
+        746  |   .6788876    .395668     1.72   0.086    -.0966073    1.454383
+        747  |   .7099021   .3960298     1.79   0.073    -.0663021    1.486106
+        748  |   .5870289   .3953302     1.48   0.138     -.187804    1.361862
+        749  |   .7419522   .3953214     1.88   0.061    -.0328634    1.516768
+        750  |   .6458982   .3946354     1.64   0.102    -.1275731    1.419369
+        751  |   .6741659   .3950095     1.71   0.088    -.1000384     1.44837
+        752  |   .6768531   .3961934     1.71   0.088    -.0996717    1.453378
+        753  |   .7207764   .3958172     1.82   0.069    -.0550111    1.496564
+        754  |   .7360654   .3969727     1.85   0.064    -.0419867    1.514118
+        755  |   .7119796   .3956858     1.80   0.072    -.0635503     1.48751
+        756  |   .8862856   .3937205     2.25   0.024     .1146076    1.657964
+        757  |   .8626595   .3944044     2.19   0.029      .089641    1.635678
+        758  |   .8203458   .3943778     2.08   0.038     .0473795    1.593312
+        759  |   .9096919    .393999     2.31   0.021     .1374681    1.681916
+        760  |   .8567359   .3940358     2.17   0.030     .0844398    1.629032
+        761  |   .7980837   .3942796     2.02   0.043     .0253099    1.570858
+        762  |   .9133135   .3938735     2.32   0.020     .1413356    1.685291
+        763  |   .8540843   .3939654     2.17   0.030     .0819263    1.626242
+        764  |   .8433014   .3943171     2.14   0.032     .0704541    1.616149
+        765  |   .9294643   .3939594     2.36   0.018      .157318    1.701611
+        766  |   .8939752   .3945757     2.27   0.023     .1206211    1.667329
+        767  |   .7592757   .3946007     1.92   0.054    -.0141274    1.532679
+             |
+       _cons |  -2.218308   .4048143    -5.48   0.000     -3.01173   -1.424887
+------------------------------------------------------------------------------
+Note: 9 failures and 0 successes completely determined.

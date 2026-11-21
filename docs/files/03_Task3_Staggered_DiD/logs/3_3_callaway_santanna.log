@@ -1,0 +1,840 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/logs/3_3_callawa
+> y_santanna.log
+  log type:  text
+ opened on:  11 Nov 2026, 17:51:19
+
+================ 3_3_callaway_santanna ================
+
+. *==========================================================================
+. * 00_config.do
+. * Project : Replication of Zhang et al. (2026), "China's solar expansion
+. *           policy reduces bird diversity", Science 393, 831.
+. * Purpose : One place for paths, globals and package installation.
+. *           Every task do-file starts with:  do "<ROOT>/00_config.do"
+. * Author  : Sahil (Research Assistant, Johns Hopkins University)
+. *==========================================================================
+. version 16
+
+. set more off
+
+. set linesize 120
+
+. 
+. *---------------------------------------------------------------- paths
+. global ROOT "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication"
+
+. global ORIG "$ROOT/00_Original_Package"
+
+. global DATA "$ORIG/DATA"
+
+. global T1   "$ROOT/01_Task1_Replication"
+
+. global T2   "$ROOT/02_Task2_Sensitivity"
+
+. global T3   "$ROOT/03_Task3_Staggered_DiD"
+
+. 
+. * analysis sample built in Task 1 (used by all tasks)
+. global SAMPLE "$T1/data/analysis_sample.dta"
+
+. 
+. *---------------------------------------------------------------- model
+. * the authors' nine control variables (Table 1, column 3)
+. global control     "Temp Wind Pop Duration Carbon Water Green Farm Grass"
+
+. global control_noD "Temp Wind Pop Carbon Water Green Farm Grass"
+
+. 
+. *---------------------------------------------------------------- packages
+. * installed only if missing
+. foreach p in require ftools reghdfe ivreg2 ranktest ivreghdfe estout winsor2 ///
+>              psmatch2 binscatter sensemakr drdid csdid did_imputation       ///
+>              event_plot avar eventstudyinteract {
+  2.     capture which `p'
+  3.     if _rc {
+  4.         di as txt "installing `p' ..."
+  5.         capture noisily ssc install `p', replace
+  6.     }
+  7. }
+
+. set scheme s2color
+
+. 
+end of do-file
+
+. *==========================================================================
+. * 3_3_callaway_santanna.do
+. * PURPOSE : Callaway & Sant'Anna (2021) group-time ATT(g,t), aggregated to
+. *           an overall ATT and an event study, with NOT-YET-TREATED counties
+. *           as controls (never-treated included).
+. * DATA    : county-year panel (monthly Shannon averaged within year after
+. *           removing month-of-year effects). The panel is UNBALANCED: by default
+. *           csdid would balance it by dropping every county not observed in all
+. *           10 years (903 of 939 counties). bal(pair) instead balances each 2x2
+. *           comparison separately, so every county observed in both years of a
+. *           comparison is used.
+. * SPECS   : M1 main sample, unconditional parallel trends
+. *           M2 main sample, parallel trends conditional on urban
+. *           P1 paper-style sample (missing-PSI counties = never treated)
+. * OUTPUT  : tables/3_3_cs_att.csv, tables/3_3_cs_event.csv,
+. *           figures/3_3_event_study_cs_*.pdf
+. *==========================================================================
+. *--------------------------------------------------------------------------
+. * Helper: aggregate csdid's ATT(g,t) cells. Cells that cannot be estimated
+. * (tiny cohorts) must be excluded with -dropmissing-; the option syntax differs
+. * across csdid versions, so each variant is tried and the one used is logged.
+. * Returns row vectors _B (estimates) and _SE (standard errors).
+. *--------------------------------------------------------------------------
+. capture program drop cs_agg
+
+. program define cs_agg
+  1.     syntax anything(name=type) [, Window(string)]
+  2.     local w ""
+  3.     if "`window'" != "" local w "window(`window')"
+  4.     local used ""
+  5.     foreach opt in "post dropmissing" "dropmissing post" "dropmissing" "post" {
+  6.         capture noisily estat `type', `w' `opt'
+  7.         if _rc == 0 {
+  8.             local used "`opt'"
+  9.             continue, break
+ 10.         }
+ 11.     }
+ 12.     if "`used'" == "" {
+ 13.         di as err "estat `type' failed with every option set"
+ 14.         exit 498
+ 15.     }
+ 16.     di as res "estat `type' ran with options: `used'"
+ 17.     if strpos("`used'", "post") {
+ 18.         matrix _B = e(b)
+ 19.         matrix _V = e(V)
+ 20.     }
+ 21.     else {
+ 22.         capture confirm matrix r(b)
+ 23.         if !_rc {
+ 24.             matrix _B = r(b)
+ 25.             matrix _V = r(V)
+ 26.         }
+ 27.         else {
+ 28.             matrix _T = r(table)
+ 29.             matrix _B = _T[1, 1...]
+ 30.             matrix _V = diag(_T[2, 1...])
+ 31.             forvalues i = 1/`=colsof(_V)' {
+ 32.                 matrix _V[`i',`i'] = _V[`i',`i']^2
+ 33.             }
+ 34.         }
+ 35.     }
+ 36.     matrix _SE = _B
+ 37.     forvalues i = 1/`=colsof(_B)' {
+ 38.         matrix _SE[1,`i'] = sqrt(_V[`i',`i'])
+ 39.     }
+ 40.     matrix list _B
+ 41.     matrix list _SE
+ 42. end
+
+. 
+. tempname A
+
+. postfile `A' str40 spec double(att se N_cy) using "$T3/tables/cs_att.dta", replace
+
+. tempname E
+
+. postfile `E' str40 spec int event_time double(b se) using "$T3/tables/cs_event.dta", replace
+
+. 
+. local specs "M1 M2 P1"
+
+. local lab_M1 "Main sample, unconditional"
+
+. local lab_M2 "Main sample, conditional on urban"
+
+. local lab_P1 "Paper-style sample (missing PSI = never)"
+
+. 
+. foreach s of local specs {
+  2.     use "$T3/data/staggered_countyyear.dta", clear
+  3.     if "`s'" == "P1" local gv g_paper
+  4.     else {
+  5.         local gv g_main
+  6.         keep if !missing(g_main)
+  7.     }
+  8.     local x ""
+  9.     if "`s'" == "M2" local x "urban"
+ 10.     di as res _n "================ CS: `lab_`s'' ================"
+ 11.     * how unbalanced is the panel? (counties observed in all 10 years)
+.     preserve
+ 12.         bysort county: gen byte nyears = _N
+ 13.         egen byte tagc = tag(county)
+ 14.         count if tagc
+ 15.         local nc = r(N)
+ 16.         count if tagc & nyears < 10
+ 17.         di as res "Counties: `nc'; not observed in all 10 years: " r(N)
+ 18.     restore
+ 19. 
+.     set seed 20261107
+ 20.     capture noisily csdid shannon_sa `x', ivar(county) time(YEAR) gvar(`gv') notyet bal(pair) rseed(20261107)
+ 21.     if _rc csdid shannon_sa `x', ivar(county) time(YEAR) gvar(`gv') notyet bal(pair)
+ 22.     * number of counties and county-years entering the estimation
+.     quietly count if e(sample)
+ 23.     local Ncy = r(N)
+ 24.     di as res "County-years used: `Ncy'"
+ 25.     * pre-test of parallel trends (all pre-treatment ATT(g,t) = 0)
+.     capture noisily estat pretrend
+ 26.     estimates store cs_full_`s'
+ 27. 
+.     * overall ATT (simple aggregation)
+.     cs_agg simple
+ 28.     post `A' ("`lab_`s''") (_B[1,1]) (_SE[1,1]) (`Ncy')
+ 29.     di "Overall ATT = " %8.4f _B[1,1] "  (SE " %6.4f _SE[1,1] ")"
+ 30. 
+.     * event-study aggregation, window -5..+5
+.     estimates restore cs_full_`s'
+ 31.     cs_agg event, window(-5 5)
+ 32.     local names : colnames _B
+ 33.     local j = 0
+ 34.     foreach nm of local names {
+ 35.         local ++j
+ 36.         if ustrregexm("`nm'", "^[Tt]m([0-9]+)$") {
+ 37.             post `E' ("`lab_`s''") (-real(ustrregexs(1))) (_B[1,`j']) (_SE[1,`j'])
+ 38.         }
+ 39.         else if ustrregexm("`nm'", "^[Tt]p([0-9]+)$") {
+ 40.             post `E' ("`lab_`s''") (real(ustrregexs(1))) (_B[1,`j']) (_SE[1,`j'])
+ 41.         }
+ 42.         else di "`nm' = " %8.4f _B[1,`j'] "  (SE " %6.4f _SE[1,`j'] ")"
+ 43.     }
+ 44. 
+.     * cohort-specific ATTs
+.     estimates restore cs_full_`s'
+ 45.     capture noisily cs_agg group
+ 46. }
+(4,077 observations deleted)
+
+================ CS: Main sample, unconditional ================
+  939
+  903
+Counties: 939; not observed in all 10 years: 903
+warning: Some groups in your dataset have very few observations, which may cause estimation problems.
+  Check groups: 2020.
+
+Group-time average treatment effects
+Std. errors: multiplier bootstrap, 1000 reps, rseed(20261107); 95% simultaneous bands
+
+     group        time  event_time         att          se   n_treat_t  n_treat_~e  n_contro~t  n_contro~e 
+----------------------------------------------------------------------------------------------------------
+      2015        2014          -1           0           .          25          25          72          72 
+      2015        2015           0    .0410505      .27853          15          15          52          52 
+      2015        2016           1    .0254428     .400857          14          14          41          41 
+      2015        2017           2     .116095     .333992          16          16          31          31 
+      2015        2018           3       .1008     .398522          18          18          41          41 
+      2015        2019           4   -.0388655     .338153          17          17          32          32 
+      2015        2020           5    .0537983     .303142          19          19          40          40 
+      2015        2021           6     .244856      .25372          20          20          33          33 
+      2015        2022           7     .293162     .336885          22          22          37          37 
+      2015        2023           8     .155567     .334306          24          24          17          17 
+      2016        2014          -2     .194493     .346531           6           6          46          46 
+      2016        2015          -1           0           .          20          20         166         166 
+      2016        2016           0    .0508717     .218976           8           8          94          94 
+      2016        2017           1    -.107954     .224242           6           6          73          73 
+      2016        2018           2   -.0932062     .205872          11          11          94          94 
+      2016        2019           3     .120665     .348438           9           9          73          73 
+      2016        2020           4   -.0271722     .321039          11          11          90          90 
+      2016        2021           5     .522441      .29511          14          14          88          88 
+      2016        2022           6    .0969517     .285051          17          17          79          79 
+      2016        2023           7    .0648697     .268739          19          19          52          52 
+      2017        2014          -3   -.0877983     .352602           7           7          34          34 
+      2017        2015          -2     .455608     .289604          13          13          81          81 
+      2017        2016          -1           0           .          19          19         130         130 
+      2017        2017           0    -.306931     .199502          11          11          74          74 
+      2017        2018           1    -.165373     .246349          13          13          87          87 
+      2017        2019           2    -.437802     .462806          12          12          75          75 
+      2017        2020           3   -.0810414      .37104          13          13          89          89 
+      2017        2021           4   -.0412998     .310622          17          17          81          81 
+      2017        2022           5    -.297749     .377129          17          17          77          77 
+      2017        2023           6    -.120069     .308857          18          18          48          48 
+      2018        2014          -4    -.561606     .238219           2           2          29          29 
+      2018        2015          -3    -.634876     .262272           4           4          69          69 
+      2018        2016          -2     -.54262     .326109           3           3          71          71 
+      2018        2017          -1           0           .           4           4         117         117 
+      2018        2018           0    -1.05291     .163227           4           4          86          86 
+      2018        2019           1    -1.12344     .346668           3           3          67          67 
+      2018        2020           2    -1.26903     .243479           4           4          89          89 
+      2018        2021           3    -1.43798     .300322           4           4          77          77 
+      2018        2022           4    -1.14978     .122034           4           4          72          72 
+      2018        2023           5    -.928745     .267959           4           4          49          49 
+      2019        2014          -5    -.677045     .512008           2           2          39          39 
+      2019        2015          -4     .386354     .341761           8           8          86          86 
+      2019        2016          -3     .195605     .328167           7           7          80          80 
+      2019        2017          -2     .379469     .398531           6           6          80          80 
+      2019        2018          -1           0           .          12          12         162         162 
+      2019        2019           0    .0924002     .332444          10          10          92          92 
+      2019        2020           1   -.0353285     .263961          12          12         123         123 
+      2019        2021           2     .617137     .328211          11          11         112         112 
+      2019        2022           3      .30506     .294772          12          12         107         107 
+      2019        2023           4      .56568     .301529          12          12          68          68 
+      2020        2014          -6           .           .           0           0          32          32 
+      2020        2015          -5     1.31389     .128943           1           1          72          72 
+      2020        2016          -4     1.26078     .132093           1           1          74          74 
+      2020        2017          -3           .           .           0           0          67          67 
+      2020        2018          -2           .           .           0           0          92          92 
+      2020        2019          -1           0           .           1           1         144         144 
+      2020        2020           0           .           .           0           0         115         115 
+      2020        2021           1     .639864    .0999561           1           1         102         102 
+      2020        2022           2     1.29165    .0959923           1           1          98          98 
+      2020        2023           3     1.18327     .113657           1           1          59          59 
+      2021        2014          -7    -.728257     .402321           6           6          34          34 
+      2021        2015          -6     .147774     .293133          13          13          77          77 
+      2021        2016          -5     .530793     .290264          14          14          75          75 
+      2021        2017          -4      .46985     .296139          17          17          72          72 
+      2021        2018          -3    -.233875     .226212          23          23         100         100 
+      2021        2019          -2    -.116188     .238251          18          18          97          97 
+      2021        2020          -1           0           .          43          43         174         174 
+      2021        2021           0     .209024     .175638          38          38         140         140 
+      2021        2022           1   -.0299309     .190371          33          33         133         133 
+      2021        2023           2   -.0622589     .154421          38          38          81          81 
+      2022        2014          -8     .118699     .161925           1           1          32          32 
+      2022        2015          -7    -.177457     .304909          11          11          77          77 
+      2022        2016          -6    -.101212     .284951           8           8          73          73 
+      2022        2017          -5     .142534     .327201           7           7          70          70 
+      2022        2018          -4    -.364684     .168113           8           8         104         104 
+      2022        2019          -3    -.385043      .41771           9           9          93          93 
+      2022        2020          -2   -.0302845     .229394          12          12         128         128 
+      2022        2021          -1           0           .          21          21         196         196 
+      2022        2022           0    .0595867     .178142          21          21         167         167 
+      2022        2023           1    -.126091     .188209          21          21          99          99 
+      2023        2014          -9     .255626      .38685          20          20          17          17 
+      2023        2015          -8     .151952     .214543          28          28          51          51 
+      2023        2016          -7     .489755      .24428          30          30          47          47 
+      2023        2017          -6     .011983     .243104          25          25          47          47 
+      2023        2018          -5    -.188229     .189955          44          44          63          63 
+      2023        2019          -4    -.214792     .193702          40          40          58          58 
+      2023        2020          -3   .00615344     .164661          58          58          75          75 
+      2023        2021          -2    .0428653     .149873          74          74          93          93 
+      2023        2022          -1           0           .         103         103         105         105 
+      2023        2023           0    .0679858     .112231          95          95         102         102 
+P-value for pre-test of parallel trends assumption:  0.00000
+County-years used: 3907
+estat pretrend is not a subcommand; csdid prints the pre-test of parallel trends below the ATT(g,t) table and stores it 
+> in e(wald_stat), e(wald_df) and e(wald_pvalue)
+
+Aggregated treatment effects
+Std. errors: multiplier bootstrap, 1000 reps, rseed(20261107); 95% pointwise bands
+
+       egt         att          se  overall_~t  overall_se 
+----------------------------------------------------------
+         .    .0569462     .143066    .0569462     .143066 
+estat simple ran with options: post dropmissing
+
+symmetric _B[1,1]
+          ATT
+y1  .05694619
+
+symmetric _SE[1,1]
+         ATT
+y1  .1430659
+Overall ATT =   0.0569  (SE 0.1431)
+(results cs_full_M1 are active now)
+
+Aggregated treatment effects
+Std. errors: multiplier bootstrap, 1000 reps, rseed(20261107); 95% simultaneous bands
+
+          |         b         se          z     pvalue         ll         ul 
+----------+-----------------------------------------------------------------
+      Tm5 | -.0578282   .1547343  -.3737259   .7086082  -.4557573   .3401008 
+      Tm4 |  .0540395    .133367   .4051941   .6853348  -.2889394   .3970184 
+      Tm3 | -.0786422   .1164552  -.6753006   .4994848   -.378129   .2208445 
+      Tm2 |  .1236915   .1066725   1.159544   .2462343  -.1506372   .3980201 
+      Tm1 |         0          .          .          .          .          . 
+      Tp0 |  .0201558   .1168794   .1724499   .8630838   -.280422   .3207337 
+      Tp1 | -.0562183   .1847524  -.3042899    .760907  -.5313446    .418908 
+      Tp2 |  .0237719   .1604841   .1481261   .8822432  -.3889437   .4364875 
+      Tp3 |   .068686   .2378959    .288723   .7727934   -.543109    .680481 
+      Tp4 |  .0098732   .1925674   .0512715   .9591092  -.4853508   .5050973 
+      Tp5 |  .0531915   .1968242   .2702486    .786969  -.4529797   .5593627 
+ Post_avg |    .01991   .1297818   .1534115   .8780738  -.2344577   .2742778 
+Post_avg is the overall summary effect: its interval is pointwise, while the event-time effects use the simultaneous ban
+> d.
+estat event ran with options: post dropmissing
+
+_B[1,12]
+           Tm5         Tm4         Tm3         Tm2         Tm1         Tp0         Tp1         Tp2         Tp3
+y1  -.05782824   .05403953  -.07864224   .12369145           0   .02015584   -.0562183   .02377189   .06868601
+
+           Tp4         Tp5    Post_avg
+y1   .00987322   .05319147   .01991002
+
+_SE[1,12]
+          Tm5        Tm4        Tm3        Tm2        Tm1        Tp0        Tp1        Tp2        Tp3        Tp4
+y1  .15473434  .13336703  .11645515  .10667246          0  .11687942  .18475241  .16048409  .23789592  .19256742
+
+          Tp5   Post_avg
+y1   .1968242  .12978185
+Post_avg =   0.0199  (SE 0.1298)
+(results cs_full_M1 are active now)
+
+Aggregated treatment effects
+Std. errors: multiplier bootstrap, 1000 reps, rseed(20261107); 95% simultaneous bands
+
+       egt         att          se  overall_~t  overall_se 
+----------------------------------------------------------
+      2015     .110212     .234908    .0537353     .100306 
+      2016    .0784334     .144864    .0537353     .100306 
+      2017    -.207181     .227667    .0537353     .100306 
+      2018    -1.16031     .134468    .0537353     .100306 
+      2019      .30899     .283282    .0537353     .100306 
+      2020     1.03826    .0866388    .0537353     .100306 
+      2021    .0389446       .1399    .0537353     .100306 
+      2022    -.033252     .139312    .0537353     .100306 
+      2023    .0679858     .121922    .0537353     .100306 
+estat group ran with options: post dropmissing
+
+_B[1,10]
+         G2015       G2016       G2017       G2018       G2019       G2020       G2021       G2022       G2023
+y1   .11021181   .07843338  -.20718092  -1.1603141   .30898979   1.0382628    .0389446  -.03325199   .06798581
+
+       Overall
+y1   .05373533
+
+_SE[1,10]
+        G2015      G2016      G2017      G2018      G2019      G2020      G2021      G2022      G2023    Overall
+y1  .23490779  .14486365  .22766658   .1344682  .28328202  .08663884   .1399001  .13931187  .12192152  .10030634
+(4,077 observations deleted)
+
+================ CS: Main sample, conditional on urban ================
+  939
+  903
+Counties: 939; not observed in all 10 years: 903
+warning: Some groups in your dataset have very few observations, which may cause estimation problems.
+  Check groups: 2020.
+
+Group-time average treatment effects
+Std. errors: multiplier bootstrap, 1000 reps, rseed(20261107); 95% simultaneous bands
+
+     group        time  event_time         att          se   n_treat_t  n_treat_~e  n_contro~t  n_contro~e 
+----------------------------------------------------------------------------------------------------------
+      2015        2014          -1           0           .          25          25          72          72 
+      2015        2015           0    .0205433     .277736          15          15          52          52 
+      2015        2016           1    .0402575     .396798          14          14          41          41 
+      2015        2017           2     .127272     .323023          16          16          31          31 
+      2015        2018           3     .103983     .405423          18          18          41          41 
+      2015        2019           4   -.0568469     .344551          17          17          32          32 
+      2015        2020           5     .058788        .307          19          19          40          40 
+      2015        2021           6       .2445     .256722          20          20          33          33 
+      2015        2022           7     .292996     .336101          22          22          37          37 
+      2015        2023           8     .153429     .334013          24          24          17          17 
+      2016        2014          -2     .245399     .354679           6           6          46          46 
+      2016        2015          -1           0           .          20          20         166         166 
+      2016        2016           0    .0428507     .222698           8           8          94          94 
+      2016        2017           1     -.20755     .232618           6           6          73          73 
+      2016        2018           2    -.088161     .209487          11          11          94          94 
+      2016        2019           3     .129762     .355606           9           9          73          73 
+      2016        2020           4   -.0684246     .328478          11          11          90          90 
+      2016        2021           5     .504539     .308001          14          14          88          88 
+      2016        2022           6    .0709216      .28401          17          17          79          79 
+      2016        2023           7    .0744056     .265715          19          19          52          52 
+      2017        2014          -3    .0955843     .365164           7           7          34          34 
+      2017        2015          -2     .412531     .307653          13          13          81          81 
+      2017        2016          -1           0           .          19          19         130         130 
+      2017        2017           0    -.264158     .223408          11          11          74          74 
+      2017        2018           1    -.161959     .255122          13          13          87          87 
+      2017        2019           2    -.393257     .463542          12          12          75          75 
+      2017        2020           3   -.0858205     .372758          13          13          89          89 
+      2017        2021           4   -.0324724     .318817          17          17          81          81 
+      2017        2022           5    -.284828     .389555          17          17          77          77 
+      2017        2023           6   -.0810536     .351653          18          18          48          48 
+      2018        2014          -4    -.540764     .268081           2           2          29          29 
+      2018        2015          -3    -.671354      .32718           4           4          69          69 
+      2018        2016          -2    -.466121     .333695           3           3          71          71 
+      2018        2017          -1           0           .           4           4         117         117 
+      2018        2018           0    -1.06932     .145994           4           4          86          86 
+      2018        2019           1    -1.06456      .33817           3           3          67          67 
+      2018        2020           2    -1.27741     .219683           4           4          89          89 
+      2018        2021           3    -1.44506     .315567           4           4          77          77 
+      2018        2022           4     -1.1599     .132147           4           4          72          72 
+      2018        2023           5    -.894291      .23461           4           4          49          49 
+      2019        2014          -5    -.719819     .519479           2           2          39          39 
+      2019        2015          -4     .387909     .343216           8           8          86          86 
+      2019        2016          -3     .192217     .345203           7           7          80          80 
+      2019        2017          -2     .408104     .378837           6           6          80          80 
+      2019        2018          -1           0           .          12          12         162         162 
+      2019        2019           0    .0945798     .339154          10          10          92          92 
+      2019        2020           1   -.0359888     .263077          12          12         123         123 
+      2019        2021           2      .62401     .329301          11          11         112         112 
+      2019        2022           3     .304711     .296421          12          12         107         107 
+      2019        2023           4     .558162     .305801          12          12          68          68 
+      2020        2014          -6           .           .           0           0          32          32 
+      2020        2015          -5     1.30789     .148453           1           1          72          72 
+      2020        2016          -4     1.31511     .149128           1           1          74          74 
+      2020        2017          -3           .           .           0           0          67          67 
+      2020        2018          -2           .           .           0           0          92          92 
+      2020        2019          -1           0           .           1           1         144         144 
+      2020        2020           0           .           .           0           0         115         115 
+      2020        2021           1     .577797    .0999211           1           1         102         102 
+      2020        2022           2     1.28231    .0999741           1           1          98          98 
+      2020        2023           3     1.21258     .123191           1           1          59          59 
+      2021        2014          -7    -.724208     .410425           6           6          34          34 
+      2021        2015          -6     .153237      .30789          13          13          77          77 
+      2021        2016          -5     .525366     .289082          14          14          75          75 
+      2021        2017          -4      .49853     .301789          17          17          72          72 
+      2021        2018          -3     -.26352     .241064          23          23         100         100 
+      2021        2019          -2    -.121177      .23765          18          18          97          97 
+      2021        2020          -1           0           .          43          43         174         174 
+      2021        2021           0     .248384     .182618          38          38         140         140 
+      2021        2022           1   -.0373665     .200045          33          33         133         133 
+      2021        2023           2   -.0663731     .165894          38          38          81          81 
+      2022        2014          -8     .156335     .184109           1           1          32          32 
+      2022        2015          -7    -.144225      .30197          11          11          77          77 
+      2022        2016          -6   -.0888137     .333693           8           8          73          73 
+      2022        2017          -5     .132071     .336126           7           7          70          70 
+      2022        2018          -4    -.348125     .174085           8           8         104         104 
+      2022        2019          -3    -.321515     .430941           9           9          93          93 
+      2022        2020          -2   -.0147623     .224987          12          12         128         128 
+      2022        2021          -1           0           .          21          21         196         196 
+      2022        2022           0    .0857247     .179139          21          21         167         167 
+      2022        2023           1    -.122372     .190531          21          21          99          99 
+      2023        2014          -9     .278904     .368274          20          20          17          17 
+      2023        2015          -8     .151722     .218878          28          28          51          51 
+      2023        2016          -7     .463002     .239881          30          30          47          47 
+      2023        2017          -6   .00175514     .235975          25          25          47          47 
+      2023        2018          -5    -.188891     .190362          44          44          63          63 
+      2023        2019          -4    -.205576     .192976          40          40          58          58 
+      2023        2020          -3   .00643039     .165098          58          58          75          75 
+      2023        2021          -2    .0421779     .150314          74          74          93          93 
+      2023        2022          -1           0           .         103         103         105         105 
+      2023        2023           0    .0655056     .113944          95          95         102         102 
+P-value for pre-test of parallel trends assumption:  0.00000
+County-years used: 3907
+estat pretrend is not a subcommand; csdid prints the pre-test of parallel trends below the ATT(g,t) table and stores it 
+> in e(wald_stat), e(wald_df) and e(wald_pvalue)
+
+Aggregated treatment effects
+Std. errors: multiplier bootstrap, 1000 reps, rseed(20261107); 95% pointwise bands
+
+       egt         att          se  overall_~t  overall_se 
+----------------------------------------------------------
+         .    .0565831      .14128    .0565831      .14128 
+estat simple ran with options: post dropmissing
+
+symmetric _B[1,1]
+          ATT
+y1  .05658311
+
+symmetric _SE[1,1]
+          ATT
+y1  .14128017
+Overall ATT =   0.0566  (SE 0.1413)
+(results cs_full_M2 are active now)
+
+Aggregated treatment effects
+Std. errors: multiplier bootstrap, 1000 reps, rseed(20261107); 95% simultaneous bands
+
+          |         b         se          z     pvalue         ll         ul 
+----------+-----------------------------------------------------------------
+      Tm5 | -.0689005   .1553989  -.4433784    .657492  -.4722826   .3344816 
+      Tm4 |   .068043   .1350007   .5040194   .6142477  -.2823898   .4184758 
+      Tm3 | -.0503196   .1148901  -.4379802   .6614006  -.3485496   .2479104 
+      Tm2 |  .1314513   .1036448   1.268286   .2046957  -.1375883   .4004908 
+      Tm1 |         0          .          .          .          .          . 
+      Tp0 |  .0205163   .1164818   .1761333   .8601892  -.2818454   .3228781 
+      Tp1 | -.0617751   .1809829  -.3413313   .7328542  -.5315677   .4080175 
+      Tp2 |   .034921   .1567164   .2228295   .8236682  -.3718809    .441723 
+      Tp3 |  .0710842   .2378537    .298857   .7650491  -.5463325    .688501 
+      Tp4 | -.0065291   .1972213  -.0331056   .9735904   -.518473   .5054148 
+      Tp5 |  .0561972   .2003619   .2804784   .7791105  -.4638992   .5762936 
+ Post_avg |  .0190691   .1322994   .1441359   .8853932   -.240233   .2783712 
+Post_avg is the overall summary effect: its interval is pointwise, while the event-time effects use the simultaneous ban
+> d.
+estat event ran with options: post dropmissing
+
+_B[1,12]
+           Tm5         Tm4         Tm3         Tm2         Tm1         Tp0         Tp1         Tp2         Tp3
+y1  -.06890054     .068043   -.0503196   .13145128           0   .02051634  -.06177513   .03492104   .07108424
+
+           Tp4         Tp5    Post_avg
+y1  -.00652912    .0561972   .01906909
+
+_SE[1,12]
+          Tm5        Tm4        Tm3        Tm2        Tm1        Tp0        Tp1        Tp2        Tp3        Tp4
+y1  .15539894  .13500075  .11489013   .1036448          0  .11648185  .18098293  .15671639  .23785366  .19722129
+
+          Tp5   Post_avg
+y1  .20036195  .13229941
+Post_avg =   0.0191  (SE 0.1323)
+(results cs_full_M2 are active now)
+
+Aggregated treatment effects
+Std. errors: multiplier bootstrap, 1000 reps, rseed(20261107); 95% simultaneous bands
+
+       egt         att          se  overall_~t  overall_se 
+----------------------------------------------------------
+      2015     .109436     .234354    .0544055     .102879 
+      2016    .0572929     .151602    .0544055     .102879 
+      2017    -.186221      .23874    .0544055     .102879 
+      2018    -1.15176     .133809    .0544055     .102879 
+      2019     .309095     .286466    .0544055     .102879 
+      2020     1.02423    .0913886    .0544055     .102879 
+      2021    .0482147     .147967    .0544055     .102879 
+      2022   -.0183236      .13891    .0544055     .102879 
+      2023    .0655056     .120751    .0544055     .102879 
+estat group ran with options: post dropmissing
+
+_B[1,10]
+         G2015       G2016       G2017       G2018       G2019       G2020       G2021       G2022       G2023
+y1    .1094357   .05729289  -.18622121  -1.1517574    .3090949   1.0242299   .04821474  -.01832356   .06550562
+
+       Overall
+y1   .05440549
+
+_SE[1,10]
+        G2015      G2016      G2017      G2018      G2019      G2020      G2021      G2022      G2023    Overall
+y1  .23435413  .15160183  .23873983  .13380856  .28646597  .09138857   .1479671   .1389098  .12075093  .10287884
+
+================ CS: Paper-style sample (missing PSI = never) ================
+  1,663
+  1,548
+Counties: 1663; not observed in all 10 years: 1548
+warning: Some groups in your dataset have very few observations, which may cause estimation problems.
+  Check groups: 2020.
+
+Group-time average treatment effects
+Std. errors: multiplier bootstrap, 1000 reps, rseed(20261107); 95% simultaneous bands
+
+     group        time  event_time         att          se   n_treat_t  n_treat_~e  n_contro~t  n_contro~e 
+----------------------------------------------------------------------------------------------------------
+      2015        2014          -1           0           .          25          25         205         205 
+      2015        2015           0    .0778613     .271129          15          15         170         170 
+      2015        2016           1    -.013678     .364954          14          14         141         141 
+      2015        2017           2   -.0412762     .264032          16          16         134         134 
+      2015        2018           3    .0797018     .399005          18          18         157         157 
+      2015        2019           4    -.062951     .287253          17          17         142         142 
+      2015        2020           5   -.0944668     .272212          19          19         158         158 
+      2015        2021           6    -.110406     .221733          20          20         160         160 
+      2015        2022           7    -.224145     .288341          22          22         167         167 
+      2015        2023           8    -.373696     .245271          24          24         150         150 
+      2016        2014          -2     .140189     .339843           6           6         164         164 
+      2016        2015          -1           0           .          20          20         460         460 
+      2016        2016           0   -.0447819     .223177           8           8         297         297 
+      2016        2017           1    -.339482     .196337           6           6         270         270 
+      2016        2018           2   -.0437456     .173792          11          11         326         326 
+      2016        2019           3     .107714     .320568           9           9         290         290 
+      2016        2020           4   -.0710513     .320913          11          11         333         333 
+      2016        2021           5     .356842     .304265          14          14         361         361 
+      2016        2022           6    -.108156     .273835          17          17         359         359 
+      2016        2023           7    -.326152     .288866          19          19         342         342 
+      2017        2014          -3   -.0354474     .271397           7           7         134         134 
+      2017        2015          -2     .510601     .273323          13          13         284         284 
+      2017        2016          -1           0           .          19          19         396         396 
+      2017        2017           0    -.449729     .172763          11          11         265         265 
+      2017        2018           1    .0299946      .23192          13          13         297         297 
+      2017        2019           2    -.249243     .391954          12          12         273         273 
+      2017        2020           3     .037618       .3209          13          13         319         319 
+      2017        2021           4   -.0127765     .281584          17          17         333         333 
+      2017        2022           5    -.284368     .344859          17          17         330         330 
+      2017        2023           6    -.144293     .261214          18          18         312         312 
+      2018        2014          -4    -.373578    .0961265           2           2         132         132 
+      2018        2015          -3    -.374102     .240483           4           4         266         266 
+      2018        2016          -2    -.382151      .29983           3           3         262         262 
+      2018        2017          -1           0           .           4           4         406         406 
+      2018        2018           0    -.857827      .12695           4           4         314         314 
+      2018        2019           1    -.876589      .36078           3           3         275         275 
+      2018        2020           2    -.983822     .257909           4           4         339         339 
+      2018        2021           3    -1.22827     .293721           4           4         353         353 
+      2018        2022           4    -.984248    .0723226           4           4         343         343 
+      2018        2023           5    -.928647     .251235           4           4         337         337 
+      2019        2014          -5    -.630958     .244825           2           2         155         155 
+      2019        2015          -4      .31166     .330643           8           8         318         318 
+      2019        2016          -3   -.0158753     .310238           7           7         290         290 
+      2019        2017          -2     .160984     .408553           6           6         308         308 
+      2019        2018          -1           0           .          12          12         531         531 
+      2019        2019           0     .132016     .325441          10          10         362         362 
+      2019        2020           1   -.0600685     .269585          12          12         441         441 
+      2019        2021           2     .369072     .318837          11          11         458         458 
+      2019        2022           3    .0204625     .279118          12          12         462         462 
+      2019        2023           4    .0613698     .292554          12          12         433         433 
+      2020        2014          -6           .           .           0           0         142         142 
+      2020        2015          -5     1.31337    .0595749           1           1         289         289 
+      2020        2016          -4     1.05929    .0604282           1           1         272         272 
+      2020        2017          -3           .           .           0           0         275         275 
+      2020        2018          -2           .           .           0           0         362         362 
+      2020        2019          -1           0           .           1           1         491         491 
+      2020        2020           0           .           .           0           0         416         416 
+      2020        2021           1     .480966    .0443057           1           1         434         434 
+      2020        2022           2     1.15946    .0465349           1           1         433         433 
+      2020        2023           3     .781864     .045891           1           1         405         405 
+      2021        2014          -7    -.489336     .407548           6           6         152         152 
+      2021        2015          -6     .177227      .26848          13          13         320         320 
+      2021        2016          -5     .343723     .293174          14          14         305         305 
+      2021        2017          -4    .0999073     .293238          17          17         322         322 
+      2021        2018          -3    -.174503     .233784          23          23         418         418 
+      2021        2019          -2    -.162536     .224522          18          18         398         398 
+      2021        2020          -1           0           .          43          43         645         645 
+      2021        2021           0    .0405421     .167002          38          38         571         571 
+      2021        2022           1    -.184055     .175363          33          33         579         579 
+      2021        2023           2    -.300308      .14484          38          38         547         547 
+      2022        2014          -8     .473322    .0817537           1           1         159         159 
+      2022        2015          -7    .0106484     .293603          11          11         350         350 
+      2022        2016          -6    -.122687     .278593           8           8         325         325 
+      2022        2017          -5   -.0817559     .329382           7           7         346         346 
+      2022        2018          -4   -.0921801     .150617           8           8         450         450 
+      2022        2019          -3    -.196241     .420505           9           9         425         425 
+      2022        2020          -2     .143815     .236819          12          12         559         559 
+      2022        2021          -1           0           .          21          21         786         786 
+      2022        2022           0    .0791885       .1738          21          21         710         710 
+      2022        2023           1    -.156786     .168128          21          21         675         675 
+      2023        2014          -9     .721119     .300078          20          20         147         147 
+      2023        2015          -8     .328852     .188754          28          28         331         331 
+      2023        2016          -7     .314116      .19194          30          30         300         300 
+      2023        2017          -6    -.170108     .210771          25          25         318         318 
+      2023        2018          -5     .192063      .16204          44          44         418         418 
+      2023        2019          -4   .00559138     .166522          40          40         393         393 
+      2023        2020          -3     .175139     .124951          58          58         521         521 
+      2023        2021          -2   .00476605     .134291          74          74         636         636 
+      2023        2022          -1           0           .         103         103         729         729 
+      2023        2023           0   -.0442262     .096555          95          95         711         711 
+P-value for pre-test of parallel trends assumption:  0.00000
+County-years used: 7984
+estat pretrend is not a subcommand; csdid prints the pre-test of parallel trends below the ATT(g,t) table and stores it 
+> in e(wald_stat), e(wald_df) and e(wald_pvalue)
+
+Aggregated treatment effects
+Std. errors: multiplier bootstrap, 1000 reps, rseed(20261107); 95% pointwise bands
+
+       egt         att          se  overall_~t  overall_se 
+----------------------------------------------------------
+         .   -.0913307     .119775   -.0913307     .119775 
+estat simple ran with options: post dropmissing
+
+symmetric _B[1,1]
+           ATT
+y1  -.09133075
+
+symmetric _SE[1,1]
+          ATT
+y1  .11977491
+Overall ATT =  -0.0913  (SE 0.1198)
+(results cs_full_P1 are active now)
+
+Aggregated treatment effects
+Std. errors: multiplier bootstrap, 1000 reps, rseed(20261107); 95% simultaneous bands
+
+          |         b         se          z     pvalue         ll         ul 
+----------+-----------------------------------------------------------------
+      Tm5 |  .0529408   .1479635   .3577964   .7204957  -.3374751   .4433567 
+      Tm4 |  .0702062    .125719   .5584372   .5765459  -.2615156   .4019279 
+      Tm3 |  -.008305   .0977474  -.0849634   .9322905  -.2662208   .2496109 
+      Tm2 |   .088939   .0963162   .9234069   .3557952  -.1652005   .3430785 
+      Tm1 |         0          .          .          .          .          . 
+      Tp0 | -.0221275   .1115436   -.198375   .8427517   -.316446   .2721911 
+      Tp1 | -.1017225     .17338  -.5867023   .5574036  -.5592023   .3557574 
+      Tp2 |  -.076402   .1435614  -.5321903   .5945942  -.4552024   .3023985 
+      Tp3 |  .0397188   .2195472   .1809125   .8564363  -.5395777   .6190153 
+      Tp4 | -.0654829   .1698848  -.3854547   .6999006  -.5137403   .3827745 
+      Tp5 | -.0681663   .1817555  -.3750439   .7076278  -.5477458   .4114132 
+ Post_avg | -.0490304   .1193552  -.4107937   .6812238  -.2829623   .1849016 
+Post_avg is the overall summary effect: its interval is pointwise, while the event-time effects use the simultaneous ban
+> d.
+estat event ran with options: post dropmissing
+
+_B[1,12]
+           Tm5         Tm4         Tm3         Tm2         Tm1         Tp0         Tp1         Tp2         Tp3
+y1    .0529408   .07020617  -.00830495   .08893902           0  -.02212746  -.10172245  -.07640197   .03971884
+
+           Tp4         Tp5    Post_avg
+y1   -.0654829  -.06816631  -.04903038
+
+_SE[1,12]
+          Tm5        Tm4        Tm3        Tm2        Tm1        Tp0        Tp1        Tp2        Tp3        Tp4
+y1  .14796347  .12571902  .09774736  .09631617          0  .11154362     .17338  .14356136  .21954723  .16988482
+
+          Tp5   Post_avg
+y1  .18175553  .11935524
+Post_avg =  -0.0490  (SE 0.1194)
+(results cs_full_P1 are active now)
+
+Aggregated treatment effects
+Std. errors: multiplier bootstrap, 1000 reps, rseed(20261107); 95% simultaneous bands
+
+       egt         att          se  overall_~t  overall_se 
+----------------------------------------------------------
+      2015    -.084784     .217767   -.0833378    .0892017 
+      2016   -.0586015     .123347   -.0833378    .0892017 
+      2017    -.153257     .232623   -.0833378    .0892017 
+      2018    -.976566     .113993   -.0833378    .0892017 
+      2019      .10457     .255117   -.0833378    .0892017 
+      2020      .80743    .0423406   -.0833378    .0892017 
+      2021     -.14794     .128914   -.0833378    .0892017 
+      2022   -.0387987     .146565   -.0833378    .0892017 
+      2023   -.0442262     .104882   -.0833378    .0892017 
+estat group ran with options: post dropmissing
+
+_B[1,10]
+         G2015       G2016       G2017       G2018       G2019       G2020       G2021       G2022       G2023
+y1  -.08478397  -.05860152  -.15325669  -.97656641   .10457031   .80742973  -.14794025  -.03879873  -.04422619
+
+       Overall
+y1   -.0833378
+
+_SE[1,10]
+        G2015      G2016      G2017      G2018      G2019      G2020      G2021      G2022      G2023    Overall
+y1  .21776657   .1233469  .23262273  .11399288   .2551174  .04234057  .12891423  .14656488  .10488196  .08920168
+
+. postclose `A'
+
+. postclose `E'
+
+. 
+. use "$T3/tables/cs_att.dta", clear
+
+. list, noobs
+
+  +--------------------------------------------------------------------------+
+  |                                     spec          att          se   N_cy |
+  |--------------------------------------------------------------------------|
+  |               Main sample, unconditional    .05694619    .1430659   3907 |
+  |        Main sample, conditional on urban    .05658311   .14128017   3907 |
+  | Paper-style sample (missing PSI = never)   -.09133075   .11977491   7984 |
+  +--------------------------------------------------------------------------+
+
+. export delimited using "$T3/tables/3_3_cs_att.csv", replace
+file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/tables/3_3_cs_att.csv sa
+> ved
+
+. 
+. use "$T3/tables/cs_event.dta", clear
+
+. gen lo = b - 1.96*se
+
+. gen hi = b + 1.96*se
+
+. export delimited using "$T3/tables/3_3_cs_event.csv", replace
+file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/tables/3_3_cs_event.csv 
+> saved
+
+. local i = 0
+
+. foreach sp in "Main sample, unconditional" "Main sample, conditional on urban" "Paper-style sample (missing PSI = neve
+> r)" {
+  2.     local ++i
+  3.     twoway (rcap hi lo event_time if spec=="`sp'", lcolor(maroon)) ///
+>            (scatter b event_time if spec=="`sp'", mcolor(maroon)), ///
+>         yline(0, lpattern(dash)) xline(-0.5, lpattern(dot)) ///
+>         xtitle("Years relative to first solar policy") ytitle("ATT on Shannon diversity") ///
+>         title("Callaway-Sant'Anna event study", size(medium)) subtitle("`sp'; 95% CI", size(small)) ///
+>         xlabel(-5(1)5) legend(off)
+  4.     graph export "$T3/figures/3_3_event_study_cs_`i'.pdf", replace
+  5. }
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/figures/3_3_event_study_cs_1.pdf saved as PDF format
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/figures/3_3_event_study_cs_2.pdf saved as PDF format
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/figures/3_3_event_study_cs_3.pdf saved as PDF format
+
+. 
+end of do-file
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/logs/3_3_callawa
+> y_santanna.log
+  log type:  text
+ closed on:  11 Nov 2026, 17:51:24
+------------------------------------------------------------------------------------------------------------------------

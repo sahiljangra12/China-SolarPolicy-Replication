@@ -1,0 +1,6 @@
+step,rows,counties
+"0 Possible county-months (2,778 counties x 120)",333360,2778
+1 Bird.dta: county-months with a record,48900,2561
+2 Drop rows missing a control (authors),46528,2501
+3 Drop singleton counties (reghdfe),46371,2344
+4 IV sample (needs sunshine and city CPU),37503,2077

@@ -1,0 +1,318 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/logs/3_1_adoptio
+> n_timing.log
+  log type:  text
+ opened on:  11 Nov 2026, 17:51:19
+
+================ 3_1_adoption_timing ================
+
+. *==========================================================================
+. * 00_config.do
+. * Project : Replication of Zhang et al. (2026), "China's solar expansion
+. *           policy reduces bird diversity", Science 393, 831.
+. * Purpose : One place for paths, globals and package installation.
+. *           Every task do-file starts with:  do "<ROOT>/00_config.do"
+. * Author  : Sahil (Research Assistant, Johns Hopkins University)
+. *==========================================================================
+. version 16
+
+. set more off
+
+. set linesize 120
+
+. 
+. *---------------------------------------------------------------- paths
+. global ROOT "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication"
+
+. global ORIG "$ROOT/00_Original_Package"
+
+. global DATA "$ORIG/DATA"
+
+. global T1   "$ROOT/01_Task1_Replication"
+
+. global T2   "$ROOT/02_Task2_Sensitivity"
+
+. global T3   "$ROOT/03_Task3_Staggered_DiD"
+
+. 
+. * analysis sample built in Task 1 (used by all tasks)
+. global SAMPLE "$T1/data/analysis_sample.dta"
+
+. 
+. *---------------------------------------------------------------- model
+. * the authors' nine control variables (Table 1, column 3)
+. global control     "Temp Wind Pop Duration Carbon Water Green Farm Grass"
+
+. global control_noD "Temp Wind Pop Carbon Water Green Farm Grass"
+
+. 
+. *---------------------------------------------------------------- packages
+. * installed only if missing
+. foreach p in require ftools reghdfe ivreg2 ranktest ivreghdfe estout winsor2 ///
+>              psmatch2 binscatter sensemakr drdid csdid did_imputation       ///
+>              event_plot avar eventstudyinteract {
+  2.     capture which `p'
+  3.     if _rc {
+  4.         di as txt "installing `p' ..."
+  5.         capture noisily ssc install `p', replace
+  6.     }
+  7. }
+
+. set scheme s2color
+
+. 
+end of do-file
+
+. *==========================================================================
+. * 3_1_adoption_timing.do
+. * PURPOSE : Turn the continuous, annual PSI into a STAGGERED ADOPTION design.
+. *   Adoption year g = first year (2014-2023) in which a county's PSI > 0,
+. *   taken from the full annual policy file PI.dta (not only the months in
+. *   which birds were recorded). Treatment is treated as absorbing: once a
+. *   county has issued solar policy it stays "treated".
+. * SAMPLES :
+. *   main  : counties present in PI.dta (PSI actually measured).
+. *           never-treated = counties in PI.dta with PSI = 0 in every year.
+. *   paper : adds the 724 counties absent from PI.dta as never-treated
+. *           (this is what the authors' "PSI = 0 if missing" implies).
+. *   Counties already treated in 2014 have no pre-period and are dropped.
+. * OUTPUT  : data/staggered_monthly.dta, data/staggered_countyyear.dta
+. *           tables/3_1_cohort_sizes.csv
+. *==========================================================================
+. capture mkdir "$T3/data"
+
+. 
+. *------------------------------------------------ adoption year from PI.dta
+. use "$DATA/PI.dta", clear
+
+. keep id YEAR PI
+
+. bysort id: egen first_pos = min(cond(PI > 0, YEAR, .))
+(1,210 missing values generated)
+
+. bysort id (YEAR): gen byte tag = (_n == 1)
+
+. * how often does PSI return to 0 after adoption? (absorbing-treatment check)
+. count if YEAR > first_pos & !missing(first_pos)
+  12,762
+
+. local npost = r(N)
+
+. count if YEAR > first_pos & !missing(first_pos) & PI == 0
+  1,950
+
+. di as res "Share of post-adoption county-years with PSI = 0: " %5.3f r(N)/`npost'
+Share of post-adoption county-years with PSI = 0: 0.153
+
+. keep if tag
+(17,577 observations deleted)
+
+. keep id first_pos
+
+. tempfile adopt
+
+. save `adopt'
+file /var/folders/wt/r578njlx4vx70bfy46gk25bm0000gn/T//S_34499.000001 saved as .dta format
+
+. 
+. *------------------------------------------------ attach to analysis sample
+. use "$SAMPLE", clear
+
+. merge m:1 id using `adopt', keep(master match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        20,385
+        from master                    20,385  
+        from using                          0  
+
+    Matched                            26,143  
+    -----------------------------------------
+
+. 
+. * g  : adoption year (csdid convention: 0 = never treated)
+. gen g_main  = cond(in_PI_file==1, cond(missing(first_pos), 0, first_pos), .)
+(20,385 missing values generated)
+
+. gen g_paper = cond(in_PI_file==1, g_main, 0)
+
+. label var g_main  "Adoption year; 0 = never (PSI-data counties only)"
+
+. label var g_paper "Adoption year; 0 = never (missing-PSI counties = never)"
+
+. 
+. * drop counties treated in the first year (no pre-period)
+. gen byte always_treated = (first_pos == 2014)
+
+. egen tagc = tag(county)
+
+. count if tagc & always_treated
+  838
+
+. di as res "Counties already treated in 2014 (dropped): " r(N)
+Counties already treated in 2014 (dropped): 838
+
+. drop if always_treated
+(13,390 observations deleted)
+
+. 
+. * relative time and indicators
+. gen rel_year = YEAR - first_pos if !missing(first_pos)
+(23,234 missing values generated)
+
+. gen byte post = (YEAR >= first_pos) if !missing(first_pos)
+(23,234 missing values generated)
+
+. replace post = 0 if missing(first_pos)
+(23,234 real changes made)
+
+. gen byte never_main  = (g_main  == 0) if !missing(g_main)
+(20,385 missing values generated)
+
+. gen byte never_paper = (g_paper == 0)
+
+. 
+. * cohort sizes (counties)
+. preserve
+
+.     keep if tagc
+(31,475 observations deleted)
+
+.     gen sample_main = !missing(g_main)
+
+.     collapse (count) counties_paper = id (sum) counties_main = sample_main, by(g_paper)
+
+.     rename g_paper adoption_year
+
+.     list, noobs sep(0)
+
+  +--------------------------------+
+  | adopti~r   counti~r   counti~n |
+  |--------------------------------|
+  |        0        844        120 |
+  |     2015        299        299 |
+  |     2016         85         85 |
+  |     2017         75         75 |
+  |     2018         14         14 |
+  |     2019         68         68 |
+  |     2020          2          2 |
+  |     2021         91         91 |
+  |     2022         30         30 |
+  |     2023        155        155 |
+  +--------------------------------+
+
+.     export delimited using "$T3/tables/3_1_cohort_sizes.csv", replace
+file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/tables/3_1_cohort_sizes.
+> csv saved
+
+. restore
+
+. tab g_main if tagc, missing
+
+   Adoption |
+  year; 0 = |
+      never |
+  (PSI-data |
+   counties |
+      only) |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |        120        7.22        7.22
+       2015 |        299       17.98       25.20
+       2016 |         85        5.11       30.31
+       2017 |         75        4.51       34.82
+       2018 |         14        0.84       35.66
+       2019 |         68        4.09       39.75
+       2020 |          2        0.12       39.87
+       2021 |         91        5.47       45.34
+       2022 |         30        1.80       47.14
+       2023 |        155        9.32       56.46
+          . |        724       43.54      100.00
+------------+-----------------------------------
+      Total |      1,663      100.00
+
+. 
+. * deseasonalised Shannon (removes month-of-year composition before
+. * aggregating months to county-years)
+. reg ShannonBD i.month_of_year
+
+      Source |       SS           df       MS      Number of obs   =    33,138
+-------------+----------------------------------   F(11, 33126)    =     37.75
+       Model |  383.354836        11  34.8504397   Prob > F        =    0.0000
+    Residual |  30577.7484    33,126  .923073972   R-squared       =    0.0124
+-------------+----------------------------------   Adj R-squared   =    0.0121
+       Total |  30961.1032    33,137  .934336338   Root MSE        =    .96077
+
+-------------------------------------------------------------------------------
+    ShannonBD | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+month_of_year |
+           2  |   .0042638   .0244874     0.17   0.862    -.0437323      .05226
+           3  |   .0815575   .0252451     3.23   0.001     .0320761    .1310389
+           4  |   .1958741   .0242598     8.07   0.000      .148324    .2434241
+           5  |   .2867529   .0238453    12.03   0.000     .2400153    .3334906
+           6  |    .157238   .0252288     6.23   0.000     .1077888    .2066873
+           7  |   .0324303     .02418     1.34   0.180    -.0149634     .079824
+           8  |  -.0026998    .024832    -0.11   0.913    -.0513713    .0459717
+           9  |  -.0477468   .0262563    -1.82   0.069    -.0992101    .0037164
+          10  |  -.0360745   .0250112    -1.44   0.149    -.0850973    .0129484
+          11  |  -.0130337   .0261911    -0.50   0.619    -.0643692    .0383019
+          12  |  -.0666273   .0251962    -2.64   0.008    -.1160127   -.0172418
+              |
+        _cons |   2.400415     .01674   143.39   0.000     2.367604    2.433226
+-------------------------------------------------------------------------------
+
+. predict double sh_res, residuals
+
+. summarize ShannonBD, meanonly
+
+. gen double shannon_sa = sh_res + r(mean)
+
+. drop sh_res
+
+. label var shannon_sa "Shannon, month-of-year effects removed"
+
+. 
+. compress
+  variable PI4 was float now byte
+  variable PI5 was float now byte
+  variable first_pos was float now int
+  variable g_main was float now int
+  variable g_paper was float now int
+  variable rel_year was float now byte
+  (497,070 bytes saved)
+
+. save "$T3/data/staggered_monthly.dta", replace
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/data/staggered_monthly.dta saved
+
+. 
+. *------------------------------------------------ county-year panel (for CS)
+. collapse (mean) shannon_sa ShannonBD Duration (count) n_months = ShannonBD ///
+>     (first) g_main g_paper first_pos urban prov in_PI_file, by(county id YEAR)
+
+. xtset county YEAR
+
+Panel variable: county (unbalanced)
+ Time variable: YEAR, 2014 to 2023, but with gaps
+         Delta: 1 unit
+
+. di as res "County-years: " _N
+County-years: 7984
+
+. compress
+  variable n_months was long now byte
+  (23,952 bytes saved)
+
+. save "$T3/data/staggered_countyyear.dta", replace
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/data/staggered_countyyear.dta saved
+
+. 
+end of do-file
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/logs/3_1_adoptio
+> n_timing.log
+  log type:  text
+ closed on:  11 Nov 2026, 17:51:19
+------------------------------------------------------------------------------------------------------------------------

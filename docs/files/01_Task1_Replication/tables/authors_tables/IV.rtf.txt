@@ -1,0 +1,37 @@
+Table S7. Instrumental variable estimates.
+
+  --------------- --------------- ---------------
+                  (1)             (2)
+                  PI              ShannonBD
+  Sun_ccpu        0.0252***    
+                  (0.0046)        
+  PI                              -0.1264***
+                                  (0.0347)
+  Temp            -0.0623         -0.0039
+                  (0.0826)        (0.0245)
+  Wind            0.6206***    0.1698**
+                  (0.2106)        (0.0847)
+  Pop             -0.2241         -0.1335
+                  (0.3240)        (0.1372)
+  Duration        -0.0273***   0.1554***
+                  (0.0096)        (0.0064)
+  Carbon          -0.1220         -0.1384**
+                  (0.2072)        (0.0546)
+  Water           14.1078***   0.5986
+                  (3.7060)        (1.2926)
+  Green           6.5362          2.1733**
+                  (4.1107)        (1.0528)
+  Farm            4.3525          0.8204
+                  (2.7758)        (0.8162)
+  Grass           0.9890          1.1258
+                  (4.4269)        (1.3907)
+  Year-month FE   YES             YES
+  County FE       YES             YES
+  Observations    37503           37503
+  --------------- --------------- ---------------
+
+Notes: Column (1) shows the result of the first-stage regression. The dependent variable in Column (1) is PSI (the weighted sum of policies at the provincial, municipal, and county levels). The independent variable in Column (1) is Ln Sunshine / city CPU, defined as the natural logarithm of average sunshine duration from 1984 to 2013 divided by the city-level climate policy uncertainty index. The
+city-level climate policy uncertainty index is sourced from Ma et al.(66). Column (2) shows the result of the second-stage regression. The dependent variable in Column (2) is ShannonBD (the negative sum of the proportion of each bird species multiplied by its natural logarithm). The independent variable in Column (2) is PSI (the weighted sum of policies at the provincial, municipal, and county
+levels). K-P rk LM statistic shows the result of underidentification test. K-P rk Wald F statistic shows the result of weak identification test. Other control variables include Temp (annual average temperature), Wind (annual average wind speed), Pop (the logarithm of the ratio of total population to regional area), Duration (the logarithm of the ratio of birdwatching duration to the number of
+birdwatchers), Carbon (the logarithm of the carbon emissions), Water (the area of water divided by the total area), Green (the sum of the area of forests and shrubs divided by the total area), Farm (the area of farmland divided by the total area), Grass (the area of the grassland divided by the total area). All specifications include county and Year-month fixed effects. The robust standard errors
+clustered by the county are reported in parenthesis. ***, **, * denote the significance at the 1%, 5%, and 10% levels, respectively.

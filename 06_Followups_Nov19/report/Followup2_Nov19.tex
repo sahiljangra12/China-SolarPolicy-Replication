@@ -1,0 +1,246 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern,microtype,amsmath}
+\usepackage{booktabs,tabularx,array}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage{titlesec,fancyhdr,enumitem}
+\usepackage[most]{tcolorbox}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+\definecolor{jhublue}{RGB}{0,45,114}
+\definecolor{jhuorange}{RGB}{207,69,32}
+\definecolor{boxgray}{RGB}{244,246,250}
+\definecolor{codegray}{RGB}{248,248,248}
+\titleformat{\section}{\Large\bfseries\color{jhublue}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\color{jhublue}}{\thesubsection}{0.6em}{}
+\pagestyle{fancy}\fancyhf{}
+\lhead{\small Solar policy and bird diversity: follow-ups from 19 November}
+\rhead{\small Zhang et al.\ (2026) replication}
+\cfoot{\small\thepage}
+\setlength{\parindent}{0pt}\setlength{\parskip}{5pt}
+\renewcommand{\arraystretch}{1.18}
+\newtcolorbox{keybox}[1]{colback=boxgray,colframe=jhublue,fonttitle=\bfseries,title={#1},boxrule=0.6pt,arc=2pt,left=6pt,right=6pt,top=4pt,bottom=4pt}
+\newtcolorbox{answerbox}{breakable,colback=white,colframe=jhuorange,boxrule=0.8pt,arc=2pt,left=6pt,right=6pt,top=4pt,bottom=4pt}
+\lstset{basicstyle=\ttfamily\scriptsize,backgroundcolor=\color{codegray},frame=single,rulecolor=\color{gray!40},
+  breaklines=true,columns=fullflexible,keepspaces=true,showstringspaces=false,numbers=left,numberstyle=\tiny\color{gray},xleftmargin=1.5em,framexleftmargin=1.5em}
+
+\begin{document}
+\begin{center}
+{\LARGE\bfseries Follow-ups Requested at the 19 November Meeting}\\[6pt]
+{\large Sensitivity analysis, de Chaisemartin--D'Haultf\oe uille estimators,\\ the birdwatcher variable, and the questions raised in the meeting}\\[6pt]
+{\small Replication of Zhang et al.\ (2026), \textit{Science} 393, 831. All results run in StataNow/BE 19.5 on 19 November 2026.}
+\end{center}
+
+\begin{keybox}{Where everything is}
+Code: \texttt{06\_Followups\_Nov19/code/} (run \texttt{6\_0\_run\_nov19.do}). Logs: \texttt{logs/}. Figures: \texttt{figures/}.\\
+One file that runs the whole project (Tasks 1--3 and both rounds of follow-ups): \texttt{Solar\_Birds\_Replication/run\_everything.do}.
+\end{keybox}
+
+\section{Answers on one page}
+\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{3.7cm} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Request} & \textbf{Answer} \\
+\midrule
+Sensitivity analysis with the residualization code &
+It runs. The code that failed was the explicit-dummy version (2,344 county dummies exceed Stata/BE's 2,048-variable limit). The residualized version reproduces the estimate exactly ($-0.0125283$). An omitted confounder explaining \textbf{2.2\%} of the residual variance of both PSI and Shannon brings the estimate to zero; \textbf{1.3\%} makes it insignificant. Benchmarked on the strongest observed control (Duration): a confounder 3$\times$ as strong makes it insignificant, 4$\times$ brings it to $\approx 0$ ($-0.0009$), 5$\times$ makes it positive ($+0.0020$). With urban $\times$ year-month FE, 2$\times$ Duration already brings it to zero. (Section~2.) \\
+\addlinespace
+de Chaisemartin--D'Haultf\oe uille (dCDH) estimators &
+Both packages run. Unlike the binary staggered estimators, \textbf{dCDH finds a negative effect}: about $-0.035$ to $-0.055$ in Shannon per PSI point (county-year data), significant at 5\% in most versions, including real-PSI counties ($-0.037$) and within-urban/within-rural comparisons ($-0.041$). Placebo (pre-trend) tests for Shannon pass. But placebo tests for the number of birdwatchers \textbf{fail}: counties whose PSI rises were already on a different birding-effort path before the change. (Section~3.) \\
+\addlinespace
+Where do the authors analyse birdwatchers, and why? &
+\textbf{They do not.} The paper never uses the number of birdwatchers as an outcome. It appears only inside the control Duration (hours per birdwatcher). The effort regressions in our report are our own. In the authors' data the variable labelled ``number of birdwatchers'' is built as \texttt{(count)} of records in the county-month, i.e.\ the number of submitted records (checklists), not unique people. (Section~4.) \\
+\addlinespace
+Plausibly-exogenous IV step: where does it come from, is it valid? &
+It is the method of Conley, Hansen and Rossi (2012), with the direct effect estimated from a ``zero-first-stage'' subsample as proposed by van Kippersluis and Rietveld (2018, \textit{Econometrics Journal}). Valid if the direct effect of the instrument in the 724 imputed-zero counties equals its direct effect elsewhere. (Section~5.) \\
+\addlinespace
+Urban share of the 20,364 rows dropped in the real-PSI sample &
+\textbf{98.7\% urban} (20,107 rows). The real-PSI sample is only 15.8\% urban. The ``83\%'' in the earlier report means: 83.1\% of \emph{urban} rows have imputed PSI (vs 1.2\% of rural rows); urban rows are 52\% of the sample. (Section~6.) \\
+\addlinespace
+Is Area missing for the same counties as PSI? &
+\textbf{No.} 1,184 counties are absent from the capacity file; only 473 of them are also absent from the policy file. The capacity file has true zeros (11,699 of 22,880 county-years), so true and imputed zeros can be told apart. Source: National Energy Administration licensed power plants (powerdatahub.com), not the policy documents. (Section~6.) \\
+\bottomrule
+\end{tabularx}
+\normalsize
+
+%==========================================================================
+\section{Sensitivity analysis (Cinelli--Hazlett), residualized}
+\textbf{Code} (\texttt{6\_1\_sensitivity\_residualized.do}): exactly the approach suggested, with the controls also residualized so the coefficient equals the paper's (Frisch--Waugh--Lovell):
+\begin{lstlisting}[numbers=none]
+reghdfe ShannonBD PI $control, absorb(county year)      // fixes the sample
+foreach v in ShannonBD PI $control {
+    reghdfe `v', absorb(county year) resid(r_`v')      // remove county + year-month FE
+}
+reg r_ShannonBD r_PI r_Temp r_Wind r_Pop r_Duration r_Carbon r_Water r_Green r_Farm r_Grass, nocons
+sensemakr r_ShannonBD r_PI r_Temp ... r_Grass, treat(r_PI) benchmark(r_Duration) kd(1 2 3 4 5)
+\end{lstlisting}
+Check printed by Stata: \texttt{reghdfe b = -0.0125283, residual OLS b = -0.0125283}.
+
+\begin{center}\small
+\begin{tabular}{lcc}
+\toprule
+ & S1: paper (county + YM FE) & S2: urban $\times$ YM FE \\
+\midrule
+Estimate (classical SE) & $-0.0125$ (0.0027) & $-0.0027$ (0.0028) \\
+Partial $R^2$ of PSI with Shannon & 0.05\% & 0.002\% \\
+Robustness value RV (to bring estimate to 0) & \textbf{2.16\%} & 0.44\% \\
+RV$_{\alpha=0.05}$ (to make it insignificant) & \textbf{1.27\%} & already insignificant \\
+\midrule
+\multicolumn{3}{l}{\textit{Adjusted estimate if a confounder is $k$ times as strong as Duration}}\\
+$k=1$ & $-0.0096$ (sig.) & $-0.0014$ \\
+$k=2$ & $-0.0067$ (sig.) & $-0.0002$ \\
+$k=3$ & $-0.0038$ (not sig.) & $+0.0010$ \\
+$k=4$ & $-0.0009$ & $+0.0023$ \\
+$k=5$ & $+0.0020$ & $+0.0035$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+{\small sensemakr counts df $=N-k-1$ and ignores the absorbed fixed effects, so its RV$_\alpha$ (1.27\%) is slightly above the exact value from Task 2 (1.24\%; 0.93\% with clustered SEs). The point estimate and RV are identical.}
+
+\textbf{How to read it.} Duration is the strongest observed control: it explains 4.0\% of the residual variance of Shannon but only 0.06\% of PSI. A confounder that is related to PSI as strongly as three Durations and to Shannon as strongly as three Durations already makes the estimate insignificant; four bring it to zero; five reverse the sign. On the PSI side the required confounder is weak in absolute terms: it needs to explain only about 0.2--0.3\% of PSI's residual variation (while explaining 12--16\% of Shannon's). A natural candidate is unmeasured birding effort (where and how people search), which is exactly the measurement concern.
+
+\begin{center}
+\includegraphics[width=0.48\linewidth]{fig/6_1_contour_estimate_S1.png}\hfill
+\includegraphics[width=0.48\linewidth]{fig/6_1_contour_tvalue_S1.png}\\
+{\small Left: adjusted estimate (red line = 0). Right: adjusted $t$-value (red line = $-1.96$). Black dots: confounders 1--3$\times$ as strong as Duration.}
+\end{center}
+
+%==========================================================================
+\section{de Chaisemartin and D'Haultf\oe uille estimators}
+\subsection{Design}
+\begin{itemize}[leftmargin=14pt,itemsep=1pt]
+\item \textbf{Data:} county-year panel 2014--2023 (PSI changes yearly). Outcome: Shannon with month-of-year effects removed, averaged over the county's observed months. All 2,501 counties; unlike Task 3, the 838 counties with PSI $>0$ in 2014 are kept.
+\item \textbf{Treatment paths:} in counties with real PSI, PSI rises in 20.3\% of year-to-year changes, falls in 5.5\% and stays the same in 35.9\% (the rest have a gap year). 1,016 counties ever change; the 724 imputed-zero counties never change.
+\item \textbf{\texttt{did\_multiplegt\_dyn}} (de Chaisemartin and D'Haultf\oe uille, \textit{REStat} 108(4)): each county whose PSI first changes is compared with counties that had the \emph{same PSI in 2014} and have not changed yet. Effects $\ell=1,\dots,5$ years after the change; placebos $\ell=-1,-2,-3$ test pre-trends. ``Normalized'' divides by the size of the dose change, giving an effect per PSI point.
+\item \textbf{\texttt{did\_multiplegt\_stat}} (de Chaisemartin, D'Haultf\oe uille et al., continuous treatments with stayers): compares, for each pair of consecutive years, counties whose PSI changes with ``stayers'' whose PSI does not. AS = average slope; WAS = weighted average slope (weights by size of the change, more precise). Assumes no lagged effects.
+\end{itemize}
+
+\subsection{Results for Shannon}
+\begin{center}\footnotesize\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l c c c}
+\toprule
+Specification & Effect per PSI point (SE) & 95\% CI & Placebo test $p$ \\
+\midrule
+\multicolumn{4}{l}{\textit{did\_multiplegt\_dyn: average total effect per treatment unit}}\\
+All counties & $-0.055$ (0.018) & $[-0.090, -0.020]$ & 0.74 \\
+Within urban / within rural & $-0.041$ (0.019) & $[-0.077, -0.004]$ & 0.81 \\
+Real-PSI counties only & $-0.037$ (0.019) & $[-0.074, -0.001]$ & 0.62 \\
+\multicolumn{4}{l}{\textit{did\_multiplegt\_stat: weighted average slope (WAS)}}\\
+All counties & $-0.035$ (0.016) & $[-0.067, -0.002]$ & placebo $-0.030$ (0.092) \\
+Real-PSI counties only & $-0.027$ (0.013) & $[-0.054, -0.001]$ & placebo $+0.012$ (0.031) \\
+All counties, nine controls & $-0.024$ (0.015) & $[-0.054, +0.006]$ & placebo $+0.008$ (0.069) \\
+All, holding ln(birdwatchers) fixed & $-0.043$ (0.017) & $[-0.077, -0.009]$ & placebo $-0.057$ (0.103) \\
+\multicolumn{4}{l}{\textit{Benchmark: TWFE on the same county-year panel, nine controls}}\\
+All counties & $-0.009$ (0.004) & $[-0.018, -0.001]$ & -- \\
+Real-PSI counties only & $-0.003$ (0.005) & $[-0.012, +0.006]$ & -- \\
+\bottomrule
+\end{tabular}
+\end{center}
+{\small Year-by-year dyn effects (normalized, all counties): $\ell=1$: $-0.054$ (0.022), $\ell=2$: $-0.027$ (0.013), $\ell=3$: $-0.025$ (0.012), $\ell=4$: $-0.027$ (0.018), $\ell=5$: $-0.016$ (0.012); 523 switching counties at $\ell=1$, 77 at $\ell=5$. Joint test that all effects are zero: $p=0.067$.}
+
+\begin{center}
+\includegraphics[width=0.62\linewidth]{fig/6_2_dcdh_dyn_eventstudy.png}\\
+{\small Event study (not normalized): Shannon change relative to the year before PSI first changes. Pre-period estimates (left of 0) are close to zero.}
+\end{center}
+
+\subsection{Effort checks with dCDH}
+\begin{center}\small
+\begin{tabular}{l c c}
+\toprule
+Outcome: ln(number of birdwatchers) & Effect per PSI point (SE) & Placebo test $p$ \\
+\midrule
+dyn, all counties & $-0.019$ (0.010) & \textbf{0.001} (fails) \\
+dyn, real-PSI counties & $+0.006$ (0.011) & \textbf{0.001} (fails) \\
+stat WAS, all counties & $-0.026$ (0.012) & placebo $-0.068$ (0.084) \\
+\bottomrule
+\end{tabular}
+\end{center}
+The dyn placebos for birdwatchers are positive and significant ($+0.053$, $+0.021$, $+0.029$): before their PSI rises, these counties' birding activity was \emph{growing faster} than that of comparison counties with the same starting PSI.
+
+\subsection{What this means}
+\begin{answerbox}
+\begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=2pt]
+\item \textbf{This result goes against our earlier conclusion and should be stated plainly.} When PSI is used as a multi-valued treatment and each county is compared with counties at the same starting PSI, the estimated effect on Shannon is negative, larger per PSI point than TWFE, and survives the real-PSI restriction and the within-urban/rural comparison. The Shannon pre-trend tests pass.
+\item \textbf{But the effort problem is not solved.} The comparison counties are not on the same birding-effort path before the change (birdwatcher placebos fail), so ``fewer birds'' and ``changing observation'' are still mixed. Holding the number of birdwatchers fixed does not remove the effect here ($-0.043$), unlike in TWFE; but birdwatchers may itself be affected by PSI (bad control).
+\item \textbf{Limits.}
+\begin{itemize}[leftmargin=12pt,itemsep=1pt]
+\item Many first-year PSI values have too few counties to form comparisons, and those switchers are dropped.
+\item Control variables cannot be added to \texttt{did\_multiplegt\_dyn} in Stata/BE (2,048-variable limit). With the nine controls in \texttt{did\_multiplegt\_stat} the effect is $-0.024$ and no longer significant.
+\item The continuous-baseline version (\texttt{continuous(1)} with bootstrap) did not finish in 12 minutes in Stata/BE and is left for a faster machine.
+\item The outcome is a county-year average of opportunistic records.
+\end{itemize}
+\item \textbf{Why it differs from Callaway--Sant'Anna etc.} Those estimators used a 0/1 version of PSI (first year with PSI $>0$) and had to drop the 838 counties already treated in 2014; dCDH uses the full dose and every change, including later increases in already-treated counties, which is where most of the identifying variation is.
+\end{itemize}
+\end{answerbox}
+
+%==========================================================================
+\section{Where the paper uses birdwatchers, and what the variable is}
+\begin{itemize}[leftmargin=14pt,itemsep=2pt]
+\item \textbf{Main text, Table 1 note and Methods:} controls include ``the logarithm of bird-watching duration per birdwatcher (Duration)''. That is the only use.
+\item \textbf{Supplement Table S1/S2:} Duration = ``the logarithm of the ratio of birdwatching duration to the number of birdwatchers''; source China Birdreport.
+\item \textbf{Supplement Table S14:} drops county-months with few birdwatching \emph{records} ``to address potential measurement error from limited observer effort''. Its observation counts (7,954; 15,160; 22,314; 26,918) show it keeps only 17--58\% of the sample, not the stated 80--97\%.
+\item \textbf{No table in the paper or supplement estimates the effect of PSI on birdwatchers or birding time.} Those regressions (Follow-up report, item 1) are ours, run with the paper's specification. ``In the paper's comparison'' in that report meant ``our regression using the paper's fixed effects''; it will be reworded.
+\item \textbf{What ``number of birdwatchers'' is.} In the authors' file \texttt{BTN.dta}, the variable \texttt{BN} (``number of birdwatchers'') carries the label \texttt{(count)}: it was created by counting records per county-month. \texttt{BT} is \texttt{(sum) duration\_hours}. So BN is the number of submitted records (checklists): one person reporting three outings counts three times. The paper does not discuss this.
+\end{itemize}
+
+%==========================================================================
+\section{The plausibly-exogenous IV step}
+\begin{itemize}[leftmargin=14pt,itemsep=2pt]
+\item \textbf{Source.} Conley, Hansen and Rossi (2012, \textit{REStat} 94:260) allow the instrument a direct effect $\gamma$ on the outcome: $Y = \beta D + \gamma Z + X\delta + u$. If $\gamma$ were known, $\beta$ is identified by IV with outcome $Y-\gamma Z$. van Kippersluis and Rietveld (2018, ``Beyond plausibly exogenous'', \textit{Econometrics Journal} 21:316) propose estimating $\gamma$ in a subsample where the first stage is zero: there the instrument cannot move the treatment, so its reduced-form effect is $\gamma$.
+\item \textbf{Here.} In the 724 counties missing from the policy file, PSI is 0 in every month, so the instrument cannot move PSI. Regressing Shannon on the instrument there (paper's FE and controls) gives $\hat\gamma=-0.00214$ ($p=0.048$). Subtracting $\hat\gamma Z$ and re-running 2SLS gives $-0.042$ (SE 0.029) instead of $-0.126$.
+\item \textbf{When it is valid.} (1) The direct effect is the same in the zero-first-stage counties as elsewhere (homogeneity). (2) Those counties' first stage is truly zero. Concern: they are almost all urban (694 of 703 in the regression sample), so (1) is doubtful, and their PSI is zero because it is \emph{missing}, not because policy did not respond. So the corrected estimate is a sensitivity check showing how much the IV depends on exclusion, not a definitive estimate. Conley et al.'s ``union of confidence intervals'' over a range of $\gamma$ gives the same message: allowing $\gamma$ anywhere in its 95\% interval, the IV ranges from $+0.042$ to $-0.125$.
+\end{itemize}
+
+%==========================================================================
+\section{Numbers asked for in the meeting}
+\begin{center}\small
+\begin{tabular}{lrr}
+\toprule
+Regression sample (46,371 county-months, 2,344 counties) & Rows & Urban share \\
+\midrule
+All rows & 46,371 & 52.2\% \\
+Rows with PSI imputed as 0 (dropped in real-PSI sample) & 20,364 & \textbf{98.7\%} \\
+Rows with real PSI (kept) & 26,007 & 15.8\% \\
+\midrule
+Share of \emph{urban} rows with imputed PSI & \multicolumn{2}{r}{83.1\% (20,107 of 24,207)} \\
+Share of \emph{rural} rows with imputed PSI & \multicolumn{2}{r}{1.2\% (257 of 22,164)} \\
+Urban counties missing from policy file & \multicolumn{2}{r}{694 of 847} \\
+Rural counties missing from policy file & \multicolumn{2}{r}{9 of 1,497} \\
+\bottomrule
+\end{tabular}
+\end{center}
+So the earlier sentence ``urban districts mostly have PSI imputed as 0'' should read: \emph{83\% of urban county-months (694 of 847 urban counties) have PSI imputed as 0, against 1\% of rural county-months.} The real-PSI sample is therefore essentially a rural sample.
+
+\begin{center}\small
+\begin{tabular}{lrrr}
+\toprule
+Counties in the analysis file (2,501) & In capacity file & Not in capacity file & Total \\
+\midrule
+In policy file (real PSI) & 1,066 & 711 & 1,777 \\
+Not in policy file (PSI imputed 0) & 251 & 473 & 724 \\
+\midrule
+Total & 1,317 & 1,184 & 2,501 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Area is missing for a \emph{different and larger} set of counties than PSI, so missing data do not explain why the authors used PSI rather than Area. The capacity file contains 11,699 county-years with a true zero, so true zeros (in the file, 0 MW) and imputed zeros (county absent) can be distinguished for Area. Source (Table S2): power plants with generation business licences from the National Energy Administration, via \url{https://www.powerdatahub.com/}.
+
+%==========================================================================
+\section{Next steps}
+\begin{enumerate}[leftmargin=18pt,itemsep=1pt]
+\item Present dCDH as the main staggered result for PSI, with the birding-effort pre-trend caveat; add HonestDiD-style bounds for the placebo failures.
+\item Run \texttt{did\_multiplegt\_dyn} with controls and the continuous option on Stata/MP (or in R, where there is no variable limit).
+\item dCDH with Area as the treatment (true zeros vs imputed zeros now known).
+\item Revise the wording in the 13 November report as noted in Sections 4 and 6.
+\end{enumerate}
+
+\appendix
+\section{Stata code}
+\subsection{run\_everything.do}\lstinputlisting{run_everything.do}
+\subsection{6\_0\_run\_nov19.do}\lstinputlisting{6_0_run_nov19.do}
+\subsection{6\_1\_sensitivity\_residualized.do}\lstinputlisting{6_1_sensitivity_residualized.do}
+\subsection{6\_2\_dcdh\_estimators.do}\lstinputlisting{6_2_dcdh_estimators.do}
+\subsection{6\_3\_meeting\_facts.do}\lstinputlisting{6_3_meeting_facts.do}
+\end{document}

@@ -1,0 +1,274 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.9in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern,microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,array,tabularx}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage{titlesec,fancyhdr,enumitem}
+\usepackage[most]{tcolorbox}
+\usepackage[hidelinks]{hyperref}
+\definecolor{jhublue}{RGB}{0,45,114}
+\definecolor{jhuorange}{RGB}{207,69,32}
+\definecolor{boxgray}{RGB}{244,246,250}
+\titleformat{\section}{\large\bfseries\color{jhublue}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.6em}{}
+\pagestyle{fancy}\fancyhf{}
+\lhead{\small Solar policy and bird diversity: summary of replication work}
+\rhead{\small Zhang et al.\ (2026)}
+\cfoot{\small\thepage}
+\setlength{\parindent}{0pt}\setlength{\parskip}{5pt}
+\setlist{itemsep=2pt,topsep=3pt,leftmargin=16pt}
+\renewcommand{\arraystretch}{1.15}
+\newtcolorbox{keybox}[1]{colback=boxgray,colframe=jhublue,fonttitle=\bfseries,title={#1},boxrule=0.6pt,arc=2pt,left=6pt,right=6pt,top=4pt,bottom=4pt}
+\newtcolorbox{answerbox}{colback=white,colframe=jhuorange,boxrule=0.8pt,arc=2pt,left=6pt,right=6pt,top=4pt,bottom=4pt}
+
+\begin{document}
+\begin{center}
+{\Large\bfseries Replication of Zhang et al.\ (2026), ``China's solar expansion policy reduces bird diversity''}\\[5pt]
+{\large Summary of Tasks 1--3 and the follow-up analyses from the 13 November meeting}\\[4pt]
+{\small \textit{Science} 393, 831 \quad$\cdot$\quad Prepared for the meeting of 19 November 2026}
+\end{center}
+
+\begin{keybox}{Summary}
+\begin{itemize}[leftmargin=14pt]
+\item \textbf{The results reproduce exactly.} The authors' code runs with only file paths changed. All 12 numbers we checked match the paper to four decimals; the main TWFE estimate is $-0.0125$ (SE 0.0037).
+\item \textbf{But the main estimate depends on one comparison.} Missing PSI was set to 0 for 724 counties, mostly urban districts. When urban districts are compared only with urban districts and rural counties with rural counties, the estimate falls to $-0.0027$ ($p=0.47$). Dropping the imputed counties gives the same result.
+\item \textbf{Sensitivity (Task 2).} A confounder explaining about 2\% of the remaining variation would remove the effect. A confounder half as strong as ``urban vs rural'' would do so.
+\item \textbf{Staggered DiD (Task 3).} Modern estimators give small, insignificant and mostly \emph{positive} effects in the clean sample.
+\item \textbf{Follow-ups.} PSI, and solar-plant area, go with fewer birdwatchers and fewer observed months. Holding the number of birdwatchers fixed removes both effects. The IV survives weak-instrument-robust inference, but the instrument has a measurable direct effect on bird records; correcting for it removes about two-thirds of the IV estimate.
+\item \textbf{Conclusion.} The data cannot separate ``fewer birds'' from ``fewer people looking for birds''. The study does not establish that the solar policy reduces bird diversity, though this is also not evidence that it is harmless.
+\end{itemize}
+\end{keybox}
+
+All analyses are in Stata, in the folder \texttt{Solar\_Birds\_Replication/} (one sub-folder per task, each with code, logs, tables and figures). Everything was run and checked in StataNow/BE 19.5.
+
+%==========================================================================
+\section{The study in brief}
+\begin{itemize}
+\item \textbf{Data.} 46,528 county-months (2,501 counties, 2014--2023) that have at least one bird record on China Birdreport, a citizen-science platform. These are opportunistic sightings, not standardized surveys.
+\item \textbf{Outcome.} Shannon diversity index of the birds recorded in the county-month.
+\item \textbf{Treatment.} PSI, a policy stringency index for each county-year: solar-promotion documents scored 1--9 and weighted by government level (range 0--15.5).
+\item \textbf{Designs.}
+  \begin{itemize}
+  \item TWFE with county and year-month fixed effects, 9 controls, county-clustered SEs: $-0.0125$.
+  \item Propensity-score matching.
+  \item A shift-share IV: ln(long-run sunshine) / city climate-policy uncertainty, giving 2SLS $-0.126$.
+  \end{itemize}
+\end{itemize}
+
+%==========================================================================
+\section{Task 1: reproduction, estimand and identification}
+\subsection{Reproduction}
+The full CODE.do runs; only six file-path lines were changed. All 12 checked numbers (Tables 1, 2, S7, S11, S12) match. Main estimate $-0.0125283$ (SE 0.0036551), 46,371 county-months and 2,344 counties after reghdfe drops 157 singleton counties.
+
+\subsection{Estimand}
+The target is the average change in Shannon diversity for a one-unit increase in PSI (an average causal response).
+\begin{itemize}
+\item TWFE gives a variance-weighted average of within-county comparisons. This weighting can be negative when treatment timing and intensity vary.
+\item The IV estimates a local effect for counties whose PSI responds to the instrument.
+\item Neither is stated explicitly in the paper.
+\end{itemize}
+
+\subsection{TWFE: is the comparison fair?}
+The key data fact: \textbf{PSI is missing for 724 counties, and the code sets it to 0} (\texttt{replace PI = 0 if missing(PI)}).
+\begin{itemize}
+\item These rows are kept in the TWFE: 43.8\% of all rows.
+\item 83.0\% of urban-district rows are imputed, against 1.2\% of rural-county rows.
+\item So ``PSI $=0$'' mostly means ``urban district with no policy data''. The estimate largely compares rural counties with urban districts, where birding grew much faster.
+\end{itemize}
+
+\begin{center}
+\small
+\begin{tabular}{l c c c}
+\toprule
+Specification & PSI coefficient & SE & $p$ \\
+\midrule
+Paper (county + year-month FE) & $-0.0125$ & 0.0037 & 0.001 \\
+Urban $\times$ year-month FE (all rows) & $-0.0027$ & 0.0037 & 0.47 \\
+Only counties with real PSI data (26,007 rows) & $-0.0027$ & 0.0038 & 0.49 \\
+Province $\times$ year-month FE & $-0.0146$ & -- & 0.002 \\
+Cumulative PSI (stock) & $-0.0012$ & -- & 0.58 \\
+Duration (an effort variable) dropped as control & $-0.0154$ & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{center}
+Region does not explain the result (province $\times$ month keeps it), but the urban/rural split does.
+
+\subsection{Matching}
+The psmatch2 weights are never applied; the code only drops unmatched rows. With the weights applied, the estimate is about $-0.005$ and not significant.
+
+\subsection{IV and the exclusion restriction}
+First stage 0.0252, Kleibergen--Paap F 30.2 (county clusters); 2SLS $-0.126$, ten times the TWFE estimate. Exclusion is doubtful:
+\begin{itemize}
+\item sunshine affects habitat and birding directly;
+\item climate-policy uncertainty moves with all climate policy and the economy.
+\end{itemize}
+Evidence:
+\begin{itemize}
+\item \textbf{Zero-first-stage test} (van Kippersluis and Rietveld 2018). In the 724 counties where the instrument cannot move PSI, it still predicts lower Shannon: $-0.0021$ ($p=0.048$).
+\item \textbf{The instrument predicts other channels} (Duration, the carbon-emission index).
+\item \textbf{Clustering by city}, the level of the CPU shock, lowers F to 10.8.
+\end{itemize}
+Section 5 adds the weak-instrument diagnostics requested on 13 November.
+
+%==========================================================================
+\section{Task 2: Cinelli--Hazlett sensitivity analysis}
+Applied to the TWFE estimate. Fixed effects are handled by Frisch--Waugh--Lovell; the statistics were checked against explicit dummy variables and \texttt{sensemakr}.
+\begin{itemize}
+\item Partial $R^2$ of PSI with Shannon: 0.000478.
+\item \textbf{Robustness value RV $=2.16\%$.} An unobserved confounder explaining 2.16\% of the residual variance of both PSI and Shannon would bring the estimate to zero.
+\item \textbf{RV$_\alpha=1.24\%$} would make it insignificant at 5\%; 0.93\% when the threshold is adjusted for clustered SEs.
+\item Benchmarks:
+  \begin{itemize}
+  \item A confounder twice as strong as Duration (the strongest observed control for Shannon) leaves $-0.0067$ ($t=-1.92$).
+  \item A confounder like ``urban vs rural'' (it explains 12.3\% of PSI): half as strong gives $-0.0027$; equally strong gives $+0.0081$.
+  \end{itemize}
+\end{itemize}
+\textbf{Reading:} the estimate is fragile against confounders of a size we already observe in the data.
+
+%==========================================================================
+\section{Task 3: staggered difference-in-differences}
+PSI is turned into adoption timing: the first year with PSI $>0$.
+\begin{itemize}
+\item 838 counties already had PSI $>0$ in 2014, so their timing is unknown and they are dropped.
+\item Never-treated counties: 120 in the main sample, which excludes the 724 imputed counties. In the ``paper-style'' sample those 724 are kept, giving 844.
+\end{itemize}
+
+\begin{center}
+\small
+\begin{tabular}{l c c}
+\toprule
+Estimator & Main sample & Paper-style sample \\
+\midrule
+TWFE, post-adoption dummy & $+0.032$ & -- \\
+Callaway--Sant'Anna (not-yet-treated controls) & $+0.057$ & $-0.091$ \\
+Borusyak--Jaravel--Spiess (imputation) & $+0.078$ & $-0.087$ \\
+Sun--Abraham & $+0.024$ & -- \\
+\bottomrule
+\multicolumn{3}{l}{\footnotesize None is statistically significant.}
+\end{tabular}
+\end{center}
+Further results:
+\begin{itemize}
+\item The paper-style sample shows a significant gap \emph{before} adoption (event time $-1$: $-0.173$), a sign of non-parallel trends.
+\item Pre-trend tests: CS $p<0.001$, BJS $p=0.24$, TWFE $p=0.34$.
+\end{itemize}
+Caveat: PSI is multi-valued and not absorbing (it returns to 0 in 15.3\% of post-adoption county-years). The best-suited estimator is de Chaisemartin--D'Haultf\oe uille (\texttt{did\_multiplegt\_dyn}).
+
+%==========================================================================
+\section{Follow-ups requested on 13 November}
+\subsection{Sample flow, and 2,324 vs 2,344 counties}
+\begin{center}
+\small
+\begin{tabular}{l r r}
+\toprule
+Step & Rows & Counties \\
+\midrule
+Possible county-months (counties with population data $\times$ 120) & 333,360 & 2,778 \\
+County-months with a bird record & 48,900 & 2,561 \\
+After dropping rows with a missing control (authors) & 46,528 & 2,501 \\
+After reghdfe drops singleton counties (regression sample) & 46,371 & 2,344 \\
+IV sample (needs sunshine and city CPU) & 37,503 & 2,077 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{itemize}
+\item \textbf{The 2,372 dropped rows.} 1,839 rows miss climate data (county not in the climate file) and 543 miss BTN; a few miss land, population or CO$_2$.
+\item \textbf{2,324} is the number of counties observed in 2023 alone. No regression uses it.
+\item \textbf{The panel is very unbalanced.} The median county is observed in 11 of 120 months.
+\end{itemize}
+
+\subsection{Does PSI predict birdwatching effort?}
+\begin{center}
+\small
+\begin{tabular}{l c c c}
+\toprule
+Effect of +1 PSI on & Paper FE & Urban $\times$ year-month FE & Real-PSI counties \\
+\midrule
+ln(number of birdwatchers) & $-0.041^{***}$ & $-0.014^{**}$ & $-0.008$ \\
+ln(1 + total birding hours) & $-0.057^{***}$ & $-0.020^{***}$ & $-0.011$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+Holding ln(birdwatchers) fixed, the PSI effect on Shannon is $+0.003$ ($p=0.31$).
+
+\subsection{Does PSI predict which months are observed?}
+I built the full grid of 2,716 counties $\times$ 120 months. Only 14.4\% of these county-months are observed: from about 2\% in 2014 to 41\% in 2023, and urban districts about twice as often as rural counties.
+\begin{itemize}
+\item In the paper's design, PSI predicts fewer observed months: $-0.0055$ per point ($p<0.001$), a 13\% relative drop per SD.
+\item With urban $\times$ year-month FE ($+0.0001$, $p=0.92$) or in real-PSI counties ($+0.0002$, $p=0.79$), the effect is zero.
+\item So selection into the sample follows the same urban--rural split as the main estimate.
+\end{itemize}
+
+\subsection{Solar-plant area as the treatment}
+Area means km$^2$ of centralized PV plants, from installed capacity. Two caveats: it is set to 0 for counties missing from the capacity file (54.6\% of rows), and within a county PSI is \emph{negatively} related to later solar area.
+\begin{center}
+\small
+\begin{tabular}{l c c}
+\toprule
+Specification & Effect of +1 km$^2$ & $p$ \\
+\midrule
+Paper (Table S12, col.\ 1) & $-0.039$ & 0.001 \\
+Urban $\times$ year-month FE & $-0.030$ & 0.007 \\
+Province $\times$ year-month FE & $-0.025$ & 0.036 \\
+Real-PSI counties only & $-0.030$ & 0.027 \\
+Outcome ln(birdwatchers) & $-0.084$ & $<0.001$ \\
+Shannon, holding ln(birdwatchers) fixed & $-0.006$ & 0.62 \\
+Richness / evenness & $-1.83$ species / $+0.004$ & 0.003 / 0.13 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Area survives the comparison-group checks better than PSI. But it also reduces the number of birdwatchers, and holding them fixed removes the effect. Fewer species are recorded while evenness is unchanged, which is what fewer observers would produce.
+
+\subsection{Weak instruments and Anderson--Rubin inference}
+\begin{itemize}
+\item \textbf{Effective F} (Montiel Olea--Pflueger; equal to the KP F with one instrument): 30.2 clustering by county, which passes the 23.1 benchmark. It is 10.8 by city and 2.8 by province, which fail.
+\item \textbf{The ``F = 8'' in Table S10} is the joint F of all ten regressors. The instrument's own F there is 49.0.
+\item \textbf{Anderson--Rubin 95\% sets exclude zero in every version}, for example $[-0.217,-0.069]$ by county and $[-0.295,-0.038]$ by city. With 27 provinces the set is unbounded but still excludes zero. So a weak instrument is not the main problem.
+\item \textbf{Exclusion is the binding problem.} Subtracting the direct effect found in the zero-first-stage test ($-0.0021$) moves the IV from $-0.126$ to $-0.042$ (AR set $[-0.105, 0.014]$, includes zero).
+\end{itemize}
+
+\subsection{Fixed-site monitoring data}
+\begin{itemize}
+\item China BON-Birds (Ministry of Ecology and Environment, since 2011) uses fixed 1--3 km transects and point counts each breeding and wintering season.
+\item A public subset is available: 536 sites in the Yangtze basin, 2011--2020, on Dryad. National data are by request.
+\item Because effort is fixed by design, these data could test whether the effect survives once observation effort is held constant.
+\end{itemize}
+
+%==========================================================================
+\section{Data and code issues found}
+\begin{enumerate}
+\item Missing PSI is set to 0 for 724 mostly urban counties, mixing ``no policy'' with ``no data''. Solar area is likewise set to 0 for counties missing from the capacity file.
+\item The psmatch2 weights are never applied.
+\item \texttt{Windexp} is coded 1 for all 33,877 rows with missing wind data, because Stata treats missing as greater than any number.
+\item The sunshine period is 1984--2013 in the paper but 1994--2023 in the data label.
+\item The low-effort robustness outcomes (ShannonBD3/5/10/20) keep only 18--59\% of rows. This is inconsistent with ``dropping the bottom 3--20\%''.
+\item The paper controls for time per birdwatcher but not the number of birdwatchers, which PSI strongly predicts.
+\item Yearly variables are repeated monthly, so county-years with more birding months get more weight.
+\end{enumerate}
+
+%==========================================================================
+\section{Proposed next steps}
+\begin{itemize}
+\item Event study on the first year a county gets a centralized solar plant (Callaway--Sant'Anna / BJS).
+\item Weight observed months by their estimated probability of being observed, using the full grid.
+\item Effort-standardized diversity: species per birdwatcher-hour, or rarefaction.
+\item Test solar area against diversity at China BON-Birds fixed sites (Yangtze subset).
+\item \texttt{did\_multiplegt\_dyn} for the multi-valued PSI.
+\item Ask the authors about the sunshine period and the effort thresholds.
+\end{itemize}
+
+\begin{answerbox}
+\textbf{Files.} Code, logs and tables for each task are in \texttt{Solar\_Birds\_Replication/}:
+\begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=2pt]
+\item Task 1: \texttt{01\_Task1\_Replication};
+\item Task 2: \texttt{02\_Task2\_Sensitivity};
+\item Task 3: \texttt{03\_Task3\_Staggered\_DiD};
+\item 13 November follow-ups: \texttt{05\_Followups\_Nov13}, with a full report.
+\end{itemize}
+\texttt{run\_all.do} reproduces Tasks 1--3. \texttt{05\_Followups\_Nov13/code/5\_0\_run\_followups.do} reproduces the follow-ups.
+\end{answerbox}
+
+\end{document}

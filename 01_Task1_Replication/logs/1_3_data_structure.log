@@ -1,0 +1,627 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/logs/1_3_data_stru
+> cture.log
+  log type:  text
+ opened on:   7 Nov 2026, 21:23:37
+
+================ 1_3_data_structure ================
+
+. *==========================================================================
+. * 00_config.do
+. * Project : Replication of Zhang et al. (2026), "China's solar expansion
+. *           policy reduces bird diversity", Science 393, 831.
+. * Purpose : One place for paths, globals and package installation.
+. *           Every task do-file starts with:  do "<ROOT>/00_config.do"
+. * Author  : Sahil (Research Assistant, Johns Hopkins University)
+. *==========================================================================
+. version 16
+
+. set more off
+
+. set linesize 120
+
+. 
+. *---------------------------------------------------------------- paths
+. global ROOT "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication"
+
+. global ORIG "$ROOT/00_Original_Package"
+
+. global DATA "$ORIG/DATA"
+
+. global T1   "$ROOT/01_Task1_Replication"
+
+. global T2   "$ROOT/02_Task2_Sensitivity"
+
+. global T3   "$ROOT/03_Task3_Staggered_DiD"
+
+. 
+. * analysis sample built in Task 1 (used by all tasks)
+. global SAMPLE "$T1/data/analysis_sample.dta"
+
+. 
+. *---------------------------------------------------------------- model
+. * the authors' nine control variables (Table 1, column 3)
+. global control     "Temp Wind Pop Duration Carbon Water Green Farm Grass"
+
+. global control_noD "Temp Wind Pop Carbon Water Green Farm Grass"
+
+. 
+. *---------------------------------------------------------------- packages
+. * installed only if missing
+. foreach p in require ftools reghdfe ivreg2 ranktest ivreghdfe estout winsor2 ///
+>              psmatch2 binscatter sensemakr drdid csdid did_imputation       ///
+>              event_plot avar eventstudyinteract {
+  2.     capture which `p'
+  3.     if _rc {
+  4.         di as txt "installing `p' ..."
+  5.         capture noisily ssc install `p', replace
+  6.     }
+  7. }
+
+. set scheme s2color
+
+. 
+end of do-file
+
+. *==========================================================================
+. * 1_3_data_structure.do
+. * PURPOSE : Document the structure of the data and how variables behave.
+. *           Every fact quoted in the Task 1 report (Section 2) is computed here.
+. * OUTPUT  : tables/1_3_data_structure_facts.csv  (one row per fact)
+. * WHY     : Task 1, items 1-2 — understand the panel and the treatment
+. *           before interpreting any regression.
+. *==========================================================================
+. tempname F
+
+. postfile `F' str70 fact double value using "$T1/tables/1_3_facts_tmp.dta", replace
+(file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/tables/1_3_facts_tmp.dta not found)
+
+. 
+. *------------------------------------------------ A. The raw bird file
+. use "$DATA/Bird.dta", clear
+
+. post `F' ("Bird.dta: county-month rows") (_N)
+
+. egen tagc = tag(id)
+
+. count if tagc
+  2,561
+
+. post `F' ("Bird.dta: counties") (r(N))
+
+. di _n "Records (county-months) per year in Bird.dta:"
+
+Records (county-months) per year in Bird.dta:
+
+. tab YEAR
+
+       YEAR |      Freq.     Percent        Cum.
+------------+-----------------------------------
+       2014 |        563        1.15        1.15
+       2015 |      2,158        4.41        5.56
+       2016 |      1,966        4.02        9.58
+       2017 |      2,014        4.12       13.70
+       2018 |      3,114        6.37       20.07
+       2019 |      2,871        5.87       25.94
+       2020 |      5,005       10.24       36.18
+       2021 |      7,989       16.34       52.52
+       2022 |      9,486       19.40       71.91
+       2023 |     13,734       28.09      100.00
+------------+-----------------------------------
+      Total |     48,900      100.00
+
+. forvalues y = 2014/2023 {
+  2.     count if YEAR == `y'
+  3.     post `F' ("Bird.dta: county-months in `y'") (r(N))
+  4. }
+  563
+  2,158
+  1,966
+  2,014
+  3,114
+  2,871
+  5,005
+  7,989
+  9,486
+  13,734
+
+. 
+. *------------------------------------------------ B. The analysis sample
+. use "$SAMPLE", clear
+
+. post `F' ("Analysis sample: county-months") (_N)
+
+. egen tagc = tag(county)
+
+. count if tagc
+  2,501
+
+. post `F' ("Analysis sample: counties") (r(N))
+
+. bysort county: gen nobs = _N
+
+. summarize nobs if tagc, detail
+
+                            nobs
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%            1              1
+ 5%            1              1
+10%            2              1       Obs               2,501
+25%            4              1       Sum of wgt.       2,501
+
+50%           11                      Mean           18.60376
+                        Largest       Std. dev.      20.12905
+75%           26            112
+90%           45            113       Variance       405.1785
+95%           63            114       Skewness       1.824038
+99%           90            115       Kurtosis       6.453131
+
+. post `F' ("Months observed per county: median") (r(p50))
+
+. post `F' ("Months observed per county: min") (r(min))
+
+. post `F' ("Months observed per county: max") (r(max))
+
+. count if tagc & nobs == 1
+  157
+
+. post `F' ("Singleton counties (1 month only)") (r(N))
+
+. 
+. *------------------------------------------------ C. The treatment PSI
+. summarize PI
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+          PI |     46,528    2.662263    4.115859          0       15.5
+
+. post `F' ("PSI mean (winsorized)") (r(mean))
+
+. post `F' ("PSI SD") (r(sd))
+
+. post `F' ("PSI max") (r(max))
+
+. count if PI == 0
+  27,512
+
+. post `F' ("Share of county-months with PSI = 0") (r(N)/_N)
+
+. di _n "PSI by year (median is zero every year):"
+
+PSI by year (median is zero every year):
+
+. tabstat PI, by(YEAR) stats(mean p50 p75 max) format(%6.2f)
+
+Summary for variables: PI
+Group variable: YEAR 
+
+    YEAR |      Mean       p50       p75       Max
+---------+----------------------------------------
+    2014 |      0.91      0.00      1.80     13.00
+    2015 |      1.32      0.00      2.00     13.80
+    2016 |      1.38      0.00      2.00     13.80
+    2017 |      1.52      0.00      3.00     13.80
+    2018 |      1.46      0.00      2.50     13.80
+    2019 |      1.60      0.00      3.00     13.80
+    2020 |      2.05      0.00      3.50     14.40
+    2021 |      2.49      0.00      5.00     15.50
+    2022 |      2.95      0.00      5.40     15.50
+    2023 |      3.88      0.00      6.90     15.50
+---------+----------------------------------------
+   Total |      2.66      0.00      4.80     15.50
+--------------------------------------------------
+
+. forvalues y = 2014/2023 {
+  2.     quietly summarize PI if YEAR==`y', detail
+  3.     post `F' ("PSI median in `y'") (r(p50))
+  4. }
+
+. bysort county: egen sdPI = sd(PI)
+(157 missing values generated)
+
+. count if tagc & (sdPI == 0 | missing(sdPI))
+  1,234
+
+. post `F' ("Counties whose PSI never changes in sample") (r(N))
+
+. corr PI Area
+(obs=46,528)
+
+             |       PI     Area
+-------------+------------------
+          PI |   1.0000
+        Area |   0.0723   1.0000
+
+
+. post `F' ("Correlation PSI vs PV area (county-month)") (r(rho))
+
+. 
+. * PSI is a FLOW: it falls from one year to the next (raw PI.dta)
+. preserve
+
+.     use "$DATA/PI.dta", clear
+
+.     xtset id YEAR
+
+Panel variable: id (strongly balanced)
+ Time variable: YEAR, 2014 to 2023
+         Delta: 1 unit
+
+.     gen dPI = D.PI
+(1,953 missing values generated)
+
+.     count if dPI < 0
+  2,209
+
+.     local ndown = r(N)
+
+.     count if !missing(dPI)
+  17,577
+
+.     post `F' ("PI.dta: share of county-years where PSI falls") (`ndown'/r(N))
+
+.     egen tagp = tag(id)
+
+.     count if tagp
+  1,953
+
+.     post `F' ("PI.dta: counties covered") (r(N))
+
+.     corr PI PI_stock PI_total
+(obs=15,624)
+
+             |       PI PI_stock PI_total
+-------------+---------------------------
+          PI |   1.0000
+    PI_stock |   0.9372   1.0000
+    PI_total |   0.8368   0.9166   1.0000
+
+
+. restore
+
+. 
+. *------------------------------------------------ D. Missing PSI coded as zero
+. count if tagc & in_PI_file == 0
+  724
+
+. post `F' ("Counties absent from PI.dta (PSI forced to 0)") (r(N))
+
+. count if in_PI_file == 0
+  20,385
+
+. post `F' ("Share of county-months with PSI imputed 0") (r(N)/_N)
+
+. di _n "Coverage of PSI data by unit type:"
+
+Coverage of PSI data by unit type:
+
+. tab urban in_PI_file, row
+
++----------------+
+| Key            |
+|----------------|
+|   frequency    |
+| row percentage |
++----------------+
+
+     Urban |
+  district |
+    (admin |   County present in
+      code |   PI.dta (1) or PSI
+    ending |   imputed as 0 (0)
+    01-20) |         0          1 |     Total
+-----------+----------------------+----------
+         0 |       257     22,032 |    22,289 
+           |      1.15      98.85 |    100.00 
+-----------+----------------------+----------
+         1 |    20,128      4,111 |    24,239 
+           |     83.04      16.96 |    100.00 
+-----------+----------------------+----------
+     Total |    20,385     26,143 |    46,528 
+           |     43.81      56.19 |    100.00 
+
+. count if urban==1
+  24,239
+
+. local nu = r(N)
+
+. count if urban==1 & in_PI_file==0
+  20,128
+
+. post `F' ("Urban districts: share of obs with PSI imputed 0") (r(N)/`nu')
+
+. count if urban==0
+  22,289
+
+. local nr = r(N)
+
+. count if urban==0 & in_PI_file==0
+  257
+
+. post `F' ("Rural counties: share of obs with PSI imputed 0") (r(N)/`nr')
+
+. count if urban==1
+  24,239
+
+. post `F' ("Urban-district observations") (r(N))
+
+. count if urban==0
+  22,289
+
+. post `F' ("Rural-county observations") (r(N))
+
+. 
+. * validate the urban code rule with county names (…区 = district)
+. count if tagc & urban==1
+  879
+
+. local cu = r(N)
+
+. count if tagc & urban==1 & name_is_district==1
+  792
+
+. post `F' ("Urban-coded units named ...区: share") (r(N)/`cu')
+
+. count if tagc & urban==0
+  1,622
+
+. local cr = r(N)
+
+. count if tagc & urban==0 & name_is_district==1
+  9
+
+. post `F' ("Rural-coded units named ...区: share") (r(N)/`cr')
+
+. count if tagc & in_PI_file==0
+  724
+
+. local cm = r(N)
+
+. count if tagc & in_PI_file==0 & name_is_district==1
+  717
+
+. post `F' ("Missing-PSI counties named ...区: share") (r(N)/`cm')
+
+. 
+. * is it a merge failure? do missing counties appear in PI.dta under their NAME?
+. preserve
+
+.     use "$DATA/PI.dta", clear
+
+.     keep 县
+
+.     duplicates drop
+
+Duplicates in terms of all variables
+
+(17,577 observations deleted)
+
+.     gen byte name_in_PI = 1
+
+.     tempfile pin
+
+.     save `pin'
+file /var/folders/wt/r578njlx4vx70bfy46gk25bm0000gn/T//S_34499.000003 saved as .dta format
+
+. restore
+
+. preserve
+
+.     keep if tagc & in_PI_file==0
+(45,804 observations deleted)
+
+.     merge m:1 县 using `pin', keep(master match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           724
+        from master                       724  
+        from using                          0  
+
+    Matched                                 0  
+    -----------------------------------------
+
+.     count if name_in_PI == 1
+  0
+
+.     post `F' ("Missing-PSI counties whose NAME is in PI.dta") (r(N))
+
+. restore
+
+. 
+. di _n "Missing-PSI share by province:"
+
+Missing-PSI share by province:
+
+. tab 省 in_PI_file if tagc, row nofreq
+
+                      |   County present in
+                      |   PI.dta (1) or PSI
+                      |   imputed as 0 (0)
+                   省 |         0          1 |     Total
+----------------------+----------------------+----------
+               上海市 |    100.00       0.00 |    100.00 
+               云南省 |     10.32      89.68 |    100.00 
+         内蒙古自治区 |     20.45      79.55 |    100.00 
+               北京市 |     84.62      15.38 |    100.00 
+               吉林省 |     29.79      70.21 |    100.00 
+               四川省 |     25.73      74.27 |    100.00 
+               天津市 |     72.73      27.27 |    100.00 
+       宁夏回族自治区 |     40.91      59.09 |    100.00 
+               安徽省 |     38.54      61.46 |    100.00 
+               山东省 |     34.92      65.08 |    100.00 
+               山西省 |     16.49      83.51 |    100.00 
+               广东省 |     47.75      52.25 |    100.00 
+       广西壮族自治区 |     31.13      68.87 |    100.00 
+     新疆维吾尔自治区 |     12.38      87.62 |    100.00 
+               江苏省 |     44.44      55.56 |    100.00 
+               江西省 |     23.40      76.60 |    100.00 
+               河北省 |     25.93      74.07 |    100.00 
+               河南省 |     29.84      70.16 |    100.00 
+               浙江省 |     36.47      63.53 |    100.00 
+               海南省 |     31.82      68.18 |    100.00 
+               湖北省 |     32.32      67.68 |    100.00 
+               湖南省 |     26.27      73.73 |    100.00 
+               甘肃省 |     20.25      79.75 |    100.00 
+               福建省 |     31.65      68.35 |    100.00 
+           西藏自治区 |     10.00      90.00 |    100.00 
+               贵州省 |     16.09      83.91 |    100.00 
+               辽宁省 |     50.65      49.35 |    100.00 
+               重庆市 |     66.67      33.33 |    100.00 
+               陕西省 |     21.74      78.26 |    100.00 
+               青海省 |      4.76      95.24 |    100.00 
+             黑龙江省 |     37.14      62.86 |    100.00 
+----------------------+----------------------+----------
+                Total |     28.95      71.05 |    100.00 
+
+. 
+. *------------------------------------------------ E. Package and variable facts
+. local dtafiles : dir "$DATA" files "*.dta"
+
+. post `F' ("Number of .dta files in the authors' package") (`: word count `dtafiles'')
+
+. tempname fh
+
+. file open `fh' using "$ORIG/authors_CODE.do", read text
+
+. local nl = 0
+
+. file read `fh' line
+
+. while r(eof) == 0 {
+  2.     local ++nl
+  3.     file read `fh' line
+  4. }
+
+. file close `fh'
+
+. post `F' ("Lines in authors' CODE.do") (`nl')
+
+. use "$SAMPLE", clear
+
+. summarize ShannonBD
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+   ShannonBD |     46,528    2.445786    .9814019          0     4.3425
+
+. post `F' ("ShannonBD mean") (r(mean))
+
+. post `F' ("ShannonBD SD") (r(sd))
+
+. summarize Nightlight
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+  Nightlight |     46,528    20.37787    21.21874   .0304346         63
+
+. post `F' ("Nightlight min (winsorized)") (r(min))
+
+. post `F' ("Nightlight max (winsorized)") (r(max))
+
+. use "$DATA/NL.dta", clear
+
+. summarize YEAR
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+        YEAR |     27,780      2018.5    2.872333       2014       2023
+
+. post `F' ("NL.dta first year") (r(min))
+
+. post `F' ("NL.dta last year") (r(max))
+
+. summarize Nightlight
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+  Nightlight |     27,780    12.04973     16.6085          0         63
+
+. post `F' ("NL.dta Nightlight max (raw)") (r(max))
+
+. 
+. postclose `F'
+
+. use "$T1/tables/1_3_facts_tmp.dta", clear
+
+. format value %14.4f
+
+. list, noobs sep(0) abbreviate(70)
+
+  +---------------------------------------------------------------+
+  |                                             fact        value |
+  |---------------------------------------------------------------|
+  |                      Bird.dta: county-month rows   48900.0000 |
+  |                               Bird.dta: counties    2561.0000 |
+  |                  Bird.dta: county-months in 2014     563.0000 |
+  |                  Bird.dta: county-months in 2015    2158.0000 |
+  |                  Bird.dta: county-months in 2016    1966.0000 |
+  |                  Bird.dta: county-months in 2017    2014.0000 |
+  |                  Bird.dta: county-months in 2018    3114.0000 |
+  |                  Bird.dta: county-months in 2019    2871.0000 |
+  |                  Bird.dta: county-months in 2020    5005.0000 |
+  |                  Bird.dta: county-months in 2021    7989.0000 |
+  |                  Bird.dta: county-months in 2022    9486.0000 |
+  |                  Bird.dta: county-months in 2023   13734.0000 |
+  |                   Analysis sample: county-months   46528.0000 |
+  |                        Analysis sample: counties    2501.0000 |
+  |               Months observed per county: median      11.0000 |
+  |                  Months observed per county: min       1.0000 |
+  |                  Months observed per county: max     115.0000 |
+  |                Singleton counties (1 month only)     157.0000 |
+  |                            PSI mean (winsorized)       2.6623 |
+  |                                           PSI SD       4.1159 |
+  |                                          PSI max      15.5000 |
+  |              Share of county-months with PSI = 0       0.5913 |
+  |                               PSI median in 2014       0.0000 |
+  |                               PSI median in 2015       0.0000 |
+  |                               PSI median in 2016       0.0000 |
+  |                               PSI median in 2017       0.0000 |
+  |                               PSI median in 2018       0.0000 |
+  |                               PSI median in 2019       0.0000 |
+  |                               PSI median in 2020       0.0000 |
+  |                               PSI median in 2021       0.0000 |
+  |                               PSI median in 2022       0.0000 |
+  |                               PSI median in 2023       0.0000 |
+  |       Counties whose PSI never changes in sample    1234.0000 |
+  |        Correlation PSI vs PV area (county-month)       0.0723 |
+  |    PI.dta: share of county-years where PSI falls       0.1257 |
+  |                         PI.dta: counties covered    1953.0000 |
+  |    Counties absent from PI.dta (PSI forced to 0)     724.0000 |
+  |        Share of county-months with PSI imputed 0       0.4381 |
+  | Urban districts: share of obs with PSI imputed 0       0.8304 |
+  |  Rural counties: share of obs with PSI imputed 0       0.0115 |
+  |                      Urban-district observations   24239.0000 |
+  |                        Rural-county observations   22289.0000 |
+  |             Urban-coded units named ...区: share       0.9010 |
+  |             Rural-coded units named ...区: share       0.0055 |
+  |          Missing-PSI counties named ...区: share       0.9903 |
+  |     Missing-PSI counties whose NAME is in PI.dta       0.0000 |
+  |     Number of .dta files in the authors' package      46.0000 |
+  |                        Lines in authors' CODE.do     975.0000 |
+  |                                   ShannonBD mean       2.4458 |
+  |                                     ShannonBD SD       0.9814 |
+  |                      Nightlight min (winsorized)       0.0304 |
+  |                      Nightlight max (winsorized)      63.0000 |
+  |                                NL.dta first year    2014.0000 |
+  |                                 NL.dta last year    2023.0000 |
+  |                      NL.dta Nightlight max (raw)      63.0000 |
+  +---------------------------------------------------------------+
+
+. export delimited using "$T1/tables/1_3_data_structure_facts.csv", replace
+file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/tables/1_3_data_structure_
+> facts.csv saved
+
+. erase "$T1/tables/1_3_facts_tmp.dta"
+
+. 
+end of do-file
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/logs/1_3_data_stru
+> cture.log
+  log type:  text
+ closed on:   7 Nov 2026, 21:23:37
+------------------------------------------------------------------------------------------------------------------------

@@ -1,0 +1,249 @@
+\documentclass[11pt]{article}
+\input{style.tex}
+\lhead{\small Replication of Zhang et al.\ (2026): synthesis of Tasks 1--3}
+\rhead{\small Sahil, Johns Hopkins University}
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries Reproducible but Not Robust}\\[6pt]
+{\large Synthesis of Tasks 1--3: replication, sensitivity analysis and staggered DiD for}\\[2pt]
+{\large Zhang et al.\ (2026), ``China's solar expansion policy reduces bird diversity'', \textit{Science} 393, 831}\\[8pt]
+{\small Prepared by Sahil, Research Assistant to Prof.\ Paul J.\ Ferraro, Johns Hopkins University \quad$\cdot$\quad November 2026}\\[2pt]
+{\small All analysis in Stata; code and logs in \file{Solar\_Birds\_Replication/} (run \file{run\_all.do})}
+\end{center}
+
+\begin{summarybox}
+\small
+\textbf{Bottom line.} The paper's published estimates reproduce \emph{exactly} from the authors' code and data (12 of 12 numbers checked match to four decimals). The causal claim, however, does not survive scrutiny of the research design:
+\begin{enumerate}[leftmargin=14pt]
+\item \textbf{Task 1 (design).} The ``zero-policy'' comparison group is largely made up of urban districts whose PSI is \emph{missing} and coded as zero. Comparing urban with urban and rural with rural (urban $\times$ year-month fixed effects) shrinks the estimate from $-0.0125$ to $-0.0027$ ($p=0.47$). The instrument fails a zero-first-stage test, and the matching estimates never apply the matching weights.
+\item \textbf{Task 2 (sensitivity).} A confounder explaining about 2.2\% of the residual variance of both PSI and bird diversity would remove the estimate, and 0.93--1.24\% would make it insignificant. The urban-specific time trend we can observe explains 12.3\% of PSI's residual variance, far more than that.
+\item \textbf{Task 3 (staggered DiD).} When treatment is defined as a county's first year of solar policy, heterogeneity-robust estimators (Callaway--Sant'Anna, Borusyak--Jaravel--Spiess, Sun--Abraham) find \textbf{no decline} in bird diversity. All point estimates are small, positive and insignificant.
+\end{enumerate}
+\textbf{Conclusion:} the evidence does not support the claim that solar policy \emph{causes} lower bird diversity. The negative estimate is best explained by differences between urban and rural units that the design does not remove.
+\end{summarybox}
+
+\tableofcontents
+
+%==========================================================================
+\section{The paper's claim, and what has to hold for it to be causal}
+
+\paragraph{Claim.} Within-county increases in a Policy Stringency Index (PSI) built from government documents lower the Shannon bird-diversity index. In the main specification
+\[
+\text{Shannon}_{c,ym} = \beta\,\PSI_{c,y} + Z_{c,y}'\gamma + \mu_c + \lambda_{ym} + \varepsilon_{c,ym},
+\]
+estimated on 46,371 county-months (2,344 counties, 2014--2023) with standard errors clustered by county, $\hat\beta = -0.0125$ (SE 0.0037). The authors back this with a shift-share instrument (sunshine $\div$ city climate-policy uncertainty), propensity score matching, and many robustness checks.
+
+\paragraph{Identifying assumption.} For $\hat\beta$ to be causal, counties with larger PSI changes must have followed the \emph{same bird-diversity trend} as counties with smaller changes, had policy not changed (parallel trends, conditional on controls). In the language of Ferraro and Hanauer's DAG, no unobserved $U$ may affect both PSI changes and bird-diversity changes. Every check below is a test of this assumption from a different angle.
+
+\paragraph{Estimand.} With a continuous, non-absorbing dose and two-way fixed effects, $\hat\beta$ is a weighted average of many $2\times2$ comparisons, some with negative weights. It is not a clean ATE or ATT. The paper's ``PSM ATT'' estimates are TWFE coefficients on a matched subsample, not matching estimators of the ATT.
+
+%==========================================================================
+\section{Task 1: reproduction and design diagnostics}
+
+\subsection{Reproduction: the code is correct}
+\begin{table}[H]\centering\small
+\caption{Published vs reproduced estimates (\file{1\_4\_reproduction\_check.do})}
+\begin{tabular}{lcc}
+\toprule
+Result & Paper & Ours\\
+\midrule
+Table 1, no controls & $-0.0157$ (0.0037) & identical\\
+Table 1, 5 controls & $-0.0127$ (0.0036) & identical\\
+Table 1, 9 controls (main) & $-0.0125$ (0.0037) & identical\\
+IV first stage (Sun\_ccpu) & 0.0252 (0.0046) & identical\\
+IV second stage & $-0.1264$ (0.0347) & identical; KP F = 30.18\\
+PSM 1:1 / 1:2 / kernel & $-0.0072$ / $-0.0083$ / $-0.0125$ & identical\\
+Simpson index & $-0.0014$ (0.0008) & identical ($p=0.096$)\\
+NDVI / Nightlight / LAI & $-0.0609$ / $-0.2220$ / $+0.0039$ & identical\\
+\bottomrule
+\end{tabular}
+\end{table}
+All 12 numbers match to four decimals. Any concerns below are about the \textbf{design}, not the computation.
+
+\subsection{Finding 1: the comparison group is mostly cities with missing data}
+\begin{itemize}
+\item The authors' code runs \file{replace PI = 0 if missing(PI)}. \textbf{724 counties never appear in the PSI source file}, so their PSI is set to zero. They make up \textbf{43.8\% of observations}.
+\item Missingness is almost entirely urban: PSI is imputed as zero for \textbf{83.0\%} of urban-district observations but only \textbf{1.2\%} of rural-county observations (urban = administrative code ending 01--20, checked against names ending in \textit{qu} (``district'')).
+\item As a result, most of the ``no policy'' variation is really urban-vs-rural variation. Urban and rural places plausibly have different bird-diversity trends (birdwatching growth, urban greening, land conversion), so this is a direct threat to parallel trends.
+\end{itemize}
+
+\begin{table}[H]\centering\small
+\caption{Main TWFE coefficient under alternative comparisons (\file{1\_5\_twfe\_diagnostics.do})}
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}Xr}
+\toprule
+Specification & $\hat\beta$ on PSI\\
+\midrule
+Paper (all units, missing PSI = 0) & $-0.0125$\\
+Only counties with real PSI data & $-0.0027$ ($p=0.49$)\\
+Rural counties only & $-0.0056$ ($p=0.19$)\\
+Urban districts only & $+0.0056$ ($p=0.48$)\\
+\textbf{All units, urban $\times$ year-month FE} & $\mathbf{-0.0027}$ ($p=0.47$)\\
+All units, province $\times$ year-month FE & $-0.0146$ ($p=0.002$)\\
+\bottomrule
+\end{tabularx}
+\end{table}
+Allowing urban and rural units to have separate monthly shocks removes about 80\% of the estimate and makes it insignificant. Province $\times$ month effects do not, which is consistent with the problem being urban vs rural, not regional.
+
+\subsection{Finding 2: PSI is a document flow, not a measure of solar deployment}
+\begin{itemize}
+\item PSI is the weighted count of documents issued \emph{that year}. It \textbf{falls} in 12.6\% of county-years, is zero in 59\% of county-months (the median is zero in every year), and is constant within 1,234 counties.
+\item Its correlation with actual solar-farm area is only \textbf{0.07}.
+\item Using the cumulative policy stock instead gives $-0.0012$ ($p=0.58$). If solar land conversion were the mechanism, the stock of policy (which tracks built capacity) should matter at least as much as the yearly flow.
+\end{itemize}
+
+\subsection{Finding 3: the instrument's exclusion restriction is doubtful}
+\begin{itemize}
+\item \textbf{Zero-first-stage test} (van Kippersluis and Rietveld, 2018): in counties with missing PSI, the instrument cannot move PSI, so if exclusion holds it should not predict birds there. It does: $-0.0021$ (SE 0.0011, $p\approx0.048$), about two-thirds of the full-sample reduced form ($-0.0032$). This points to a direct path from sunshine or climate-policy uncertainty to birds. It is strong evidence, not proof, since $p$ is close to 0.05.
+\item As a rough illustration only: if that direct effect applied everywhere, the IV estimate would fall from $-0.126$ to about $(-0.0032+0.0021)/0.0252\approx-0.04$.
+\item The instrument also predicts observer effort (Duration, $-0.0020$) and the environmental inspection policy (CEI, $+0.0021$), two plausible channels that bypass PSI.
+\item Unlike TWFE, the IV estimate survives urban $\times$ month effects ($-0.148$), so its credibility rests almost entirely on the exclusion restriction.
+\item Clustering at the city level (the level at which CPU varies) raises the SE to 0.047 and lowers the Kleibergen--Paap F to 10.8.
+\item Sunshine plausibly affects birds and birdwatching directly (climate, habitat, observer activity). City CPU is built from news coverage that may also reflect environmental activism, which is exactly the confounder the IV was meant to remove.
+\end{itemize}
+
+\subsection{Finding 4: the matching was not implemented as matching}
+The authors run \file{psmatch2} and then estimate TWFE on observations with non-missing \file{\_weight}, \emph{without} applying the weights. So the regression only drops unmatched rows and ignores how often each match is reused. With the weights applied, the estimates are $-0.0051$, $-0.0052$ and $-0.0054$, and none is significant.
+
+\subsection{Other notes}
+\begin{itemize}
+\item \textbf{Duration (birdwatching effort)} is the strongest control, and PSI predicts it ($-0.0177$, $p<0.001$), so it is a possible post-treatment (``bad'') control. But dropping it makes the estimate slightly \emph{larger} ($-0.0154$), so this concern works in the paper's favour.
+\item The panel is very unbalanced. Bird records grow from 563 county-months in 2014 to 13,734 in 2023, and the median county is observed for 11 months. Changes in who reports birds, and where, are a natural unobserved confounder.
+\end{itemize}
+
+%==========================================================================
+\section{Task 2: sensitivity to unobserved confounding (Cinelli--Hazlett)}
+
+\begin{conceptbox}{the question}
+Given that unobserved confounding cannot be ruled out, \emph{how strong} would it have to be to change the conclusion? Cinelli and Hazlett (2020) answer this with partial $R^2$: how much of the residual variance of PSI and of bird diversity the confounder explains.
+\end{conceptbox}
+
+\begin{table}[H]\centering\small
+\caption{Sensitivity statistics for the main estimate (\file{2\_1\_sensitivity\_analysis.do})}
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}Xr}
+\toprule
+Statistic & Value\\
+\midrule
+Partial $R^2$ of PSI with Shannon, $R^2_{Y\sim D|X}$ & 0.048\%\\
+Robustness value, estimate to zero ($RV$) & 2.16\%\\
+Robustness value, loss of significance ($RV_\alpha$), classical SE & 1.24\%\\
+$RV_\alpha$ with county-clustered SE (threshold scaled by $\lambda=1.337$) & 0.93\%\\
+Bound, confounder twice as strong as Duration (strongest control) & $-0.0067$ (clustered $t=-1.92$)\\
+Urban $\times$ year-month FE, share of PSI residual variance & 12.3\%\\
+\quad compared with Water (strongest single control for PSI) & 32$\times$\\
+\quad compared with Duration & 190$\times$\\
+Adjusted estimate, confounder half as strong as urban $\times$ month & $-0.0027$\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Interpretation.}
+\begin{itemize}
+\item PSI explains under 0.05\% of residual bird-diversity variance, so the signal is very weak.
+\item A confounder explaining just over 2\% of the residual variance of both PSI and Shannon would drive the estimate to zero. About 1\% is enough to make it insignificant.
+\item This is not hypothetical. The urban-specific time trend, which we \emph{can} observe, explains 12.3\% of PSI's residual variance, roughly 32 times the strongest observed control. Even half its strength reduces the estimate to $-0.0027$.
+\item Benchmarked against the controls the authors chose, the result looks moderately robust: twice Duration's strength still leaves $-0.0067$. But this is because those controls are weak predictors of PSI, not because the result is strong.
+\item Our own Stata implementation matches the \file{sensemakr} package.
+\end{itemize}
+
+%==========================================================================
+\section{Task 3: staggered difference-in-differences}
+
+\begin{conceptbox}{why this matters}
+Counties start issuing solar policy in different years. With staggered timing and effects that may differ by cohort or over time, TWFE uses already-treated units as controls and can give a biased or even wrongly signed estimate (Goodman-Bacon, 2021; de Chaisemartin and D'Haultf\oe uille, 2020). Heterogeneity-robust estimators compare each cohort only with clean controls (never or not-yet treated). See Baker, Larcker and Wang (2022) and Roth et al.\ (2023).
+\end{conceptbox}
+
+\subsection{Design}
+\begin{itemize}
+\item \textbf{Treatment:} the first year a county has PSI $>0$ (absorbing: treated from then on).
+\item \textbf{Sample:} counties with real PSI data (missing PSI is \emph{not} treated as never treated). Counties already treated in 2014 are dropped because they have no pre-period.
+\item \textbf{Cohorts:} never treated 120; 2015: 299; 2016: 85; 2017: 75; 2018: 14; 2019: 68; 2020: 2; 2021: 91; 2022: 30; 2023: 155.
+\item \textbf{Outcome:} Shannon index with month-of-year effects removed, averaged to county-year for Callaway--Sant'Anna; monthly data for BJS and Sun--Abraham.
+\end{itemize}
+
+\subsection{Results}
+\begin{table}[H]\centering\small
+\caption{Overall effect of starting solar policy on Shannon diversity (\file{3\_2}--\file{3\_5})}
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}Xccc}
+\toprule
+Estimator (control group) & Main sample & Paper-style sample$^\dagger$ & Pre-trend test\\
+\midrule
+TWFE event study & $+0.032$ (0.041) & -- & $p=0.341$\\
+Callaway--Sant'Anna (not-yet-treated) & $+0.057$ (0.143) & $-0.091$ (0.120) & $p<0.001$\\
+\quad conditional on urban & $+0.057$ (0.141) & -- & \\
+Borusyak--Jaravel--Spiess (imputation) & $+0.078$ (0.069) & $-0.087$ (0.060) & $p=0.239$\\
+Sun--Abraham (never-treated), avg.\ years 0--5 & $+0.024$ (0.089) & -- & \\
+\bottomrule
+\end{tabularx}
+\par\smallskip\raggedright\footnotesize $^\dagger$Missing-PSI counties treated as never treated, as in the paper. Standard errors in parentheses, clustered by county.
+\end{table}
+
+\paragraph{Interpretation.}
+\begin{itemize}
+\item \textbf{No estimator finds a decline} in bird diversity after a county starts solar policy. All main-sample estimates are small, positive and insignificant.
+\item The estimates turn negative \textbf{only} when the missing-PSI urban districts are used as never-treated controls. The same coding choice drives the result in Task 1.
+\item \textbf{Caveats:} CS rejects parallel pre-trends ($p<0.001$), BJS shows a large coefficient at $-1$ in the paper-style sample ($-0.173$), and some cohorts are tiny (2020: 2 counties). None of these designs is clean enough to prove a zero effect. But none supports a negative one.
+\end{itemize}
+
+%==========================================================================
+\section{Putting the three tasks together}
+
+\begin{table}[H]\centering\small
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X}
+\toprule
+& \textbf{Question} & \textbf{Answer}\\
+\midrule
+Task 1 & Is the result reproducible, and is the design credible? & Reproducible exactly. The design compares policy counties with largely urban, missing-data units; within urban and rural groups the effect is $-0.0027$ ($p=0.47$). IV and PSM do not independently support it.\\
+Task 2 & How much hidden confounding would overturn it? & Very little (RV 2.2\%, $RV_\alpha$ about 1\%), and an observable factor (urban trends) is far stronger than that.\\
+Task 3 & Does a design robust to staggered timing find an effect? & No. The estimates are near zero and positive, and become negative only with the paper's coding of missing PSI.\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{whybox}\small
+\textbf{Overall assessment.} The paper is \emph{computationally reproducible} but \emph{not robust}. Three independent lines of evidence point to the same explanation: the negative coefficient comes from comparing rural counties with policy documents against urban districts with missing policy data. It does not come from changes in solar policy within comparable places. This is consistent with \textit{Science}'s Editor's Note (1 October 2026) that technical concerns have been raised and are under evaluation.
+\end{whybox}
+
+%==========================================================================
+\section{Decisions for Prof.\ Ferraro}
+\begin{enumerate}
+\item \textbf{Urban definition.} We use administrative codes ending 01--20 (checked against names ending in \textit{qu}, ``district''). Should we use an official urban/rural classification instead?
+\item \textbf{Absorbing treatment.} Task 3 treats a county as treated from its first PSI $>0$ onward, although PSI can return to zero. Alternatives: a de Chaisemartin--D'Haultf\oe uille estimator for non-absorbing treatment, or a cumulative-stock definition.
+\item \textbf{Clustered sensitivity.} We adapt Cinelli--Hazlett to clustered SEs by scaling the significance threshold by $\lambda = \text{SE}_{cl}/\text{SE}_{classical}$. Is this acceptable?
+\item \textbf{BJS fixed effects.} With year-month fixed effects the imputation model was collinear in the untreated subsample, so we fell back to county + year FE in the main sample.
+\item \textbf{CS pre-trend rejection.} How much weight should the CS estimate get? Options: HonestDiD bounds (Rambachan and Roth, 2023), or conditioning on more covariates.
+\item \textbf{Next steps.} Possible extensions: (i) a comment or eLetter summarising these points; (ii) re-estimation with a bird-observation-effort model (e.g.\ species-accumulation adjustment); (iii) using actual PV installation data as the treatment.
+\end{enumerate}
+
+%==========================================================================
+\section*{File map}
+\begin{table}[H]\centering\small
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash}X}
+\toprule
+\file{00\_config.do} & Paths, control lists, package installation\\
+\file{01\_Task1\_Replication/} & \file{1\_1} authors' code; \file{1\_2} analysis sample; \file{1\_3} data facts; \file{1\_4} reproduction check; \file{1\_5} TWFE diagnostics; \file{1\_6} IV tests; full report \file{Task1\_Report.pdf}\\
+\file{02\_Task2\_Sensitivity/} & \file{2\_1} Cinelli--Hazlett analysis; report \file{Task2\_Report.pdf}\\
+\file{03\_Task3\_Staggered\_DiD/} & \file{3\_1} adoption timing; \file{3\_2} TWFE event study; \file{3\_3} Callaway--Sant'Anna; \file{3\_4} BJS; \file{3\_5} Sun--Abraham; report \file{Task3\_Report.pdf}\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section*{References}
+\small
+\begin{itemize}[leftmargin=12pt]
+\item Baker, A.\ C., Larcker, D.\ F., and Wang, C.\ C.\ Y.\ (2022). How much should we trust staggered difference-in-differences estimates? \textit{Journal of Financial Economics} 144(2), 370--395.
+\item Borusyak, K., Jaravel, X., and Spiess, J.\ (2024). Revisiting event-study designs: robust and efficient estimation. \textit{Review of Economic Studies} 91(6), 3253--3285.
+\item Callaway, B., and Sant'Anna, P.\ H.\ C.\ (2021). Difference-in-differences with multiple time periods. \textit{Journal of Econometrics} 225(2), 200--230.
+\item Cinelli, C., and Hazlett, C.\ (2020). Making sense of sensitivity: extending omitted variable bias. \textit{JRSS Series B} 82(1), 39--67.
+\item de Chaisemartin, C., and D'Haultf\oe uille, X.\ (2020). Two-way fixed effects estimators with heterogeneous treatment effects. \textit{American Economic Review} 110(9), 2964--2996.
+\item Ferraro, P.\ J., and Hanauer, M.\ M.\ (2014). Advances in measuring the environmental and social impacts of environmental programs. \textit{Annual Review of Environment and Resources} 39, 495--517.
+\item Goodman-Bacon, A.\ (2021). Difference-in-differences with variation in treatment timing. \textit{Journal of Econometrics} 225(2), 254--277.
+\item Rambachan, A., and Roth, J.\ (2023). A more credible approach to parallel trends. \textit{Review of Economic Studies} 90(5), 2555--2591.
+\item Roth, J., Sant'Anna, P.\ H.\ C., Bilinski, A., and Poe, J.\ (2023). What's trending in difference-in-differences? \textit{Journal of Econometrics} 235(2), 2218--2244.
+\item Sun, L., and Abraham, S.\ (2021). Estimating dynamic treatment effects in event studies with heterogeneous treatment effects. \textit{Journal of Econometrics} 225(2), 175--199.
+\item van Kippersluis, H., and Rietveld, C.\ A.\ (2018). Beyond plausibly exogenous. \textit{Econometrics Journal} 21(3), 316--331.
+\item Zhang et al.\ (2026). China's solar expansion policy reduces bird diversity. \textit{Science} 393, 831.
+\end{itemize}
+
+\end{document}

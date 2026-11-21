@@ -1,0 +1,137 @@
+\documentclass[10pt]{article}
+\usepackage[landscape,margin=0.7in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,longtable,array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{microtype}
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage[most]{tcolorbox}
+\usepackage{colortbl}
+
+\definecolor{jhublue}{RGB}{0,45,114}
+\definecolor{boxgray}{RGB}{244,246,250}
+\definecolor{secgray}{RGB}{226,231,240}
+\definecolor{okgreen}{RGB}{15,110,86}
+\titleformat{\section}{\large\bfseries\color{jhublue}}{\thesection}{0.6em}{}
+\pagestyle{fancy}\fancyhf{}
+\lhead{\small Ferraro \& Hanauer (2014) framework applied to Zhang et al.\ (2026)}
+\rhead{\small Sahil, Johns Hopkins University}
+\cfoot{\small\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.25}
+\emergencystretch=3em
+\sloppy
+
+\newcolumntype{N}{>{\centering\arraybackslash}p{0.7cm}}
+\newcolumntype{C}{>{\raggedright\arraybackslash}p{7.0cm}}
+\newcommand{\sect}[1]{\rowcolor{secgray}\multicolumn{4}{l}{\textbf{\color{jhublue}#1}}\\}
+\newcommand{\ok}{\textcolor{okgreen}{\ (good)}}
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries Checking the solar--birds paper against Ferraro \& Hanauer}\\[5pt]
+{\large What the framework recommends, what Zhang et al.\ (2026) did, and how to close each gap}\\[7pt]
+Sahil \quad$\cdot$\quad Research Assistant, Johns Hopkins University \quad$\cdot$\quad Prepared for Prof.\ Paul J.\ Ferraro \quad$\cdot$\quad November 2026
+\end{center}
+
+\begin{tcolorbox}[colback=boxgray,colframe=jhublue,boxrule=0.6pt,arc=2pt,left=6pt,right=6pt,top=4pt,bottom=4pt,title=\textbf{Purpose and scope}]
+\small
+This note checks \emph{China's solar expansion policy reduces bird diversity} (Zhang et al., \textit{Science} 393, 831, 2026) against the framework in Ferraro \& Hanauer, ``Advances in measuring the environmental and social impacts of environmental programs'' (\textit{Annual Review of Environment and Resources} 39, 495--517, 2014). Rows follow the order of Ferraro \& Hanauer. The comparison is \textbf{conceptual only}: the numerical evidence for each gap is in the Task 1--3 reports and will be added in a companion results table. Points where the paper meets the framework are marked \textcolor{okgreen}{(good)}.
+
+\smallskip
+\textbf{In one line:} the paper is transparent (code and data shared) and uses fixed rather than random effects, but falls short of the framework on selection, the estimand, measurement, conditioning, interrogating assumptions, heterogeneity and mechanisms. The largest gap is that the comparison group was never examined.
+\end{tcolorbox}
+
+\vspace{4pt}
+\begin{longtable}{N C C C}
+\toprule
+\textbf{\#} & \textbf{\color{jhublue} Ferraro \& Hanauer recommend} & \textbf{\color{jhublue} What the solar paper did} & \textbf{\color{jhublue} Why it is a problem $\rightarrow$ suggestion}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{\#} & \textbf{\color{jhublue} Ferraro \& Hanauer recommend} & \textbf{\color{jhublue} What the solar paper did} & \textbf{\color{jhublue} Why it is a problem $\rightarrow$ suggestion}\\
+\midrule
+\endhead
+\midrule\multicolumn{4}{r}{\small\itshape continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+
+\sect{A. Defining the causal question}
+A1 & A causal effect exists only relative to a \textbf{clearly defined alternative}; state exactly what ``$D=0$'' means. & PSI\,$=0$ mixes three situations: no new policy that year, a policy issued in an earlier year, and \textbf{missing data recoded as 0}. & No single counterfactual is defined. $\rightarrow$ Define the treatment precisely (e.g.\ ``first policy adopted'' or ``policy in force'') and keep ``unknown'' separate from ``none''.\\
+A2 & \textbf{Name the estimand} (ATE, ATT, LATE, \ldots); each needs different untestable assumptions. & Speaks generally of ``the effect of policy stringency''; treats TWFE, IV and PSM as confirming the same effect. & The three methods target different quantities: TWFE a variance-weighted average response, IV a LATE, PSM (as coded) neither. $\rightarrow$ State the estimand of each method.\\
+A3 & A multi-valued treatment has \textbf{one potential outcome per dose} (footnote~1). & Continuous index with a \textbf{linear} effect: every extra point assumed to do the same damage. & Linearity and constant marginal effects are untested. $\rightarrow$ Dose-response analysis or a continuous-treatment DiD.\\
+A4 & Effects can \textbf{differ across units}, which changes what an average means. & Implicitly assumes one common effect. & With heterogeneous effects, TWFE weights units in ways nobody chose. $\rightarrow$ Heterogeneity-robust estimators.\\
+
+\sect{B. Rival explanations and selection}
+B1 & \textbf{Understand selection first}: why do some units get the program? Without that, credible inference ``is simply not possible''. & No account of why counties issue solar policy; no comparison of policy and no-policy counties before treatment. & The validity of the comparison group is never examined. $\rightarrow$ Describe the assignment process and compare treated and untreated units \emph{before} the policy.\\
+B2 & Draw the \textbf{causal diagram} ($X$, $U$, $I$, $M$, $G$) from theory and field knowledge. & No explicit causal model; controls are listed without saying which rival path each blocks. & Unclear which confounders are handled. $\rightarrow$ Draw the DAG and justify every control.\\
+B3 & $p$-values capture \textbf{sampling error, not hidden bias}. & Relies on significance stars and a large sample. & A large $N$ makes biased correlations ``significant''. $\rightarrow$ Report sensitivity analysis; read stars as evidence about chance only.\\
+B4 & Study the \textbf{effects of a cause}, not the causes of an effect. & Further analyses (e.g.\ crop yield on both policy and diversity) read several coefficients causally in one model. & Each coefficient would need its own design. $\rightarrow$ One designed cause per analysis; treat the rest as hypotheses.\\
+
+\sect{C. Two assumptions every design needs}
+C1 & \textbf{Common support}: effects are defined only for units that could plausibly be treated or untreated. & Includes counties whose treatment status is unknown; compares urban districts with rural counties. & Some treated units have no credible counterpart. $\rightarrow$ Restrict to counties with measured policy and check overlap.\\
+C2 & \textbf{SUTVA / no interference}: one unit's treatment does not affect another's outcome. & Partly addressed: excludes neighbours of high-policy counties.\ok & Birds move and policy spills across borders. $\rightarrow$ Model spillovers explicitly (spatial buffers, neighbour exposure).\\
+
+\sect{D. Measurement}
+D1 & Measurement error is often \textbf{non-random}, and its bias can be impossible to sign (sidebar). & Missing policy coded as 0, concentrated in cities; PSI counts \emph{documents} and is only weakly related to installed panels. & Treatment error correlated with a confounder (urban status) is the most damaging kind. $\rightarrow$ Validate the policy data, test alternative codings, cross-check with installed capacity.\\
+D2 & Outcome measurement error matters too. & Diversity comes from citizen-science records, so it depends on birding effort, and data exist only where people went birding. & The outcome partly measures \emph{observation}, not ecology. $\rightarrow$ Effort-corrected diversity (rarefaction, occupancy models) and a balanced subsample.\\
+
+\sect{E. The benchmark experiment}
+E1 & Even when randomization is impossible, compare the design with the \textbf{ideal RCT}; this reveals the assumptions needed. & No target experiment is stated. & Assumptions remain implicit. $\rightarrow$ State the ideal experiment (``randomly assign policy to counties'') and list each departure from it.\\
+
+\sect{F. Conditioning designs: regression and matching}
+F1 & Choose $X$ by \textbf{theory}: variables that strongly drive \emph{both} selection and outcome. & Generic controls: temperature, wind, population, carbon, land cover. & They do not capture why counties receive policy. $\rightarrow$ Add drivers of selection: solar resource, land availability, urbanization, grid access, fiscal capacity.\\
+F2 & Use \textbf{pre-program} values; controlling for post-program variables can introduce bias. & Contemporaneous annual controls; observer effort (Duration) is plausibly affected by the policy. & Bad-control bias. $\rightarrow$ Use baseline values; drop or justify controls that lie on the causal path.\\
+F3 & \textbf{Pre-program outcomes} are among the most valuable controls. & Not used beyond county fixed effects. & $\rightarrow$ Use pre-period diversity and pre-trend (event-study) checks.\\
+F4 & Draw controls from \textbf{similar environments}. & Urban districts act as controls for rural counties. & $\rightarrow$ Compare within urban/rural status and within region.\\
+F5 & Matching: \textbf{report covariate balance}; ``no study using matching is complete'' without it. & No balance table. & Cannot judge whether matching worked. $\rightarrow$ Report balance before and after matching.\\
+F6 & Calipers and trimming \textbf{change the estimand}. & Not discussed. & $\rightarrow$ State the population the matched estimate applies to.\\
+F7 & Matching \textbf{reweights} groups to mimic an RCT and can be designed before outcomes are seen. & Matches on binary ``any policy'', then runs TWFE on continuous PSI \textbf{without the weights}. & The matching step barely changes anything. $\rightarrow$ Apply the weights, estimate the effect of the matched binary treatment, report balance.\\
+F8 & Regression and matching rest on the same assumptions; combining them can help. & Presented as independent confirmations. & Not independent evidence if both rely on the same untested assumption. $\rightarrow$ Treat as one design, then interrogate that design.\\
+
+\sect{G. Panel data and fixed effects}
+G1 & Fixed effects remove only \textbf{time-invariant} unobserved confounders. & Main defence: county and year-month fixed effects (better than random effects).\ok & Group-specific trends (e.g.\ different birding growth in cities and rural areas) survive. $\rightarrow$ Add group-specific time effects; test pre-trends.\\
+G2 & Repeated observations require care in how treated and control units are compared over time. & Staggered policy timing analysed with plain TWFE. & Already-treated counties serve as controls. $\rightarrow$ Staggered DiD (Callaway--Sant'Anna, Borusyak--Jaravel--Spiess, Sun--Abraham).\\
+
+\sect{H. Instrumental variables and discontinuities}
+H1 & The instrument must affect $Y$ \textbf{only through} $D$, justified by theory and field knowledge. & Sunshine $\div$ climate-policy uncertainty, defended with balance tests on observables. & Balance on observables cannot establish exclusion; policy uncertainty plausibly moves other environmental policies. $\rightarrow$ Tests of known effects (e.g.\ where policy cannot change, the instrument must have no effect); cluster at the level of the instrument.\\
+H2 & IV identifies a \textbf{LATE} for compliers; a different instrument gives a different LATE. & The (much larger) IV estimate is read as confirming the main result. & Different estimand, different population. $\rightarrow$ Interpret as a LATE and characterize the compliers.\\
+H3 & Discontinuities can isolate clean variation in exposure. & Not used. & $\rightarrow$ Look for eligibility thresholds in solar programs, if any exist.\\
+
+\sect{I. Interrogating the assumptions}
+I1 & \textbf{Tests of known effects}: placebo outcomes the program cannot affect but a confounder would. & Many robustness checks, but they vary the \emph{specification}, not the identifying \emph{assumptions}. & Same assumptions re-tested the same way. $\rightarrow$ Placebo outcomes (e.g.\ species unlikely to respond to solar land use) and placebo timing.\\
+I2 & \textbf{No effect before the program}: test pre-program outcomes. & No event study. & $\rightarrow$ Event-study pre-trends.\\
+I3 & \textbf{Dose-response}: a stronger program should produce a larger effect. & Alternative PSI weightings, but no strong-versus-weak comparison. & $\rightarrow$ Test whether larger policy doses produce larger effects.\\
+I4 & \textbf{Sensitivity analysis, partial identification, signing the bias.} & None. & $\rightarrow$ Cinelli--Hazlett sensitivity analysis, bounds, and an explicit argument about the direction of bias.\\
+I5 & \textbf{Multiple control groups} help detect hidden bias. & A single comparison group. & $\rightarrow$ Re-estimate with rural-only and never-adopter control groups.\\
+
+\sect{J. Heterogeneity (moderators)}
+J1 & Pre-specify \textbf{fewer than five} theory-driven subgroups. & Many subgroups: three regional splits and twelve bird-group outcomes. & Inflates the risk of false positives. $\rightarrow$ Pre-specify a few subgroups.\\
+J2 & Run a \textbf{joint test first}; control the family-wise error rate. & Separate regressions; no joint test; no multiple-testing correction. & $\rightarrow$ Interaction models with joint tests and corrected $p$-values.\\
+J3 & Subgroup effects make sense only if the \textbf{overall effect is credible}. & Subgroups built on a contested main effect. & $\rightarrow$ Establish the main effect first.\\
+J4 & Moderators must be \textbf{unaffected by the treatment}. & Poverty status, Three-North region and desert are pre-determined.\ok & Consistent with the framework.\\
+
+\sect{K. Mechanisms}
+K1 & Estimate mechanisms in \textbf{two steps}, $D\rightarrow M$ and $M\rightarrow Y$, both free of confounding. & Only $D\rightarrow M$ (NDVI, nightlight, leaf area); $M\rightarrow$ birds never estimated. & The ``inferior greening'' story is unproven. $\rightarrow$ A mediation design with its own identification strategy.\\
+K2 & Mechanisms need a coherent \textbf{theory}. & Mediators move in different directions (one greening index falls, another rises) without a reconciling explanation. & $\rightarrow$ A theory that predicts which mediators should move, and in which direction.\\
+K3 & The same confounding concerns apply to mediators. & Mediators analysed on the birding-selected sample with the same specification. & $\rightarrow$ Analyse mediators on a sample not selected by birding activity.\\
+
+\sect{L. Overall practice}
+L1 & Be \textbf{transparent about assumptions}. & Code and data shared, which made this replication possible\ok; identifying assumptions not stated. & $\rightarrow$ An explicit assumptions statement for each design.\\
+L2 & \textbf{Design over methods}. & Many methods layered (TWFE, IV, PSM, robustness), all resting on the same comparison. & More methods are not more evidence. $\rightarrow$ Fix the design (comparison group, treatment definition) first.\\
+L3 & Use \textbf{qualitative and field knowledge} to rule out rival explanations. & None about how the policy data were compiled. & $\rightarrow$ Ask the authors and data providers why urban districts are missing.\\
+L4 & External validity comes through \textbf{testing theory}, not representativeness alone. & Strong China-wide conclusions and policy recommendations. & $\rightarrow$ Limit claims to the population and estimand actually identified.\\
+\end{longtable}
+
+\vspace{4pt}
+{\footnotesize\textbf{References.} Ferraro, P.\ J.\ and Hanauer, M.\ M.\ (2014). Advances in measuring the environmental and social impacts of environmental programs. \textit{Annual Review of Environment and Resources}, 39, 495--517. Zhang, H.\ et al.\ (2026). China's solar expansion policy reduces bird diversity. \textit{Science}, 393, 831. Supporting evidence: Task 1--3 reports in \texttt{RA/Solar\_Birds\_Replication/}.}
+
+\end{document}

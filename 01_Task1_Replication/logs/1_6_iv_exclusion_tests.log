@@ -1,0 +1,1015 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/logs/1_6_iv_exclus
+> ion_tests.log
+  log type:  text
+ opened on:   7 Nov 2026, 21:27:03
+
+================ 1_6_iv_exclusion_tests ================
+
+. *==========================================================================
+. * 00_config.do
+. * Project : Replication of Zhang et al. (2026), "China's solar expansion
+. *           policy reduces bird diversity", Science 393, 831.
+. * Purpose : One place for paths, globals and package installation.
+. *           Every task do-file starts with:  do "<ROOT>/00_config.do"
+. * Author  : Sahil (Research Assistant, Johns Hopkins University)
+. *==========================================================================
+. version 16
+
+. set more off
+
+. set linesize 120
+
+. 
+. *---------------------------------------------------------------- paths
+. global ROOT "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication"
+
+. global ORIG "$ROOT/00_Original_Package"
+
+. global DATA "$ORIG/DATA"
+
+. global T1   "$ROOT/01_Task1_Replication"
+
+. global T2   "$ROOT/02_Task2_Sensitivity"
+
+. global T3   "$ROOT/03_Task3_Staggered_DiD"
+
+. 
+. * analysis sample built in Task 1 (used by all tasks)
+. global SAMPLE "$T1/data/analysis_sample.dta"
+
+. 
+. *---------------------------------------------------------------- model
+. * the authors' nine control variables (Table 1, column 3)
+. global control     "Temp Wind Pop Duration Carbon Water Green Farm Grass"
+
+. global control_noD "Temp Wind Pop Carbon Water Green Farm Grass"
+
+. 
+. *---------------------------------------------------------------- packages
+. * installed only if missing
+. foreach p in require ftools reghdfe ivreg2 ranktest ivreghdfe estout winsor2 ///
+>              psmatch2 binscatter sensemakr drdid csdid did_imputation       ///
+>              event_plot avar eventstudyinteract {
+  2.     capture which `p'
+  3.     if _rc {
+  4.         di as txt "installing `p' ..."
+  5.         capture noisily ssc install `p', replace
+  6.     }
+  7. }
+
+. set scheme s2color
+
+. 
+end of do-file
+
+. *==========================================================================
+. * 1_6_iv_exclusion_tests.do
+. * PURPOSE : Empirical checks on the IV exclusion restriction.
+. *   Instrument Z = Sun_ccpu = ln(mean sunshine 1984-2013) / city CPU_t
+. *   Panel A  Reduced form and ZERO-FIRST-STAGE test: in counties where PSI
+. *            cannot change, Z must have no effect on Shannon if exclusion holds
+. *            (van Kippersluis & Rietveld 2018).
+. *   Panel B  Does Z predict other channels (effort, other policies, land)?
+. *   Panel C  IV under city clustering (level of the shift) and other specs.
+. * OUTPUT  : tables/1_6_iv_exclusion_tests.rtf
+. * WHY     : Task 1, item 6 — logic and possible violations of exclusion.
+. *==========================================================================
+. use "$SAMPLE", clear
+
+. bysort county: egen sdPI = sd(PI)
+(157 missing values generated)
+
+. gen byte PI_constant = (sdPI==0 | missing(sdPI))
+
+. 
+. *------------------------------------------------ Panel A
+. eststo clear
+
+. eststo A1: reghdfe ShannonBD Sun_ccpu $control,                  absorb(county year) cluster(county)
+(dropped 141 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     37,362
+Absorbing 2 HDFE groups                           F(  10,   1935) =      70.52
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3349
+                                                  Adj R-squared   =     0.2960
+                                                  Within R-sq.    =     0.0370
+Number of clusters (county)  =      1,936         Root MSE        =     0.8194
+
+                             (Std. err. adjusted for 1,936 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |   -.003185   .0007119    -4.47   0.000    -.0045812   -.0017888
+        Temp |   .0039786   .0220527     0.18   0.857    -.0392709    .0472281
+        Wind |    .091414   .0806479     1.13   0.257    -.0667519      .24958
+         Pop |  -.1051897   .1304562    -0.81   0.420    -.3610393    .1506598
+    Duration |    .158826   .0063167    25.14   0.000     .1464378    .1712142
+      Carbon |   -.122935   .0495772    -2.48   0.013    -.2201654   -.0257046
+       Water |  -1.184214   1.208027    -0.98   0.327    -3.553386    1.184958
+       Green |   1.347374   1.041722     1.29   0.196    -.6956415     3.39039
+        Farm |   .2703366   .7969111     0.34   0.734    -1.292558    1.833231
+       Grass |   1.000854   1.149863     0.87   0.384    -1.254248    3.255955
+       _cons |   3.804241     1.2597     3.02   0.003      1.33373    6.274752
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1936        1936           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. * first stage is exactly zero where PSI is imputed 0 (PSI does not vary):
+. reghdfe PI Sun_ccpu $control if in_PI_file==0,                    absorb(county year) cluster(county)
+(dropped 21 singleton observations)
+(MWFE estimator converged in 7 iterations)
+warning: missing F statistic; dropped variables due to collinearity or too few clusters
+
+HDFE Linear regression                            Number of obs   =     17,497
+Absorbing 2 HDFE groups                           F(  10,    644) =          .
+Statistics robust to heteroskedasticity           Prob > F        =          .
+                                                  Root MSE        =     0.0000
+Number of clusters (county)  =        645
+
+                               (Std. err. adjusted for 645 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+          PI | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |          0  (omitted)
+        Temp |          0  (omitted)
+        Wind |          0  (omitted)
+         Pop |          0  (omitted)
+    Duration |          0  (omitted)
+      Carbon |          0  (omitted)
+       Water |          0  (omitted)
+       Green |          0  (omitted)
+        Farm |          0  (omitted)
+       Grass |          0  (omitted)
+       _cons |          0  (omitted)
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |       645         645           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo A2: reghdfe ShannonBD Sun_ccpu $control if in_PI_file==0, absorb(county year) cluster(county)
+(dropped 21 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     17,497
+Absorbing 2 HDFE groups                           F(  10,    644) =      23.18
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3328
+                                                  Adj R-squared   =     0.3020
+                                                  Within R-sq.    =     0.0255
+Number of clusters (county)  =        645         Root MSE        =     0.7815
+
+                               (Std. err. adjusted for 645 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |  -.0021367   .0010781    -1.98   0.048    -.0042537   -.0000198
+        Temp |  -.0123362   .0326708    -0.38   0.706    -.0764903     .051818
+        Wind |   .0740749   .1180526     0.63   0.531    -.1577396    .3058893
+         Pop |   -.115684   .1600302    -0.72   0.470     -.429928      .19856
+    Duration |   .1230842   .0084055    14.64   0.000     .1065786    .1395897
+      Carbon |   -.089189    .090215    -0.99   0.323    -.2663401    .0879622
+       Water |   1.940821   1.616912     1.20   0.230    -1.234235    5.115877
+       Green |   2.409496   1.313318     1.83   0.067     -.169407      4.9884
+        Farm |   1.850534   .9909595     1.87   0.062    -.0953675    3.796436
+       Grass |   2.833172   1.300847     2.18   0.030      .278759    5.387586
+       _cons |   2.897355   1.866349     1.55   0.121    -.7675094     6.56222
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |       645         645           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo A3: reghdfe ShannonBD Sun_ccpu $control if PI_constant==1,absorb(county year) cluster(county)
+(dropped 141 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     20,703
+Absorbing 2 HDFE groups                           F(  10,    907) =      30.74
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3352
+                                                  Adj R-squared   =     0.3002
+                                                  Within R-sq.    =     0.0300
+Number of clusters (county)  =        908         Root MSE        =     0.7936
+
+                               (Std. err. adjusted for 908 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |  -.0023802   .0009884    -2.41   0.016    -.0043201   -.0004403
+        Temp |  -.0297079   .0298853    -0.99   0.320    -.0883601    .0289444
+        Wind |   .0790101   .1071349     0.74   0.461    -.1312509    .2892712
+         Pop |  -.1404014   .1565872    -0.90   0.370    -.4477166    .1669139
+    Duration |   .1370752   .0081609    16.80   0.000     .1210587    .1530917
+      Carbon |  -.0812235   .0860886    -0.94   0.346    -.2501794    .0877325
+       Water |   .9726095   1.599127     0.61   0.543    -2.165809    4.111028
+       Green |   2.213087   1.276259     1.73   0.083    -.2916774    4.717852
+        Farm |   1.123905   .9401225     1.20   0.232    -.7211637    2.968973
+       Grass |   2.446354    1.17873     2.08   0.038     .1329997    4.759709
+       _cons |     3.4599   1.792333     1.93   0.054    -.0577033    6.977503
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |       908         908           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo A4: reghdfe ShannonBD Sun_ccpu $control if PI_constant==0,absorb(county year) cluster(county)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     16,659
+Absorbing 2 HDFE groups                           F(  10,   1027) =      43.88
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3445
+                                                  Adj R-squared   =     0.2956
+                                                  Within R-sq.    =     0.0464
+Number of clusters (county)  =      1,028         Root MSE        =     0.8476
+
+                             (Std. err. adjusted for 1,028 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |    -.00377   .0010029    -3.76   0.000     -.005738   -.0018019
+        Temp |   .0545983   .0319833     1.71   0.088    -.0081618    .1173583
+        Wind |   .1195773   .1190579     1.00   0.315    -.1140473    .3532019
+         Pop |   .0455408   .2271659     0.20   0.841    -.4002214    .4913031
+    Duration |    .183519   .0094064    19.51   0.000     .1650609     .201977
+      Carbon |  -.1419547   .0603274    -2.35   0.019    -.2603336   -.0235757
+       Water |  -4.015082   1.377057    -2.92   0.004    -6.717249   -1.312914
+       Green |   .1902867   1.476734     0.13   0.897    -2.707473    3.088046
+        Farm |  -1.191587   1.208217    -0.99   0.324    -3.562444     1.17927
+       Grass |  -2.279901   1.914583    -1.19   0.234    -6.036842    1.477041
+       _cons |   3.627158   1.846019     1.96   0.050     .0047591    7.249557
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1028        1028           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. esttab A1 A2 A3 A4, keep(Sun_ccpu) b(4) se(4) star(* 0.10 ** 0.05 *** 0.01) ///
+>     stats(N N_clust, fmt(0 0)) ///
+>     mtitles("Reduced form" "PSI imputed 0" "PSI constant" "PSI varies") ///
+>     title("Panel A. Reduced form and zero-first-stage tests (outcome: ShannonBD)")
+
+Panel A. Reduced form and zero-first-stage tests (outcome: ShannonBD)
+----------------------------------------------------------------------------
+                      (1)             (2)             (3)             (4)   
+             Reduced form    PSI impute~0    PSI constant      PSI varies   
+----------------------------------------------------------------------------
+Sun_ccpu          -0.0032***      -0.0021**       -0.0024**       -0.0038***
+                 (0.0007)        (0.0011)        (0.0010)        (0.0010)   
+----------------------------------------------------------------------------
+N                   37362           17497           20703           16659   
+N_clust              1936             645             908            1028   
+----------------------------------------------------------------------------
+Standard errors in parentheses
+* p<0.10, ** p<0.05, *** p<0.01
+
+. esttab A1 A2 A3 A4 using "$T1/tables/1_6_iv_exclusion_tests.rtf", replace keep(Sun_ccpu) b(4) se(4) ///
+>     star(* 0.10 ** 0.05 *** 0.01) stats(N N_clust, fmt(0 0)) ///
+>     mtitles("Reduced form" "PSI imputed 0" "PSI constant" "PSI varies") ///
+>     title("Panel A. Reduced form and zero-first-stage tests (outcome: ShannonBD)")
+(output written to /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/tables/1_6_i
+> v_exclusion_tests.rtf)
+
+. 
+. *------------------------------------------------ Panel B
+. eststo clear
+
+. eststo B1: reghdfe Duration Sun_ccpu $control_noD, absorb(county year) cluster(county)
+(dropped 141 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     37,362
+Absorbing 2 HDFE groups                           F(   9,   1935) =       2.89
+Statistics robust to heteroskedasticity           Prob > F        =     0.0022
+                                                  R-squared       =     0.2111
+                                                  Adj R-squared   =     0.1650
+                                                  Within R-sq.    =     0.0014
+Number of clusters (county)  =      1,936         Root MSE        =     0.9906
+
+                             (Std. err. adjusted for 1,936 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+    Duration | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |  -.0019684   .0007612    -2.59   0.010    -.0034613   -.0004754
+        Temp |   .0024004   .0298224     0.08   0.936    -.0560871    .0608878
+        Wind |  -.1522471   .1097642    -1.39   0.166    -.3675156    .0630214
+         Pop |    .023661   .1478506     0.16   0.873    -.2663023    .3136242
+      Carbon |   .1080324   .0630496     1.71   0.087      -.01562    .2316847
+       Water |  -2.629508   1.908601    -1.38   0.168    -6.372639    1.113623
+       Green |  -.2411683   1.170668    -0.21   0.837    -2.537071    2.054734
+        Farm |  -2.871868   .9155544    -3.14   0.002    -4.667445   -1.076291
+       Grass |  -1.944907   1.277081    -1.52   0.128    -4.449508    .5596927
+       _cons |   1.508818   1.497967     1.01   0.314    -1.428982    4.446617
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1936        1936           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. foreach y in CEI Coal Windexp Greenfin Ndvi LAI Nightlight {
+  2.     eststo B_`y': reghdfe `y' Sun_ccpu $control, absorb(county year) cluster(county)
+  3. }
+(dropped 141 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     37,362
+Absorbing 2 HDFE groups                           F(  10,   1935) =       7.55
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3619
+                                                  Adj R-squared   =     0.3246
+                                                  Within R-sq.    =     0.0118
+Number of clusters (county)  =      1,936         Root MSE        =     0.3589
+
+                             (Std. err. adjusted for 1,936 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+         CEI | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |   .0021242   .0007547     2.81   0.005     .0006441    .0036044
+        Temp |  -.0096952   .0177592    -0.55   0.585    -.0445244    .0251341
+        Wind |  -.5004381   .0733145    -6.83   0.000    -.6442218   -.3566544
+         Pop |  -.0607218   .0823224    -0.74   0.461    -.2221718    .1007282
+    Duration |   -.002645   .0021981    -1.20   0.229     -.006956    .0016659
+      Carbon |  -.0097901   .0372604    -0.26   0.793    -.0828649    .0632847
+       Water |  -1.287678   .7834538    -1.64   0.100     -2.82418    .2488246
+       Green |  -.9210124   .6506267    -1.42   0.157    -2.197015    .3549906
+        Farm |  -.4001222   .5677227    -0.70   0.481    -1.513535    .7132903
+       Grass |  -.4553468   .7420496    -0.61   0.540    -1.910648    .9999539
+       _cons |   2.567984   .9549961     2.69   0.007      .695055    4.440914
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1936        1936           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+(dropped 141 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     37,362
+Absorbing 2 HDFE groups                           F(  10,   1935) =       1.57
+Statistics robust to heteroskedasticity           Prob > F        =     0.1093
+                                                  R-squared       =     0.2488
+                                                  Adj R-squared   =     0.2049
+                                                  Within R-sq.    =     0.0050
+Number of clusters (county)  =      1,936         Root MSE        =     0.0818
+
+                             (Std. err. adjusted for 1,936 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+        Coal | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |  -.0001884   .0001177    -1.60   0.110    -.0004192    .0000424
+        Temp |  -.0014203    .005583    -0.25   0.799    -.0123696     .009529
+        Wind |  -.0158785    .029557    -0.54   0.591    -.0738455    .0420885
+         Pop |   .0410903   .0246286     1.67   0.095     -.007211    .0893917
+    Duration |  -.0008575   .0005501    -1.56   0.119    -.0019362    .0002213
+      Carbon |   .0348926   .0138621     2.52   0.012     .0077064    .0620787
+       Water |  -.1243711   .1547634    -0.80   0.422    -.4278917    .1791495
+       Green |   .0949892   .1633796     0.58   0.561    -.2254293    .4154078
+        Farm |  -.2312195   .1004701    -2.30   0.021    -.4282606   -.0341785
+       Grass |   .0621766   .1614822     0.39   0.700    -.2545208     .378874
+       _cons |  -.6190285   .2752898    -2.25   0.025    -1.158924   -.0791327
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1936        1936           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+(dropped 141 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     37,362
+Absorbing 2 HDFE groups                           F(  10,   1935) =       1.67
+Statistics robust to heteroskedasticity           Prob > F        =     0.0826
+                                                  R-squared       =     0.8075
+                                                  Adj R-squared   =     0.7962
+                                                  Within R-sq.    =     0.0037
+Number of clusters (county)  =      1,936         Root MSE        =     0.1835
+
+                             (Std. err. adjusted for 1,936 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+     Windexp | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |   .0004612   .0003864     1.19   0.233    -.0002966    .0012189
+        Temp |   .0103116   .0099843     1.03   0.302    -.0092696    .0298928
+        Wind |  -.0432207   .0444179    -0.97   0.331    -.1303327    .0438912
+         Pop |  -.0638786    .078514    -0.81   0.416    -.2178596    .0901024
+    Duration |  -.0001224   .0017778    -0.07   0.945     -.003609    .0033642
+      Carbon |     .03794   .0198245     1.91   0.056    -.0009396    .0768196
+       Water |  -.3205361    .382624    -0.84   0.402    -1.070935    .4298626
+       Green |  -.3532463   .4281115    -0.83   0.409    -1.192854     .486362
+        Farm |  -.8663438   .3166772    -2.74   0.006    -1.487408   -.2452794
+       Grass |  -.0420937   .4846487    -0.09   0.931    -.9925822    .9083947
+       _cons |   1.012197   .6202778     1.63   0.103    -.2042861     2.22868
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1936        1936           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+(dropped 141 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     37,362
+Absorbing 2 HDFE groups                           F(  10,   1935) =       1.62
+Statistics robust to heteroskedasticity           Prob > F        =     0.0944
+                                                  R-squared       =     0.8306
+                                                  Adj R-squared   =     0.8207
+                                                  Within R-sq.    =     0.0083
+Number of clusters (county)  =      1,936         Root MSE        =     0.0756
+
+                             (Std. err. adjusted for 1,936 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+    Greenfin | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |  -.0001193   .0000635    -1.88   0.060    -.0002438    5.11e-06
+        Temp |   .0052954   .0048504     1.09   0.275    -.0042171    .0148078
+        Wind |  -.0184709   .0116062    -1.59   0.112    -.0412328    .0042911
+         Pop |   .0640651   .0591464     1.08   0.279    -.0519323    .1800626
+    Duration |   .0002351   .0010325     0.23   0.820    -.0017899      .00226
+      Carbon |  -.0131411    .012043    -1.09   0.275    -.0367598    .0104775
+       Water |  -.5026095   .4233106    -1.19   0.235    -1.332802    .3275833
+       Green |  -.2131066   .3500746    -0.61   0.543    -.8996697    .4734565
+        Farm |  -.2553153   .2098108    -1.22   0.224    -.6667943    .1561636
+       Grass |    .509995   .2717861     1.88   0.061    -.0230294    1.043019
+       _cons |  -.0306756   .3853327    -0.08   0.937    -.7863865    .7250352
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1936        1936           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+(dropped 141 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     37,362
+Absorbing 2 HDFE groups                           F(  10,   1935) =      31.80
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.9903
+                                                  Adj R-squared   =     0.9897
+                                                  Within R-sq.    =     0.0819
+Number of clusters (county)  =      1,936         Root MSE        =     1.4668
+
+                             (Std. err. adjusted for 1,936 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+        Ndvi | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |  -.0084733   .0025511    -3.32   0.001    -.0134766   -.0034701
+        Temp |  -.9819517   .1063119    -9.24   0.000     -1.19045   -.7734537
+        Wind |  -3.275656   .4460518    -7.34   0.000    -4.150449   -2.400863
+         Pop |  -.7867847    .590093    -1.33   0.183     -1.94407    .3705001
+    Duration |   .0208302   .0122314     1.70   0.089    -.0031579    .0448182
+      Carbon |   .1715072    .261924     0.65   0.513    -.3421758    .6851901
+       Water |   3.102474   3.879235     0.80   0.424    -4.505445    10.71039
+       Green |   15.85827   4.091647     3.88   0.000     7.833769    23.88277
+        Farm |   6.172314    3.32312     1.86   0.063    -.3449582    12.68959
+       Grass |  -13.51628   7.393739    -1.83   0.068    -28.01682    .9842471
+       _cons |    86.8963   6.707019    12.96   0.000     73.74256      100.05
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1936        1936           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+(dropped 141 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     37,362
+Absorbing 2 HDFE groups                           F(  10,   1935) =       9.71
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.9918
+                                                  Adj R-squared   =     0.9913
+                                                  Within R-sq.    =     0.0221
+Number of clusters (county)  =      1,936         Root MSE        =     0.0666
+
+                             (Std. err. adjusted for 1,936 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+         LAI | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |  -.0003078   .0001318    -2.33   0.020    -.0005663   -.0000492
+        Temp |   .0356068   .0040988     8.69   0.000     .0275683    .0436454
+        Wind |  -.0445396   .0143423    -3.11   0.002    -.0726676   -.0164116
+         Pop |  -.0216773   .0176512    -1.23   0.220    -.0562948    .0129401
+    Duration |   .0007491   .0005149     1.45   0.146    -.0002607    .0017588
+      Carbon |  -.0028732    .006763    -0.42   0.671    -.0161368    .0103904
+       Water |   .5746374    .133196     4.31   0.000     .3134147    .8358601
+       Green |   .3044237   .1631502     1.87   0.062    -.0155449    .6243923
+        Farm |   .2051788   .1125121     1.82   0.068    -.0154789    .4258365
+       Grass |   .0651783   .1892914     0.34   0.731    -.3060583    .4364149
+       _cons |   .6175974   .1802939     3.43   0.001     .2640066    .9711882
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1936        1936           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+(dropped 141 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     37,362
+Absorbing 2 HDFE groups                           F(  10,   1935) =       9.55
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.9914
+                                                  Adj R-squared   =     0.9909
+                                                  Within R-sq.    =     0.0736
+Number of clusters (county)  =      1,936         Root MSE        =     1.9937
+
+                             (Std. err. adjusted for 1,936 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+  Nightlight | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    Sun_ccpu |  -.0241386    .005078    -4.75   0.000    -.0340977   -.0141796
+        Temp |   .1971025   .1295097     1.52   0.128    -.0568907    .4510958
+        Wind |  -.5350619   .4585649    -1.17   0.243    -1.434395    .3642712
+         Pop |  -1.093859   .9274785    -1.18   0.238    -2.912821    .7251034
+    Duration |   .0706756   .0164089     4.31   0.000     .0384946    .1028565
+      Carbon |    .270417   .3450206     0.78   0.433    -.4062342    .9470682
+       Water |  -83.39607    15.0338    -5.55   0.000    -112.8802   -53.91191
+       Green |  -12.92652   10.34903    -1.25   0.212    -33.22295     7.36991
+        Farm |  -29.36714   8.716985    -3.37   0.001    -46.46281   -12.27147
+       Grass |   -32.3184   9.797653    -3.30   0.001    -51.53347   -13.10334
+       _cons |   43.74564   10.00142     4.37   0.000     24.13095    63.36033
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1936        1936           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. esttab B1 B_*, keep(Sun_ccpu) b(4) se(4) star(* 0.10 ** 0.05 *** 0.01) ///
+>     stats(N N_clust, fmt(0 0)) ///
+>     mtitles("Duration" "CEI" "Coal" "Windexp" "Greenfin" "NDVI" "LAI" "Nightlight") ///
+>     title("Panel B. Does the instrument predict other channels?")
+
+Panel B. Does the instrument predict other channels?
+------------------------------------------------------------------------------------------------------------------------
+> --------------------
+                      (1)             (2)             (3)             (4)             (5)             (6)             (7
+> )             (8)   
+                 Duration             CEI            Coal         Windexp        Greenfin            NDVI             LA
+> I      Nightlight   
+------------------------------------------------------------------------------------------------------------------------
+> --------------------
+Sun_ccpu          -0.0020***       0.0021***      -0.0002          0.0005         -0.0001*        -0.0085***      -0.000
+> 3**       -0.0241***
+                 (0.0008)        (0.0008)        (0.0001)        (0.0004)        (0.0001)        (0.0026)        (0.0001
+> )        (0.0051)   
+------------------------------------------------------------------------------------------------------------------------
+> --------------------
+N                   37362           37362           37362           37362           37362           37362           3736
+> 2           37362   
+N_clust              1936            1936            1936            1936            1936            1936            193
+> 6            1936   
+------------------------------------------------------------------------------------------------------------------------
+> --------------------
+Standard errors in parentheses
+* p<0.10, ** p<0.05, *** p<0.01
+
+. esttab B1 B_* using "$T1/tables/1_6_iv_exclusion_tests.rtf", append keep(Sun_ccpu) b(4) se(4) ///
+>     star(* 0.10 ** 0.05 *** 0.01) stats(N N_clust, fmt(0 0)) ///
+>     mtitles("Duration" "CEI" "Coal" "Windexp" "Greenfin" "NDVI" "LAI" "Nightlight") ///
+>     title("Panel B. Does the instrument predict other channels?")
+(output written to /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/tables/1_6_i
+> v_exclusion_tests.rtf)
+
+. 
+. *------------------------------------------------ Panel C
+. eststo clear
+
+. eststo C1: ivreghdfe ShannonBD (PI = Sun_ccpu) $control, absorb(county year) cluster(county) keepsingleton
+WARNING: Singleton observations not dropped; statistical significance is biased (link)
+(MWFE estimator converged in 7 iterations)
+
+IV (2SLS) estimation
+--------------------
+
+Estimates efficient for homoskedasticity only
+Statistics robust to heteroskedasticity and clustering on county
+
+Number of clusters (county) =     2077                Number of obs =    37503
+                                                      F( 10,  2076) =    66.45
+                                                      Prob > F      =   0.0000
+Total (centered) SS     =  24607.05633                Centered R2   =   0.0037
+Total (uncentered) SS   =  24607.05633                Uncentered R2 =   0.0037
+Residual SS             =  24517.03958                Root MSE      =    .8099
+
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   -.126368   .0346827    -3.64   0.000    -.1943845   -.0583515
+        Temp |  -.0038997   .0244611    -0.16   0.873    -.0518705    .0440711
+        Wind |   .1698432   .0847348     2.00   0.045     .0036692    .3360172
+         Pop |  -.1335079   .1372123    -0.97   0.331    -.4025959      .13558
+    Duration |    .155371    .006441    24.12   0.000     .1427395    .1680024
+      Carbon |  -.1383521   .0546384    -2.53   0.011    -.2455038   -.0312004
+       Water |    .598555   1.292563     0.46   0.643      -1.9363     3.13341
+       Green |   2.173339   1.052768     2.06   0.039     .1087486    4.237929
+        Farm |   .8203525    .816154     1.01   0.315    -.7802131    2.420918
+       Grass |   1.125832   1.390678     0.81   0.418    -1.601437    3.853101
+------------------------------------------------------------------------------
+Underidentification test (Kleibergen-Paap rk LM statistic):             30.780
+                                                   Chi-sq(1) P-val =    0.0000
+------------------------------------------------------------------------------
+Weak identification test (Cragg-Donald Wald F statistic):              664.359
+                         (Kleibergen-Paap rk Wald F statistic):         30.181
+Stock-Yogo weak ID test critical values: 10% maximal IV size             16.38
+                                         15% maximal IV size              8.96
+                                         20% maximal IV size              6.66
+                                         25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+------------------------------------------------------------------------------
+Hansen J statistic (overidentification test of all instruments):         0.000
+                                                 (equation exactly identified)
+------------------------------------------------------------------------------
+Instrumented:         PI
+Included instruments: Temp Wind Pop Duration Carbon Water Green Farm Grass
+Excluded instruments: Sun_ccpu
+Partialled-out:       _cons
+                      nb: total SS, model F and R2s are after partialling-out;
+                          any small-sample adjustments include partialled-out
+                          variables in regressor count K
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2077        2077           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo C2: ivreghdfe ShannonBD (PI = Sun_ccpu) $control, absorb(county year) cluster(city) keepsingleton
+WARNING: Singleton observations not dropped; statistical significance is biased (link)
+(MWFE estimator converged in 7 iterations)
+
+IV (2SLS) estimation
+--------------------
+
+Estimates efficient for homoskedasticity only
+Statistics robust to heteroskedasticity and clustering on city
+
+Number of clusters (city) =        287                Number of obs =    37372
+                                                      F( 10,   286) =    50.24
+                                                      Prob > F      =   0.0000
+Total (centered) SS     =  24479.73406                Centered R2   =   0.0145
+Total (uncentered) SS   =  24479.73406                Uncentered R2 =   0.0145
+Residual SS             =  24124.87344                Root MSE      =    .8048
+
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.1068565   .0467082    -2.29   0.023    -.1987919   -.0149212
+        Temp |  -.0032514   .0307601    -0.11   0.916    -.0637964    .0572936
+        Wind |   .1503739   .1113136     1.35   0.178     -.068724    .3694718
+         Pop |  -.1052568   .1198593    -0.88   0.381    -.3411751    .1306615
+    Duration |   .1556898   .0077301    20.14   0.000     .1404747     .170905
+      Carbon |  -.1501929   .0551108    -2.73   0.007    -.2586673   -.0417186
+       Water |   .3352328   1.610349     0.21   0.835    -2.834406    3.504872
+       Green |   2.070653   1.313257     1.58   0.116    -.5142217    4.655527
+        Farm |   .8016514   .9833189     0.82   0.416    -1.133809    2.737111
+       Grass |   .9379262   1.909214     0.49   0.624    -2.819967    4.695819
+------------------------------------------------------------------------------
+Underidentification test (Kleibergen-Paap rk LM statistic):             11.399
+                                                   Chi-sq(1) P-val =    0.0007
+------------------------------------------------------------------------------
+Weak identification test (Cragg-Donald Wald F statistic):              733.292
+                         (Kleibergen-Paap rk Wald F statistic):         10.793
+Stock-Yogo weak ID test critical values: 10% maximal IV size             16.38
+                                         15% maximal IV size              8.96
+                                         20% maximal IV size              6.66
+                                         25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+------------------------------------------------------------------------------
+Hansen J statistic (overidentification test of all instruments):         0.000
+                                                 (equation exactly identified)
+------------------------------------------------------------------------------
+Instrumented:         PI
+Included instruments: Temp Wind Pop Duration Carbon Water Green Farm Grass
+Excluded instruments: Sun_ccpu
+Partialled-out:       _cons
+                      nb: total SS, model F and R2s are after partialling-out;
+                          any small-sample adjustments include partialled-out
+                          variables in regressor count K
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2066        2066           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo C3: ivreghdfe ShannonBD (PI = Sun_ccpu) $control, absorb(county year#urban) cluster(county) keepsingleton
+WARNING: Singleton observations not dropped; statistical significance is biased (link)
+(MWFE estimator converged in 8 iterations)
+
+IV (2SLS) estimation
+--------------------
+
+Estimates efficient for homoskedasticity only
+Statistics robust to heteroskedasticity and clustering on county
+
+Number of clusters (county) =     2077                Number of obs =    37503
+                                                      F( 10,  2076) =    64.29
+                                                      Prob > F      =   0.0000
+Total (centered) SS     =  24420.51582                Centered R2   =  -0.0108
+Total (uncentered) SS   =  24420.51582                Uncentered R2 =  -0.0108
+Residual SS             =  24683.56325                Root MSE      =     .814
+
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.1476663   .0469996    -3.14   0.002    -.2398376   -.0554951
+        Temp |  -.0131358   .0257949    -0.51   0.611    -.0637224    .0374508
+        Wind |    .199893   .0903252     2.21   0.027     .0227555    .3770305
+         Pop |  -.1416827   .1390569    -1.02   0.308    -.4143882    .1310227
+    Duration |   .1561107   .0063576    24.55   0.000     .1436427    .1685787
+      Carbon |  -.1545384   .0588189    -2.63   0.009    -.2698886   -.0391881
+       Water |  -.4093126   1.247798    -0.33   0.743    -2.856377    2.037752
+       Green |   1.929245   1.065854     1.81   0.070    -.1610091    4.019499
+        Farm |  -.0676636   .9079618    -0.07   0.941    -1.848274    1.712947
+       Grass |    .354966   1.517016     0.23   0.815    -2.620065    3.329997
+------------------------------------------------------------------------------
+Underidentification test (Kleibergen-Paap rk LM statistic):             22.473
+                                                   Chi-sq(1) P-val =    0.0000
+------------------------------------------------------------------------------
+Weak identification test (Cragg-Donald Wald F statistic):              467.717
+                         (Kleibergen-Paap rk Wald F statistic):         22.266
+Stock-Yogo weak ID test critical values: 10% maximal IV size             16.38
+                                         15% maximal IV size              8.96
+                                         20% maximal IV size              6.66
+                                         25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+------------------------------------------------------------------------------
+Hansen J statistic (overidentification test of all instruments):         0.000
+                                                 (equation exactly identified)
+------------------------------------------------------------------------------
+Instrumented:         PI
+Included instruments: Temp Wind Pop Duration Carbon Water Green Farm Grass
+Excluded instruments: Sun_ccpu
+Partialled-out:       _cons
+                      nb: total SS, model F and R2s are after partialling-out;
+                          any small-sample adjustments include partialled-out
+                          variables in regressor count K
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2077        2077           0    *|
+   year#urban |       240           1         239     |
+------------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo C4: ivreghdfe ShannonBD (PI = Sun_ccpu) $control if in_PI_file==1, absorb(county year) cluster(county) keepsing
+> leton
+WARNING: Singleton observations not dropped; statistical significance is biased (link)
+(MWFE estimator converged in 7 iterations)
+
+IV (2SLS) estimation
+--------------------
+
+Estimates efficient for homoskedasticity only
+Statistics robust to heteroskedasticity and clustering on county
+
+Number of clusters (county) =     1411                Number of obs =    19985
+                                                      F( 10,  1410) =    49.73
+                                                      Prob > F      =   0.0000
+Total (centered) SS     =  13958.83954                Centered R2   =   0.0029
+Total (uncentered) SS   =  13958.83954                Uncentered R2 =   0.0029
+Residual SS             =  13917.67003                Root MSE      =    .8372
+
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.1171069   .0399456    -2.93   0.003     -.195466   -.0387477
+        Temp |  -.0168284   .0366312    -0.46   0.646    -.0886859    .0550291
+        Wind |   .3221906   .1344026     2.40   0.017     .0585399    .5858412
+         Pop |  -.2252194   .2475713    -0.91   0.363     -.710867    .2604283
+    Duration |   .1872401   .0087828    21.32   0.000     .1700113     .204469
+      Carbon |   -.197599   .0730229    -2.71   0.007    -.3408442   -.0543538
+       Water |  -4.442172   1.534926    -2.89   0.004    -7.453158   -1.431187
+       Green |   -.157599   1.497291    -0.11   0.916    -3.094756    2.779558
+        Farm |  -3.779797   1.556165    -2.43   0.015    -6.832445   -.7271493
+       Grass |  -3.611026   2.162533    -1.67   0.095    -7.853154    .6311024
+------------------------------------------------------------------------------
+Underidentification test (Kleibergen-Paap rk LM statistic):             22.240
+                                                   Chi-sq(1) P-val =    0.0000
+------------------------------------------------------------------------------
+Weak identification test (Cragg-Donald Wald F statistic):              389.908
+                         (Kleibergen-Paap rk Wald F statistic):         20.869
+Stock-Yogo weak ID test critical values: 10% maximal IV size             16.38
+                                         15% maximal IV size              8.96
+                                         20% maximal IV size              6.66
+                                         25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+------------------------------------------------------------------------------
+Hansen J statistic (overidentification test of all instruments):         0.000
+                                                 (equation exactly identified)
+------------------------------------------------------------------------------
+Instrumented:         PI
+Included instruments: Temp Wind Pop Duration Carbon Water Green Farm Grass
+Excluded instruments: Sun_ccpu
+Partialled-out:       _cons
+                      nb: total SS, model F and R2s are after partialling-out;
+                          any small-sample adjustments include partialled-out
+                          variables in regressor count K
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1411        1411           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo C5: ivreghdfe ShannonBD (PI = Sun_ccpu) $control_noD, absorb(county year) cluster(county) keepsingleton
+WARNING: Singleton observations not dropped; statistical significance is biased (link)
+(MWFE estimator converged in 7 iterations)
+
+IV (2SLS) estimation
+--------------------
+
+Estimates efficient for homoskedasticity only
+Statistics robust to heteroskedasticity and clustering on county
+
+Number of clusters (county) =     2077                Number of obs =    37503
+                                                      F(  9,  2076) =     2.49
+                                                      Prob > F      =   0.0080
+Total (centered) SS     =  24607.05633                Centered R2   =  -0.0379
+Total (uncentered) SS   =  24607.05633                Uncentered R2 =  -0.0379
+Residual SS             =  25539.75824                Root MSE      =    .8266
+
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   -.138476    .036228    -3.82   0.000    -.2095231    -.067429
+        Temp |  -.0042824   .0253502    -0.17   0.866    -.0539969    .0454321
+        Wind |   .1537536   .0864057     1.78   0.075    -.0156972    .3232045
+         Pop |  -.1325529   .1374258    -0.96   0.335    -.4020596    .1369538
+      Carbon |    -.12308   .0538178    -2.29   0.022    -.2286224   -.0175376
+       Water |    .361694   1.416216     0.26   0.798    -2.415658    3.139046
+       Green |   2.215089   1.094701     2.02   0.043     .0682631    4.361915
+        Farm |   .4277987   .8601686     0.50   0.619    -1.259084    2.114682
+       Grass |   .8362689   1.505348     0.56   0.579     -2.11588    3.788417
+------------------------------------------------------------------------------
+Underidentification test (Kleibergen-Paap rk LM statistic):             30.868
+                                                   Chi-sq(1) P-val =    0.0000
+------------------------------------------------------------------------------
+Weak identification test (Cragg-Donald Wald F statistic):              667.096
+                         (Kleibergen-Paap rk Wald F statistic):         30.274
+Stock-Yogo weak ID test critical values: 10% maximal IV size             16.38
+                                         15% maximal IV size              8.96
+                                         20% maximal IV size              6.66
+                                         25% maximal IV size              5.53
+Source: Stock-Yogo (2005).  Reproduced by permission.
+NB: Critical values are for Cragg-Donald F statistic and i.i.d. errors.
+------------------------------------------------------------------------------
+Hansen J statistic (overidentification test of all instruments):         0.000
+                                                 (equation exactly identified)
+------------------------------------------------------------------------------
+Instrumented:         PI
+Included instruments: Temp Wind Pop Carbon Water Green Farm Grass
+Excluded instruments: Sun_ccpu
+Partialled-out:       _cons
+                      nb: total SS, model F and R2s are after partialling-out;
+                          any small-sample adjustments include partialled-out
+                          variables in regressor count K
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2077        2077           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. esttab C1 C2 C3 C4 C5, keep(PI) b(4) se(4) star(* 0.10 ** 0.05 *** 0.01) ///
+>     stats(N N_clust widstat, fmt(0 0 2) labels("Obs" "Clusters" "Kleibergen-Paap F")) ///
+>     mtitles("Paper" "Cluster city" "Urban x YM FE" "PSI-data only" "No Duration") ///
+>     title("Panel C. IV estimate: inference and specification")
+
+Panel C. IV estimate: inference and specification
+--------------------------------------------------------------------------------------------
+                      (1)             (2)             (3)             (4)             (5)   
+                    Paper    Cluster city    Urban x YM~E    PSI-data o~y     No Duration   
+--------------------------------------------------------------------------------------------
+PI                -0.1264***      -0.1069**       -0.1477***      -0.1171***      -0.1385***
+                 (0.0347)        (0.0467)        (0.0470)        (0.0399)        (0.0362)   
+--------------------------------------------------------------------------------------------
+Obs                 37503           37372           37503           19985           37503   
+Clusters             2077             287            2077            1411            2077   
+Kleibergen~F        30.18           10.79           22.27           20.87           30.27   
+--------------------------------------------------------------------------------------------
+Standard errors in parentheses
+* p<0.10, ** p<0.05, *** p<0.01
+
+. esttab C1 C2 C3 C4 C5 using "$T1/tables/1_6_iv_exclusion_tests.rtf", append keep(PI) b(4) se(4) ///
+>     star(* 0.10 ** 0.05 *** 0.01) stats(N N_clust widstat, fmt(0 0 2) labels("Obs" "Clusters" "Kleibergen-Paap F")) //
+> /
+>     mtitles("Paper" "Cluster city" "Urban x YM FE" "PSI-data only" "No Duration") ///
+>     title("Panel C. IV estimate: inference and specification")
+(output written to /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/tables/1_6_i
+> v_exclusion_tests.rtf)
+
+. 
+end of do-file
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/logs/1_6_iv_exclus
+> ion_tests.log
+  log type:  text
+ closed on:   7 Nov 2026, 21:27:07
+------------------------------------------------------------------------------------------------------------------------

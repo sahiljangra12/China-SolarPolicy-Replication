@@ -1,0 +1,1263 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/logs/1_5_twfe_diag
+> nostics.log
+  log type:  text
+ opened on:   7 Nov 2026, 21:25:18
+
+================ 1_5_twfe_diagnostics ================
+
+. *==========================================================================
+. * 00_config.do
+. * Project : Replication of Zhang et al. (2026), "China's solar expansion
+. *           policy reduces bird diversity", Science 393, 831.
+. * Purpose : One place for paths, globals and package installation.
+. *           Every task do-file starts with:  do "<ROOT>/00_config.do"
+. * Author  : Sahil (Research Assistant, Johns Hopkins University)
+. *==========================================================================
+. version 16
+
+. set more off
+
+. set linesize 120
+
+. 
+. *---------------------------------------------------------------- paths
+. global ROOT "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication"
+
+. global ORIG "$ROOT/00_Original_Package"
+
+. global DATA "$ORIG/DATA"
+
+. global T1   "$ROOT/01_Task1_Replication"
+
+. global T2   "$ROOT/02_Task2_Sensitivity"
+
+. global T3   "$ROOT/03_Task3_Staggered_DiD"
+
+. 
+. * analysis sample built in Task 1 (used by all tasks)
+. global SAMPLE "$T1/data/analysis_sample.dta"
+
+. 
+. *---------------------------------------------------------------- model
+. * the authors' nine control variables (Table 1, column 3)
+. global control     "Temp Wind Pop Duration Carbon Water Green Farm Grass"
+
+. global control_noD "Temp Wind Pop Carbon Water Green Farm Grass"
+
+. 
+. *---------------------------------------------------------------- packages
+. * installed only if missing
+. foreach p in require ftools reghdfe ivreg2 ranktest ivreghdfe estout winsor2 ///
+>              psmatch2 binscatter sensemakr drdid csdid did_imputation       ///
+>              event_plot avar eventstudyinteract {
+  2.     capture which `p'
+  3.     if _rc {
+  4.         di as txt "installing `p' ..."
+  5.         capture noisily ssc install `p', replace
+  6.     }
+  7. }
+
+. set scheme s2color
+
+. 
+end of do-file
+
+. *==========================================================================
+. * 1_5_twfe_diagnostics.do
+. * PURPOSE : Probe the identification of the main TWFE estimate.
+. *   Panel A  Who drives the effect? (missing-PSI counties, urban vs rural)
+. *   Panel B  Alternative treatment definitions (stock, binary)
+. *   Panel C  Observer effort (Duration) as a possible "bad control"
+. *   Panel D  Propensity-score matching with the matching weights APPLIED
+. * OUTPUT  : tables/1_5_twfe_diagnostics.csv / .rtf
+. * WHY     : Task 1, item 5 — the TWFE design is only credible if the
+. *           comparison group is valid; these checks test that directly.
+. *==========================================================================
+. use "$SAMPLE", clear
+
+. 
+. *------------------------------------------------ Panel A
+. eststo clear
+
+. eststo A1: reghdfe ShannonBD PI $control,                        absorb(county year)       cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      88.45
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3372
+                                                  Adj R-squared   =     0.2999
+                                                  Within R-sq.    =     0.0398
+Number of clusters (county)  =      2,344         Root MSE        =     0.8208
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0125283   .0036551    -3.43   0.001    -.0196958   -.0053607
+        Temp |   -.007307   .0180907    -0.40   0.686    -.0427824    .0281685
+        Wind |   .0434958    .073623     0.59   0.555    -.1008772    .1878688
+         Pop |  -.0885085   .1286504    -0.69   0.492    -.3407889    .1637719
+    Duration |   .1638102   .0057239    28.62   0.000     .1525857    .1750346
+      Carbon |  -.1117558   .0430827    -2.59   0.010    -.1962399   -.0272716
+       Water |   -1.27986   1.126966    -1.14   0.256    -3.489814    .9300936
+       Green |   1.151814   .9518596     1.21   0.226     -.714761    3.018388
+        Farm |   .0657308   .7087708     0.09   0.926    -1.324153    1.455614
+       Grass |   1.264197   .9469432     1.34   0.182    -.5927372    3.121131
+       _cons |   3.893401   1.140562     3.41   0.001     1.656784    6.130017
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo A2: reghdfe ShannonBD PI $control if in_PI_file==1,       absorb(county year)       cluster(county)
+(dropped 136 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     26,007
+Absorbing 2 HDFE groups                           F(  10,   1640) =      67.19
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3472
+                                                  Adj R-squared   =     0.2996
+                                                  Within R-sq.    =     0.0508
+Number of clusters (county)  =      1,641         Root MSE        =     0.8565
+
+                             (Std. err. adjusted for 1,641 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0026608   .0038292    -0.69   0.487    -.0101714    .0048498
+        Temp |    .005977   .0226931     0.26   0.792    -.0385334    .0504874
+        Wind |   .0329762   .0975552     0.34   0.735    -.1583697    .2243222
+         Pop |   .0540788   .2235748     0.24   0.809    -.3844434     .492601
+    Duration |   .1973229   .0078184    25.24   0.000     .1819877     .212658
+      Carbon |  -.0998006   .0519426    -1.92   0.055    -.2016815    .0020802
+       Water |  -3.422229    1.33614    -2.56   0.011    -6.042949   -.8015083
+       Green |   .3413487   1.254315     0.27   0.786     -2.11888    2.801577
+        Farm |  -.4978892   1.014733    -0.49   0.624    -2.488198     1.49242
+       Grass |   .3547082   1.217798     0.29   0.771    -2.033896    2.743312
+       _cons |   3.221634   1.580829     2.04   0.042     .1209788     6.32229
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1641        1641           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo A3: reghdfe ShannonBD PI $control if urban==0,            absorb(county year)       cluster(county)
+(dropped 125 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     22,164
+Absorbing 2 HDFE groups                           F(  10,   1496) =      65.10
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3581
+                                                  Adj R-squared   =     0.3073
+                                                  Within R-sq.    =     0.0521
+Number of clusters (county)  =      1,497         Root MSE        =     0.8542
+
+                             (Std. err. adjusted for 1,497 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0055754   .0042295    -1.32   0.188    -.0138719     .002721
+        Temp |   .0027787   .0241528     0.12   0.908    -.0445983    .0501556
+        Wind |   .0469753   .1020259     0.46   0.645    -.1531537    .2471042
+         Pop |   .0942386   .2217715     0.42   0.671    -.3407775    .5292546
+    Duration |   .1994835   .0081191    24.57   0.000     .1835575    .2154094
+      Carbon |  -.1262569   .0531247    -2.38   0.018    -.2304638   -.0220501
+       Water |  -.7307045   1.746096    -0.42   0.676     -4.15576    2.694351
+       Green |   1.369293   1.300018     1.05   0.292    -1.180759    3.919345
+        Farm |   .6693805   1.092935     0.61   0.540    -1.474468    2.813229
+       Grass |    1.33506   1.427156     0.94   0.350     -1.46438    4.134499
+       _cons |   2.403835   1.639517     1.47   0.143    -.8121601     5.61983
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1497        1497           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo A4: reghdfe ShannonBD PI $control if urban==1,            absorb(county year)       cluster(county)
+(dropped 32 singleton observations)
+(MWFE estimator converged in 6 iterations)
+
+HDFE Linear regression                            Number of obs   =     24,207
+Absorbing 2 HDFE groups                           F(  10,    846) =      29.97
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3249
+                                                  Adj R-squared   =     0.2966
+                                                  Within R-sq.    =     0.0270
+Number of clusters (county)  =        847         Root MSE        =     0.7862
+
+                               (Std. err. adjusted for 847 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |    .005621   .0079198     0.71   0.478    -.0099238    .0211658
+        Temp |  -.0049723   .0272235    -0.18   0.855    -.0584059    .0484613
+        Wind |   .0438155    .103155     0.42   0.671    -.1586542    .2462852
+         Pop |  -.1301377   .1567391    -0.83   0.407    -.4377808    .1775054
+    Duration |   .1288592   .0075047    17.17   0.000     .1141293    .1435892
+      Carbon |  -.0702304   .0704229    -1.00   0.319    -.2084544    .0679936
+       Water |    .034942   1.475749     0.02   0.981    -2.861617    2.931501
+       Green |   1.650911    1.25831     1.31   0.190    -.8188658    4.120687
+        Farm |   .9336867   .9131667     1.02   0.307    -.8586514    2.726025
+       Grass |    2.33944   1.178841     1.98   0.048     .0256444    4.653237
+       _cons |   3.243057    1.64415     1.97   0.049     .0159641    6.470149
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |       847         847           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo A5: reghdfe ShannonBD PI $control,                        absorb(county year#urban) cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      82.34
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3411
+                                                  Adj R-squared   =     0.3021
+                                                  Within R-sq.    =     0.0381
+Number of clusters (county)  =      2,344         Root MSE        =     0.8195
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   -.002683   .0037065    -0.72   0.469    -.0099514    .0045854
+        Temp |   .0001733   .0181638     0.01   0.992    -.0354454    .0357921
+        Wind |   .0382813   .0731117     0.52   0.601     -.105089    .1816515
+         Pop |  -.0785441   .1273387    -0.62   0.537    -.3282523    .1711641
+    Duration |   .1618188   .0057338    28.22   0.000      .150575    .1730626
+      Carbon |  -.0990999   .0420267    -2.36   0.018    -.1815133   -.0166866
+       Water |  -.2651954   1.120673    -0.24   0.813    -2.462809    1.932418
+       Green |   1.604513   .9068483     1.77   0.077    -.1737954    3.382822
+        Farm |   .8856803   .7060507     1.25   0.210     -.498869    2.270229
+       Grass |   1.896732   .9416102     2.01   0.044     .0502559    3.743208
+       _cons |   2.990337   1.139704     2.62   0.009     .7554047     5.22527
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2344        2344           0    *|
+   year#urban |       240           1         239     |
+------------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo A6: reghdfe ShannonBD PI $control,                        absorb(county year#prov)  cluster(county)
+(dropped 452 singleton observations)
+(MWFE estimator converged in 14 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,076
+Absorbing 2 HDFE groups                           F(  10,   2342) =      82.53
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.4064
+                                                  Adj R-squared   =     0.3277
+                                                  Within R-sq.    =     0.0375
+Number of clusters (county)  =      2,343         Root MSE        =     0.8027
+
+                             (Std. err. adjusted for 2,343 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0146261   .0046609    -3.14   0.002    -.0237659   -.0054862
+        Temp |   .0273114   .0320229     0.85   0.394    -.0354847    .0901075
+        Wind |   .1010029   .1286674     0.78   0.433    -.1513108    .3533167
+         Pop |   .0315217   .1124866     0.28   0.779    -.1890619    .2521054
+    Duration |   .1589953   .0057878    27.47   0.000     .1476455    .1703451
+      Carbon |  -.0667946   .0464544    -1.44   0.151    -.1578906    .0243014
+       Water |  -.7464559   1.193607    -0.63   0.532    -3.087093    1.594181
+       Green |  -.1766575   1.025282    -0.17   0.863    -2.187213    1.833898
+        Farm |  -.6605694   .7378102    -0.90   0.371    -2.107398    .7862597
+       Grass |   .9141152   .8276097     1.10   0.269    -.7088088    2.537039
+       _cons |   2.661813   1.190224     2.24   0.025     .3278108    4.995816
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2343        2343           0    *|
+   year#prov |      3045           1        3044     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. esttab A1 A2 A3 A4 A5 A6, keep(PI) b(4) se(4) star(* 0.10 ** 0.05 *** 0.01) ///
+>     stats(N N_clust, fmt(0 0) labels("Obs" "Counties")) ///
+>     mtitles("Baseline" "PSI-data counties" "Rural only" "Urban only" "Urban x YM FE" "Province x YM FE") ///
+>     title("Panel A. Who drives the TWFE estimate?")
+
+Panel A. Who drives the TWFE estimate?
+------------------------------------------------------------------------------------------------------------
+                      (1)             (2)             (3)             (4)             (5)             (6)   
+                 Baseline    PSI-data c~s      Rural only      Urban only    Urban x YM~E    Province x~E   
+------------------------------------------------------------------------------------------------------------
+PI                -0.0125***      -0.0027         -0.0056          0.0056         -0.0027         -0.0146***
+                 (0.0037)        (0.0038)        (0.0042)        (0.0079)        (0.0037)        (0.0047)   
+------------------------------------------------------------------------------------------------------------
+Obs                 46371           26007           22164           24207           46371           46076   
+Counties             2344            1641            1497             847            2344            2343   
+------------------------------------------------------------------------------------------------------------
+Standard errors in parentheses
+* p<0.10, ** p<0.05, *** p<0.01
+
+. esttab A1 A2 A3 A4 A5 A6 using "$T1/tables/1_5_twfe_diagnostics.rtf", replace keep(PI) b(4) se(4) ///
+>     star(* 0.10 ** 0.05 *** 0.01) stats(N N_clust, fmt(0 0) labels("Obs" "Counties")) ///
+>     mtitles("Baseline" "PSI-data counties" "Rural only" "Urban only" "Urban x YM FE" "Province x YM FE") ///
+>     title("Panel A. Who drives the TWFE estimate?")
+(output written to /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/tables/1_5_t
+> wfe_diagnostics.rtf)
+
+. 
+. *------------------------------------------------ Panel B
+. eststo clear
+
+. eststo B1: reghdfe ShannonBD PI_stock $control if in_PI_file==1, absorb(county year) cluster(county)
+(dropped 138 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     24,695
+Absorbing 2 HDFE groups                           F(  10,   1632) =      61.12
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3498
+                                                  Adj R-squared   =     0.3006
+                                                  Within R-sq.    =     0.0498
+Number of clusters (county)  =      1,633         Root MSE        =     0.8566
+
+                             (Std. err. adjusted for 1,633 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    PI_stock |  -.0012211   .0021986    -0.56   0.579    -.0055334    .0030913
+        Temp |   .0150022   .0231263     0.65   0.517    -.0303582    .0603626
+        Wind |   .0392085   .1026628     0.38   0.703    -.1621563    .2405733
+         Pop |   .2125728   .3503967     0.61   0.544    -.4747018    .8998475
+    Duration |    .202065   .0084045    24.04   0.000     .1855802    .2185497
+      Carbon |  -.0850646   .0560735    -1.52   0.129    -.1950483    .0249191
+       Water |  -2.499262   1.296276    -1.93   0.054    -5.041801    .0432767
+       Green |   .3421962   1.317682     0.26   0.795     -2.24233    2.926722
+        Farm |   .1442267     1.0433     0.14   0.890    -1.902121    2.190575
+       Grass |   .2216489    1.23731     0.18   0.858    -2.205233    2.648531
+       _cons |   1.921235   2.092242     0.92   0.359    -2.182527    6.024997
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1633        1633           0    *|
+        year |        96           1          95     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo B2: reghdfe ShannonBD any_PSI  $control,                  absorb(county year) cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      86.36
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3369
+                                                  Adj R-squared   =     0.2996
+                                                  Within R-sq.    =     0.0394
+Number of clusters (county)  =      2,344         Root MSE        =     0.8210
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     any_PSI |  -.0344417   .0277884    -1.24   0.215     -.088934    .0200507
+        Temp |  -.0108136   .0180146    -0.60   0.548    -.0461399    .0245127
+        Wind |   .0394922   .0738112     0.54   0.593    -.1052499    .1842343
+         Pop |  -.0901162    .128925    -0.70   0.485     -.342935    .1627027
+    Duration |   .1640743   .0057259    28.66   0.000     .1528461    .1753026
+      Carbon |  -.1109152   .0431345    -2.57   0.010     -.195501   -.0263294
+       Water |  -1.426122   1.131443    -1.26   0.208    -3.644855    .7926105
+       Green |   1.058102   .9604476     1.10   0.271    -.8253139    2.941517
+        Farm |  -.0049356   .7132913    -0.01   0.994    -1.403683    1.393812
+       Grass |   1.207591   .9379309     1.29   0.198    -.6316703    3.046852
+       _cons |   3.998544   1.144847     3.49   0.000     1.753525    6.243564
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo B3: reghdfe ShannonBD any_PSI  $control if in_PI_file==1, absorb(county year) cluster(county)
+(dropped 136 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     26,007
+Absorbing 2 HDFE groups                           F(  10,   1640) =      66.97
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3472
+                                                  Adj R-squared   =     0.2995
+                                                  Within R-sq.    =     0.0508
+Number of clusters (county)  =      1,641         Root MSE        =     0.8565
+
+                             (Std. err. adjusted for 1,641 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     any_PSI |   .0180201   .0280202     0.64   0.520    -.0369391    .0729793
+        Temp |   .0068771   .0227127     0.30   0.762    -.0376719    .0514261
+        Wind |   .0250168   .0974855     0.26   0.798    -.1661924    .2162261
+         Pop |   .0617413   .2222228     0.28   0.781    -.3741291    .4976117
+    Duration |   .1974754   .0078261    25.23   0.000     .1821251    .2128257
+      Carbon |  -.0979273   .0515095    -1.90   0.057    -.1989587    .0031041
+       Water |   -3.44539   1.335905    -2.58   0.010    -6.065649   -.8251314
+       Green |   .3456789   1.255887     0.28   0.783    -2.117632     2.80899
+        Farm |  -.4550125   1.013401    -0.45   0.653     -2.44271    1.532685
+       Grass |   .3906754   1.214813     0.32   0.748    -1.992072    2.773423
+       _cons |   3.117544   1.575353     1.98   0.048     .0276296    6.207459
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1641        1641           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. esttab B1 B2 B3, keep(PI_stock any_PSI) b(4) se(4) star(* 0.10 ** 0.05 *** 0.01) ///
+>     stats(N N_clust, fmt(0 0)) mtitles("PSI stock (PSI-data)" "Any PSI>0 (all)" "Any PSI>0 (PSI-data)") ///
+>     title("Panel B. Alternative treatment definitions")
+
+Panel B. Alternative treatment definitions
+------------------------------------------------------------
+                      (1)             (2)             (3)   
+             PSI stock ~)    Any PSI>0 ~)    Any PSI>0 ~)   
+------------------------------------------------------------
+PI_stock          -0.0012                                   
+                 (0.0022)                                   
+
+any_PSI                           -0.0344          0.0180   
+                                 (0.0278)        (0.0280)   
+------------------------------------------------------------
+N                   24695           46371           26007   
+N_clust              1633            2344            1641   
+------------------------------------------------------------
+Standard errors in parentheses
+* p<0.10, ** p<0.05, *** p<0.01
+
+. esttab B1 B2 B3 using "$T1/tables/1_5_twfe_diagnostics.rtf", append keep(PI_stock any_PSI) b(4) se(4) ///
+>     star(* 0.10 ** 0.05 *** 0.01) stats(N N_clust, fmt(0 0)) ///
+>     mtitles("PSI stock (PSI-data)" "Any PSI>0 (all)" "Any PSI>0 (PSI-data)") ///
+>     title("Panel B. Alternative treatment definitions")
+(output written to /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/tables/1_5_t
+> wfe_diagnostics.rtf)
+
+. 
+. *------------------------------------------------ Panel C
+. eststo clear
+
+. eststo C1: reghdfe ShannonBD PI $control_noD, absorb(county year) cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(   9,   2343) =       3.05
+Statistics robust to heteroskedasticity           Prob > F        =     0.0012
+                                                  R-squared       =     0.3106
+                                                  Adj R-squared   =     0.2718
+                                                  Within R-sq.    =     0.0012
+Number of clusters (county)  =      2,344         Root MSE        =     0.8371
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0154265   .0037448    -4.12   0.000      -.02277   -.0080831
+        Temp |  -.0108752   .0188352    -0.58   0.564    -.0478107    .0260602
+        Wind |    .024548   .0753693     0.33   0.745    -.1232494    .1723455
+         Pop |  -.0891849   .1302669    -0.68   0.494    -.3446353    .1662655
+      Carbon |  -.0902611   .0426538    -2.12   0.034    -.1739041    -.006618
+       Water |  -1.714741   1.248509    -1.37   0.170     -4.16304    .7335566
+       Green |   1.083706   1.012791     1.07   0.285    -.9023532    3.069766
+        Farm |  -.4828305   .7557913    -0.64   0.523     -1.96492    .9992589
+       Grass |   .9763155   1.018382     0.96   0.338    -1.020709     2.97334
+       _cons |   4.196397    1.16983     3.59   0.000     1.902388    6.490406
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo C2: reghdfe Duration  PI $control_noD, absorb(county year) cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(   9,   2343) =       5.31
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.2216
+                                                  Adj R-squared   =     0.1777
+                                                  Within R-sq.    =     0.0021
+Number of clusters (county)  =      2,344         Root MSE        =     1.0042
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+    Duration | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0176926   .0042133    -4.20   0.000    -.0259549   -.0094304
+        Temp |  -.0217831   .0244321    -0.89   0.373    -.0696939    .0261278
+        Wind |  -.1156692   .0984628    -1.17   0.240    -.3087524    .0774141
+         Pop |  -.0041294   .1466279    -0.03   0.978    -.2916633    .2834045
+      Carbon |    .131217   .0541547     2.42   0.015     .0250208    .2374132
+       Water |  -2.654789   1.810481    -1.47   0.143    -6.205101    .8955232
+       Green |  -.4157693   1.118601    -0.37   0.710     -2.60932    1.777782
+        Farm |  -3.348763   .8466605    -3.96   0.000    -5.009044   -1.688481
+       Grass |  -1.757408   1.088594    -1.61   0.107    -3.892116    .3773003
+       _cons |   1.849678   1.344271     1.38   0.169    -.7864054    4.485762
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. esttab C1 C2, keep(PI) b(4) se(4) star(* 0.10 ** 0.05 *** 0.01) stats(N N_clust, fmt(0 0)) ///
+>     mtitles("Shannon, no Duration" "Outcome = Duration") title("Panel C. Observer effort")
+
+Panel C. Observer effort
+--------------------------------------------
+                      (1)             (2)   
+             Shannon, n~n    Outcome = ~n   
+--------------------------------------------
+PI                -0.0154***      -0.0177***
+                 (0.0037)        (0.0042)   
+--------------------------------------------
+N                   46371           46371   
+N_clust              2344            2344   
+--------------------------------------------
+Standard errors in parentheses
+* p<0.10, ** p<0.05, *** p<0.01
+
+. esttab C1 C2 using "$T1/tables/1_5_twfe_diagnostics.rtf", append keep(PI) b(4) se(4) ///
+>     star(* 0.10 ** 0.05 *** 0.01) stats(N N_clust, fmt(0 0)) ///
+>     mtitles("Shannon, no Duration" "Outcome = Duration") title("Panel C. Observer effort")
+(output written to /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/tables/1_5_t
+> wfe_diagnostics.rtf)
+
+. 
+. *------------------------------------------------ Panel D
+. * The authors run psmatch2 and then regress on the matched sample WITHOUT
+. * the weights (if _weight!=.). Here the weights are applied.
+. gen byte treated = (PI > 0)
+
+. eststo clear
+
+. psmatch2 treated $control i.year, outcome(ShannonBD) neighbor(1) caliper(0.05) common
+
+Probit regression                                     Number of obs =   46,528
+                                                      LR chi2(128)  = 17188.97
+                                                      Prob > chi2   =   0.0000
+Log likelihood = -22876.215                           Pseudo R2     =   0.2731
+
+------------------------------------------------------------------------------
+     treated | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Temp |   .0140061    .002066     6.78   0.000     .0099568    .0180554
+        Wind |   .0263441   .0109177     2.41   0.016     .0049457    .0477424
+         Pop |  -.5003601   .0082909   -60.35   0.000    -.5166101   -.4841102
+    Duration |  -.0224558   .0064208    -3.50   0.000    -.0350404   -.0098713
+      Carbon |   .0302818   .0057272     5.29   0.000     .0190566     .041507
+       Water |   3.005874   .1701495    17.67   0.000     2.672388    3.339361
+       Green |   3.562518   .0603429    59.04   0.000     3.444248    3.680788
+        Farm |    4.80485   .0693815    69.25   0.000     4.668864    4.940835
+       Grass |   1.499712   .0695829    21.55   0.000     1.363332    1.636092
+             |
+        year |
+        649  |   .4623304   .4862172     0.95   0.342    -.4906377    1.415299
+        650  |   .6617715   .4819074     1.37   0.170    -.2827496    1.606293
+        651  |   .4213147   .5081922     0.83   0.407    -.5747237    1.417353
+        652  |   .1063481    .448673     0.24   0.813    -.7730348     .985731
+        653  |   .5781036   .4575892     1.26   0.206    -.3187546    1.474962
+        654  |  -.0344942   .4707659    -0.07   0.942    -.9571785      .88819
+        655  |  -.1823901   .4866806    -0.37   0.708    -1.136266    .7714863
+        656  |   .8844003   .4673602     1.89   0.058    -.0316089     1.80041
+        657  |   .2566986   .4395585     0.58   0.559    -.6048203    1.118218
+        658  |   -.109723   .4347278    -0.25   0.801    -.9617738    .7423278
+        659  |   .1376855   .4116921     0.33   0.738    -.6692163    .9445873
+        660  |   .0905949   .4086098     0.22   0.825    -.7102656    .8914554
+        661  |   .4371766   .4073272     1.07   0.283      -.36117    1.235523
+        662  |   .4539818   .4128301     1.10   0.271    -.3551503    1.263114
+        663  |   .5376423   .4068987     1.32   0.186    -.2598644    1.335149
+        664  |   .3033986   .4001287     0.76   0.448    -.4808392    1.087636
+        665  |   .1736337   .4141583     0.42   0.675    -.6381016    .9853691
+        666  |   .2599705   .4047376     0.64   0.521    -.5333007    1.053242
+        667  |   .2662351   .4084301     0.65   0.514    -.5342732    1.066743
+        668  |   .2551457   .4171265     0.61   0.541    -.5624073    1.072699
+        669  |   .4331951   .4121756     1.05   0.293    -.3746542    1.241044
+        670  |   .3798181   .4143364     0.92   0.359    -.4322663    1.191903
+        671  |   .2809784   .4096727     0.69   0.493    -.5219653    1.083922
+        672  |   .3931461   .4066527     0.97   0.334    -.4038785    1.190171
+        673  |   .4929643    .404789     1.22   0.223    -.3004076    1.286336
+        674  |   .2793918   .4140666     0.67   0.500    -.5321638    1.090948
+        675  |   .3959577   .4076748     0.97   0.331    -.4030702    1.194986
+        676  |   .2899515   .4064389     0.71   0.476     -.506654    1.086557
+        677  |    .258239   .4132405     0.62   0.532    -.5516974    1.068175
+        678  |   .2128313   .4114631     0.52   0.605    -.5936215    1.019284
+        679  |   .2914004   .4122155     0.71   0.480    -.5165272    1.099328
+        680  |   .2892932   .4185739     0.69   0.489    -.5310964    1.109683
+        681  |   .5084337   .4123526     1.23   0.218    -.2997625     1.31663
+        682  |   .5046015   .4161205     1.21   0.225    -.3109797    1.320183
+        683  |   .3794449   .4117358     0.92   0.357    -.4275425    1.186432
+        684  |   .4835139   .4045537     1.20   0.232    -.3093969    1.276425
+        685  |   .4990684   .4100757     1.22   0.224    -.3046651    1.302802
+        686  |   .2838657   .4145454     0.68   0.493    -.5286283     1.09636
+        687  |   .4999919   .4012589     1.25   0.213     -.286461    1.286445
+        688  |   .4242938   .4086007     1.04   0.299    -.3765488    1.225136
+        689  |   .6013072   .4198397     1.43   0.152    -.2215636    1.424178
+        690  |   .5416342   .4072189     1.33   0.183    -.2565002    1.339769
+        691  |    .266861   .4131518     0.65   0.518    -.5429016    1.076624
+        692  |    .744902   .4225407     1.76   0.078    -.0832625    1.573067
+        693  |   .6156391   .4102993     1.50   0.133    -.1885326    1.419811
+        694  |   .2404976   .4241549     0.57   0.571    -.5908308    1.071826
+        695  |   .4891146   .4110389     1.19   0.234    -.3165068    1.294736
+        696  |   .2412775   .4016513     0.60   0.548    -.5459446    1.028499
+        697  |   .4804449   .3998677     1.20   0.230    -.3032814    1.264171
+        698  |    .301006   .4048934     0.74   0.457    -.4925704    1.094582
+        699  |   .2441793   .4023928     0.61   0.544    -.5444962    1.032855
+        700  |   .1894723   .4026774     0.47   0.638     -.599761    .9787056
+        701  |   .1867689   .4041727     0.46   0.644     -.605395    .9789328
+        702  |    .108046   .4035014     0.27   0.789    -.6828022    .8988943
+        703  |   .1805408   .4015307     0.45   0.653     -.606445    .9675265
+        704  |   .2390989   .4076163     0.59   0.557    -.5598144    1.038012
+        705  |   .3641275   .4042493     0.90   0.368    -.4281866    1.156442
+        706  |   .3326622   .4056311     0.82   0.412    -.4623601    1.127685
+        707  |   .1768884   .4066878     0.43   0.664     -.620205    .9739819
+        708  |   .3870286   .4005258     0.97   0.334    -.3979876    1.172045
+        709  |   .4152489    .400301     1.04   0.300    -.3693268    1.199824
+        710  |   .3505299   .4056929     0.86   0.388    -.4446137    1.145673
+        711  |    .492689   .4036158     1.22   0.222    -.2983834    1.283761
+        712  |   .4365293   .4029497     1.08   0.279    -.3532375    1.226296
+        713  |   .3122996   .4074272     0.77   0.443    -.4862431    1.110842
+        714  |   .3685299   .4050284     0.91   0.363    -.4253111    1.162371
+        715  |   .3011991   .4041592     0.75   0.456    -.4909385    1.093337
+        716  |    .488048    .412947     1.18   0.237    -.3213133    1.297409
+        717  |   .4178718    .406635     1.03   0.304    -.3791183    1.214862
+        718  |   .6203322   .4080091     1.52   0.128    -.1793509    1.420015
+        719  |   .5673334   .4078794     1.39   0.164    -.2320955    1.366762
+        720  |    .568061   .3964799     1.43   0.152    -.2090255    1.345147
+        721  |   .4583815   .4027548     1.14   0.255    -.3310033    1.247766
+        722  |   .5070455   .3996109     1.27   0.204    -.2761774    1.290268
+        723  |   .4420063   .3974034     1.11   0.266      -.33689    1.220903
+        724  |   .3863919   .3966699     0.97   0.330    -.3910668    1.163851
+        725  |   .4200954   .3995484     1.05   0.293     -.363005    1.203196
+        726  |    .335318   .3990476     0.84   0.401     -.446801    1.117437
+        727  |   .4922491   .3985099     1.24   0.217    -.2888161    1.273314
+        728  |   .4104824   .4012125     1.02   0.306    -.3758796    1.196844
+        729  |   .4019506   .3976625     1.01   0.312    -.3774537    1.181355
+        730  |   .5696143   .3987247     1.43   0.153    -.2118717      1.3511
+        731  |   .4959698     .39839     1.24   0.213    -.2848603      1.2768
+        732  |   .6665902   .3956197     1.68   0.092    -.1088102    1.441991
+        733  |   .6771299   .3951975     1.71   0.087     -.097443    1.451703
+        734  |   .5380088   .3961012     1.36   0.174    -.2383353    1.314353
+        735  |   .6117815   .3952879     1.55   0.122    -.1629685    1.386532
+        736  |   .6663618   .3951379     1.69   0.092    -.1080942    1.440818
+        737  |   .6021618   .3961231     1.52   0.128    -.1742252    1.378549
+        738  |   .6295151   .3954247     1.59   0.111    -.1455031    1.404533
+        739  |   .6556801   .3970464     1.65   0.099    -.1225165    1.433877
+        740  |   .7358417   .3968741     1.85   0.064    -.0420172    1.513701
+        741  |   .6950958   .3961505     1.75   0.079     -.081345    1.471536
+        742  |   .6561165   .3973603     1.65   0.099    -.1226954    1.434928
+        743  |   .6801775    .396212     1.72   0.086    -.0963837    1.456739
+        744  |   .8213468   .3942863     2.08   0.037     .0485599    1.594134
+        745  |   .8015717    .394463     2.03   0.042     .0284386    1.574705
+        746  |   .6788876    .395668     1.72   0.086    -.0966073    1.454383
+        747  |   .7099021   .3960298     1.79   0.073    -.0663021    1.486106
+        748  |   .5870289   .3953302     1.48   0.138     -.187804    1.361862
+        749  |   .7419522   .3953214     1.88   0.061    -.0328634    1.516768
+        750  |   .6458982   .3946354     1.64   0.102    -.1275731    1.419369
+        751  |   .6741659   .3950095     1.71   0.088    -.1000384     1.44837
+        752  |   .6768531   .3961934     1.71   0.088    -.0996717    1.453378
+        753  |   .7207764   .3958172     1.82   0.069    -.0550111    1.496564
+        754  |   .7360654   .3969727     1.85   0.064    -.0419867    1.514118
+        755  |   .7119796   .3956858     1.80   0.072    -.0635503     1.48751
+        756  |   .8862856   .3937205     2.25   0.024     .1146076    1.657964
+        757  |   .8626595   .3944044     2.19   0.029      .089641    1.635678
+        758  |   .8203458   .3943778     2.08   0.038     .0473795    1.593312
+        759  |   .9096919    .393999     2.31   0.021     .1374681    1.681916
+        760  |   .8567359   .3940358     2.17   0.030     .0844398    1.629032
+        761  |   .7980837   .3942796     2.02   0.043     .0253099    1.570858
+        762  |   .9133135   .3938735     2.32   0.020     .1413356    1.685291
+        763  |   .8540843   .3939654     2.17   0.030     .0819263    1.626242
+        764  |   .8433014   .3943171     2.14   0.032     .0704541    1.616149
+        765  |   .9294643   .3939594     2.36   0.018      .157318    1.701611
+        766  |   .8939752   .3945757     2.27   0.023     .1206211    1.667329
+        767  |   .7592757   .3946007     1.92   0.054    -.0141274    1.532679
+             |
+       _cons |  -2.218308   .4048143    -5.48   0.000     -3.01173   -1.424887
+------------------------------------------------------------------------------
+Note: 9 failures and 0 successes completely determined.
+----------------------------------------------------------------------------------------
+        Variable     Sample |    Treated     Controls   Difference         S.E.   T-stat
+----------------------------+-----------------------------------------------------------
+       ShannonBD  Unmatched | 2.44980596   2.44300792    .00679804   .009255195     0.73
+                        ATT | 2.45007261   2.48045401  -.030381403   .016471132    -1.84
+----------------------------+-----------------------------------------------------------
+Note: S.E. does not take into account that the propensity score is estimated.
+
+ psmatch2: |   psmatch2: Common
+ Treatment |        support
+assignment | Off suppo  On suppor |     Total
+-----------+----------------------+----------
+ Untreated |         0     27,512 |    27,512 
+   Treated |        10     19,006 |    19,016 
+-----------+----------------------+----------
+     Total |        10     46,518 |    46,528 
+
+. eststo D1: reghdfe ShannonBD PI $control [aw=_weight] if _weight!=., absorb(county year) cluster(county)
+(dropped 246 singleton observations)
+(MWFE estimator converged in 8 iterations)
+
+HDFE Linear regression                            Number of obs   =     27,202
+Absorbing 2 HDFE groups                           F(  10,   2027) =      48.54
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3657
+                                                  Adj R-squared   =     0.3111
+                                                  Within R-sq.    =     0.0476
+Number of clusters (county)  =      2,028         Root MSE        =     0.8443
+
+                             (Std. err. adjusted for 2,028 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0050936   .0045633    -1.12   0.264    -.0140429    .0038557
+        Temp |  -.0049972   .0266919    -0.19   0.852    -.0573437    .0473492
+        Wind |  -.0726874   .1217774    -0.60   0.551    -.3115094    .1661346
+         Pop |   -.338912   .2586014    -1.31   0.190    -.8460643    .1682403
+    Duration |   .1923253   .0090277    21.30   0.000     .1746207    .2100299
+      Carbon |  -.0213866    .088941    -0.24   0.810    -.1958119    .1530387
+       Water |  -.9225357   1.452266    -0.64   0.525    -3.770626    1.925555
+       Green |    .677094   1.417342     0.48   0.633    -2.102505    3.456693
+        Farm |  -.1404026   1.019507    -0.14   0.890    -2.139793    1.858988
+       Grass |    .654853   1.586133     0.41   0.680    -2.455768    3.765474
+       _cons |   4.122732   2.103607     1.96   0.050    -.0027259     8.24819
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2028        2028           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. drop _*
+
+. psmatch2 treated $control i.year, outcome(ShannonBD) neighbor(2) caliper(0.05) common
+
+Probit regression                                     Number of obs =   46,528
+                                                      LR chi2(128)  = 17188.97
+                                                      Prob > chi2   =   0.0000
+Log likelihood = -22876.215                           Pseudo R2     =   0.2731
+
+------------------------------------------------------------------------------
+     treated | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Temp |   .0140061    .002066     6.78   0.000     .0099568    .0180554
+        Wind |   .0263441   .0109177     2.41   0.016     .0049457    .0477424
+         Pop |  -.5003601   .0082909   -60.35   0.000    -.5166101   -.4841102
+    Duration |  -.0224558   .0064208    -3.50   0.000    -.0350404   -.0098713
+      Carbon |   .0302818   .0057272     5.29   0.000     .0190566     .041507
+       Water |   3.005874   .1701495    17.67   0.000     2.672388    3.339361
+       Green |   3.562518   .0603429    59.04   0.000     3.444248    3.680788
+        Farm |    4.80485   .0693815    69.25   0.000     4.668864    4.940835
+       Grass |   1.499712   .0695829    21.55   0.000     1.363332    1.636092
+             |
+        year |
+        649  |   .4623304   .4862172     0.95   0.342    -.4906377    1.415299
+        650  |   .6617715   .4819074     1.37   0.170    -.2827496    1.606293
+        651  |   .4213147   .5081922     0.83   0.407    -.5747237    1.417353
+        652  |   .1063481    .448673     0.24   0.813    -.7730348     .985731
+        653  |   .5781036   .4575892     1.26   0.206    -.3187546    1.474962
+        654  |  -.0344942   .4707659    -0.07   0.942    -.9571785      .88819
+        655  |  -.1823901   .4866806    -0.37   0.708    -1.136266    .7714863
+        656  |   .8844003   .4673602     1.89   0.058    -.0316089     1.80041
+        657  |   .2566986   .4395585     0.58   0.559    -.6048203    1.118218
+        658  |   -.109723   .4347278    -0.25   0.801    -.9617738    .7423278
+        659  |   .1376855   .4116921     0.33   0.738    -.6692163    .9445873
+        660  |   .0905949   .4086098     0.22   0.825    -.7102656    .8914554
+        661  |   .4371766   .4073272     1.07   0.283      -.36117    1.235523
+        662  |   .4539818   .4128301     1.10   0.271    -.3551503    1.263114
+        663  |   .5376423   .4068987     1.32   0.186    -.2598644    1.335149
+        664  |   .3033986   .4001287     0.76   0.448    -.4808392    1.087636
+        665  |   .1736337   .4141583     0.42   0.675    -.6381016    .9853691
+        666  |   .2599705   .4047376     0.64   0.521    -.5333007    1.053242
+        667  |   .2662351   .4084301     0.65   0.514    -.5342732    1.066743
+        668  |   .2551457   .4171265     0.61   0.541    -.5624073    1.072699
+        669  |   .4331951   .4121756     1.05   0.293    -.3746542    1.241044
+        670  |   .3798181   .4143364     0.92   0.359    -.4322663    1.191903
+        671  |   .2809784   .4096727     0.69   0.493    -.5219653    1.083922
+        672  |   .3931461   .4066527     0.97   0.334    -.4038785    1.190171
+        673  |   .4929643    .404789     1.22   0.223    -.3004076    1.286336
+        674  |   .2793918   .4140666     0.67   0.500    -.5321638    1.090948
+        675  |   .3959577   .4076748     0.97   0.331    -.4030702    1.194986
+        676  |   .2899515   .4064389     0.71   0.476     -.506654    1.086557
+        677  |    .258239   .4132405     0.62   0.532    -.5516974    1.068175
+        678  |   .2128313   .4114631     0.52   0.605    -.5936215    1.019284
+        679  |   .2914004   .4122155     0.71   0.480    -.5165272    1.099328
+        680  |   .2892932   .4185739     0.69   0.489    -.5310964    1.109683
+        681  |   .5084337   .4123526     1.23   0.218    -.2997625     1.31663
+        682  |   .5046015   .4161205     1.21   0.225    -.3109797    1.320183
+        683  |   .3794449   .4117358     0.92   0.357    -.4275425    1.186432
+        684  |   .4835139   .4045537     1.20   0.232    -.3093969    1.276425
+        685  |   .4990684   .4100757     1.22   0.224    -.3046651    1.302802
+        686  |   .2838657   .4145454     0.68   0.493    -.5286283     1.09636
+        687  |   .4999919   .4012589     1.25   0.213     -.286461    1.286445
+        688  |   .4242938   .4086007     1.04   0.299    -.3765488    1.225136
+        689  |   .6013072   .4198397     1.43   0.152    -.2215636    1.424178
+        690  |   .5416342   .4072189     1.33   0.183    -.2565002    1.339769
+        691  |    .266861   .4131518     0.65   0.518    -.5429016    1.076624
+        692  |    .744902   .4225407     1.76   0.078    -.0832625    1.573067
+        693  |   .6156391   .4102993     1.50   0.133    -.1885326    1.419811
+        694  |   .2404976   .4241549     0.57   0.571    -.5908308    1.071826
+        695  |   .4891146   .4110389     1.19   0.234    -.3165068    1.294736
+        696  |   .2412775   .4016513     0.60   0.548    -.5459446    1.028499
+        697  |   .4804449   .3998677     1.20   0.230    -.3032814    1.264171
+        698  |    .301006   .4048934     0.74   0.457    -.4925704    1.094582
+        699  |   .2441793   .4023928     0.61   0.544    -.5444962    1.032855
+        700  |   .1894723   .4026774     0.47   0.638     -.599761    .9787056
+        701  |   .1867689   .4041727     0.46   0.644     -.605395    .9789328
+        702  |    .108046   .4035014     0.27   0.789    -.6828022    .8988943
+        703  |   .1805408   .4015307     0.45   0.653     -.606445    .9675265
+        704  |   .2390989   .4076163     0.59   0.557    -.5598144    1.038012
+        705  |   .3641275   .4042493     0.90   0.368    -.4281866    1.156442
+        706  |   .3326622   .4056311     0.82   0.412    -.4623601    1.127685
+        707  |   .1768884   .4066878     0.43   0.664     -.620205    .9739819
+        708  |   .3870286   .4005258     0.97   0.334    -.3979876    1.172045
+        709  |   .4152489    .400301     1.04   0.300    -.3693268    1.199824
+        710  |   .3505299   .4056929     0.86   0.388    -.4446137    1.145673
+        711  |    .492689   .4036158     1.22   0.222    -.2983834    1.283761
+        712  |   .4365293   .4029497     1.08   0.279    -.3532375    1.226296
+        713  |   .3122996   .4074272     0.77   0.443    -.4862431    1.110842
+        714  |   .3685299   .4050284     0.91   0.363    -.4253111    1.162371
+        715  |   .3011991   .4041592     0.75   0.456    -.4909385    1.093337
+        716  |    .488048    .412947     1.18   0.237    -.3213133    1.297409
+        717  |   .4178718    .406635     1.03   0.304    -.3791183    1.214862
+        718  |   .6203322   .4080091     1.52   0.128    -.1793509    1.420015
+        719  |   .5673334   .4078794     1.39   0.164    -.2320955    1.366762
+        720  |    .568061   .3964799     1.43   0.152    -.2090255    1.345147
+        721  |   .4583815   .4027548     1.14   0.255    -.3310033    1.247766
+        722  |   .5070455   .3996109     1.27   0.204    -.2761774    1.290268
+        723  |   .4420063   .3974034     1.11   0.266      -.33689    1.220903
+        724  |   .3863919   .3966699     0.97   0.330    -.3910668    1.163851
+        725  |   .4200954   .3995484     1.05   0.293     -.363005    1.203196
+        726  |    .335318   .3990476     0.84   0.401     -.446801    1.117437
+        727  |   .4922491   .3985099     1.24   0.217    -.2888161    1.273314
+        728  |   .4104824   .4012125     1.02   0.306    -.3758796    1.196844
+        729  |   .4019506   .3976625     1.01   0.312    -.3774537    1.181355
+        730  |   .5696143   .3987247     1.43   0.153    -.2118717      1.3511
+        731  |   .4959698     .39839     1.24   0.213    -.2848603      1.2768
+        732  |   .6665902   .3956197     1.68   0.092    -.1088102    1.441991
+        733  |   .6771299   .3951975     1.71   0.087     -.097443    1.451703
+        734  |   .5380088   .3961012     1.36   0.174    -.2383353    1.314353
+        735  |   .6117815   .3952879     1.55   0.122    -.1629685    1.386532
+        736  |   .6663618   .3951379     1.69   0.092    -.1080942    1.440818
+        737  |   .6021618   .3961231     1.52   0.128    -.1742252    1.378549
+        738  |   .6295151   .3954247     1.59   0.111    -.1455031    1.404533
+        739  |   .6556801   .3970464     1.65   0.099    -.1225165    1.433877
+        740  |   .7358417   .3968741     1.85   0.064    -.0420172    1.513701
+        741  |   .6950958   .3961505     1.75   0.079     -.081345    1.471536
+        742  |   .6561165   .3973603     1.65   0.099    -.1226954    1.434928
+        743  |   .6801775    .396212     1.72   0.086    -.0963837    1.456739
+        744  |   .8213468   .3942863     2.08   0.037     .0485599    1.594134
+        745  |   .8015717    .394463     2.03   0.042     .0284386    1.574705
+        746  |   .6788876    .395668     1.72   0.086    -.0966073    1.454383
+        747  |   .7099021   .3960298     1.79   0.073    -.0663021    1.486106
+        748  |   .5870289   .3953302     1.48   0.138     -.187804    1.361862
+        749  |   .7419522   .3953214     1.88   0.061    -.0328634    1.516768
+        750  |   .6458982   .3946354     1.64   0.102    -.1275731    1.419369
+        751  |   .6741659   .3950095     1.71   0.088    -.1000384     1.44837
+        752  |   .6768531   .3961934     1.71   0.088    -.0996717    1.453378
+        753  |   .7207764   .3958172     1.82   0.069    -.0550111    1.496564
+        754  |   .7360654   .3969727     1.85   0.064    -.0419867    1.514118
+        755  |   .7119796   .3956858     1.80   0.072    -.0635503     1.48751
+        756  |   .8862856   .3937205     2.25   0.024     .1146076    1.657964
+        757  |   .8626595   .3944044     2.19   0.029      .089641    1.635678
+        758  |   .8203458   .3943778     2.08   0.038     .0473795    1.593312
+        759  |   .9096919    .393999     2.31   0.021     .1374681    1.681916
+        760  |   .8567359   .3940358     2.17   0.030     .0844398    1.629032
+        761  |   .7980837   .3942796     2.02   0.043     .0253099    1.570858
+        762  |   .9133135   .3938735     2.32   0.020     .1413356    1.685291
+        763  |   .8540843   .3939654     2.17   0.030     .0819263    1.626242
+        764  |   .8433014   .3943171     2.14   0.032     .0704541    1.616149
+        765  |   .9294643   .3939594     2.36   0.018      .157318    1.701611
+        766  |   .8939752   .3945757     2.27   0.023     .1206211    1.667329
+        767  |   .7592757   .3946007     1.92   0.054    -.0141274    1.532679
+             |
+       _cons |  -2.218308   .4048143    -5.48   0.000     -3.01173   -1.424887
+------------------------------------------------------------------------------
+Note: 9 failures and 0 successes completely determined.
+----------------------------------------------------------------------------------------
+        Variable     Sample |    Treated     Controls   Difference         S.E.   T-stat
+----------------------------+-----------------------------------------------------------
+       ShannonBD  Unmatched | 2.44980596   2.44300792    .00679804   .009255195     0.73
+                        ATT | 2.45007261   2.47363866  -.023566054   .014597756    -1.61
+----------------------------+-----------------------------------------------------------
+Note: S.E. does not take into account that the propensity score is estimated.
+
+ psmatch2: |   psmatch2: Common
+ Treatment |        support
+assignment | Off suppo  On suppor |     Total
+-----------+----------------------+----------
+ Untreated |         0     27,512 |    27,512 
+   Treated |        10     19,006 |    19,016 
+-----------+----------------------+----------
+     Total |        10     46,518 |    46,528 
+
+. eststo D2: reghdfe ShannonBD PI $control [aw=_weight] if _weight!=., absorb(county year) cluster(county)
+(dropped 219 singleton observations)
+(MWFE estimator converged in 8 iterations)
+
+HDFE Linear regression                            Number of obs   =     30,968
+Absorbing 2 HDFE groups                           F(  10,   2105) =      54.53
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3595
+                                                  Adj R-squared   =     0.3097
+                                                  Within R-sq.    =     0.0480
+Number of clusters (county)  =      2,106         Root MSE        =     0.8448
+
+                             (Std. err. adjusted for 2,106 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0051636   .0043416    -1.19   0.234    -.0136778    .0033507
+        Temp |   .0139643   .0254928     0.55   0.584    -.0360295     .063958
+        Wind |  -.1493609   .1146415    -1.30   0.193    -.3741833    .0754615
+         Pop |  -.2492465   .2839803    -0.88   0.380    -.8061578    .3076648
+    Duration |   .1930426   .0084555    22.83   0.000     .1764606    .2096246
+      Carbon |  -.0228712    .069721    -0.33   0.743    -.1596005     .113858
+       Water |  -.7430588   1.303987    -0.57   0.569    -3.300297     1.81418
+       Green |   .7109599   1.339193     0.53   0.596     -1.91532     3.33724
+        Farm |  -.1309899   .9657593    -0.14   0.892    -2.024932    1.762953
+       Grass |   .8370833   1.468517     0.57   0.569    -2.042812    3.716979
+       _cons |   3.531544   1.993292     1.77   0.077    -.3774841    7.440572
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2106        2106           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. drop _*
+
+. psmatch2 treated $control i.year, outcome(ShannonBD) kernel common
+
+Probit regression                                     Number of obs =   46,528
+                                                      LR chi2(128)  = 17188.97
+                                                      Prob > chi2   =   0.0000
+Log likelihood = -22876.215                           Pseudo R2     =   0.2731
+
+------------------------------------------------------------------------------
+     treated | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Temp |   .0140061    .002066     6.78   0.000     .0099568    .0180554
+        Wind |   .0263441   .0109177     2.41   0.016     .0049457    .0477424
+         Pop |  -.5003601   .0082909   -60.35   0.000    -.5166101   -.4841102
+    Duration |  -.0224558   .0064208    -3.50   0.000    -.0350404   -.0098713
+      Carbon |   .0302818   .0057272     5.29   0.000     .0190566     .041507
+       Water |   3.005874   .1701495    17.67   0.000     2.672388    3.339361
+       Green |   3.562518   .0603429    59.04   0.000     3.444248    3.680788
+        Farm |    4.80485   .0693815    69.25   0.000     4.668864    4.940835
+       Grass |   1.499712   .0695829    21.55   0.000     1.363332    1.636092
+             |
+        year |
+        649  |   .4623304   .4862172     0.95   0.342    -.4906377    1.415299
+        650  |   .6617715   .4819074     1.37   0.170    -.2827496    1.606293
+        651  |   .4213147   .5081922     0.83   0.407    -.5747237    1.417353
+        652  |   .1063481    .448673     0.24   0.813    -.7730348     .985731
+        653  |   .5781036   .4575892     1.26   0.206    -.3187546    1.474962
+        654  |  -.0344942   .4707659    -0.07   0.942    -.9571785      .88819
+        655  |  -.1823901   .4866806    -0.37   0.708    -1.136266    .7714863
+        656  |   .8844003   .4673602     1.89   0.058    -.0316089     1.80041
+        657  |   .2566986   .4395585     0.58   0.559    -.6048203    1.118218
+        658  |   -.109723   .4347278    -0.25   0.801    -.9617738    .7423278
+        659  |   .1376855   .4116921     0.33   0.738    -.6692163    .9445873
+        660  |   .0905949   .4086098     0.22   0.825    -.7102656    .8914554
+        661  |   .4371766   .4073272     1.07   0.283      -.36117    1.235523
+        662  |   .4539818   .4128301     1.10   0.271    -.3551503    1.263114
+        663  |   .5376423   .4068987     1.32   0.186    -.2598644    1.335149
+        664  |   .3033986   .4001287     0.76   0.448    -.4808392    1.087636
+        665  |   .1736337   .4141583     0.42   0.675    -.6381016    .9853691
+        666  |   .2599705   .4047376     0.64   0.521    -.5333007    1.053242
+        667  |   .2662351   .4084301     0.65   0.514    -.5342732    1.066743
+        668  |   .2551457   .4171265     0.61   0.541    -.5624073    1.072699
+        669  |   .4331951   .4121756     1.05   0.293    -.3746542    1.241044
+        670  |   .3798181   .4143364     0.92   0.359    -.4322663    1.191903
+        671  |   .2809784   .4096727     0.69   0.493    -.5219653    1.083922
+        672  |   .3931461   .4066527     0.97   0.334    -.4038785    1.190171
+        673  |   .4929643    .404789     1.22   0.223    -.3004076    1.286336
+        674  |   .2793918   .4140666     0.67   0.500    -.5321638    1.090948
+        675  |   .3959577   .4076748     0.97   0.331    -.4030702    1.194986
+        676  |   .2899515   .4064389     0.71   0.476     -.506654    1.086557
+        677  |    .258239   .4132405     0.62   0.532    -.5516974    1.068175
+        678  |   .2128313   .4114631     0.52   0.605    -.5936215    1.019284
+        679  |   .2914004   .4122155     0.71   0.480    -.5165272    1.099328
+        680  |   .2892932   .4185739     0.69   0.489    -.5310964    1.109683
+        681  |   .5084337   .4123526     1.23   0.218    -.2997625     1.31663
+        682  |   .5046015   .4161205     1.21   0.225    -.3109797    1.320183
+        683  |   .3794449   .4117358     0.92   0.357    -.4275425    1.186432
+        684  |   .4835139   .4045537     1.20   0.232    -.3093969    1.276425
+        685  |   .4990684   .4100757     1.22   0.224    -.3046651    1.302802
+        686  |   .2838657   .4145454     0.68   0.493    -.5286283     1.09636
+        687  |   .4999919   .4012589     1.25   0.213     -.286461    1.286445
+        688  |   .4242938   .4086007     1.04   0.299    -.3765488    1.225136
+        689  |   .6013072   .4198397     1.43   0.152    -.2215636    1.424178
+        690  |   .5416342   .4072189     1.33   0.183    -.2565002    1.339769
+        691  |    .266861   .4131518     0.65   0.518    -.5429016    1.076624
+        692  |    .744902   .4225407     1.76   0.078    -.0832625    1.573067
+        693  |   .6156391   .4102993     1.50   0.133    -.1885326    1.419811
+        694  |   .2404976   .4241549     0.57   0.571    -.5908308    1.071826
+        695  |   .4891146   .4110389     1.19   0.234    -.3165068    1.294736
+        696  |   .2412775   .4016513     0.60   0.548    -.5459446    1.028499
+        697  |   .4804449   .3998677     1.20   0.230    -.3032814    1.264171
+        698  |    .301006   .4048934     0.74   0.457    -.4925704    1.094582
+        699  |   .2441793   .4023928     0.61   0.544    -.5444962    1.032855
+        700  |   .1894723   .4026774     0.47   0.638     -.599761    .9787056
+        701  |   .1867689   .4041727     0.46   0.644     -.605395    .9789328
+        702  |    .108046   .4035014     0.27   0.789    -.6828022    .8988943
+        703  |   .1805408   .4015307     0.45   0.653     -.606445    .9675265
+        704  |   .2390989   .4076163     0.59   0.557    -.5598144    1.038012
+        705  |   .3641275   .4042493     0.90   0.368    -.4281866    1.156442
+        706  |   .3326622   .4056311     0.82   0.412    -.4623601    1.127685
+        707  |   .1768884   .4066878     0.43   0.664     -.620205    .9739819
+        708  |   .3870286   .4005258     0.97   0.334    -.3979876    1.172045
+        709  |   .4152489    .400301     1.04   0.300    -.3693268    1.199824
+        710  |   .3505299   .4056929     0.86   0.388    -.4446137    1.145673
+        711  |    .492689   .4036158     1.22   0.222    -.2983834    1.283761
+        712  |   .4365293   .4029497     1.08   0.279    -.3532375    1.226296
+        713  |   .3122996   .4074272     0.77   0.443    -.4862431    1.110842
+        714  |   .3685299   .4050284     0.91   0.363    -.4253111    1.162371
+        715  |   .3011991   .4041592     0.75   0.456    -.4909385    1.093337
+        716  |    .488048    .412947     1.18   0.237    -.3213133    1.297409
+        717  |   .4178718    .406635     1.03   0.304    -.3791183    1.214862
+        718  |   .6203322   .4080091     1.52   0.128    -.1793509    1.420015
+        719  |   .5673334   .4078794     1.39   0.164    -.2320955    1.366762
+        720  |    .568061   .3964799     1.43   0.152    -.2090255    1.345147
+        721  |   .4583815   .4027548     1.14   0.255    -.3310033    1.247766
+        722  |   .5070455   .3996109     1.27   0.204    -.2761774    1.290268
+        723  |   .4420063   .3974034     1.11   0.266      -.33689    1.220903
+        724  |   .3863919   .3966699     0.97   0.330    -.3910668    1.163851
+        725  |   .4200954   .3995484     1.05   0.293     -.363005    1.203196
+        726  |    .335318   .3990476     0.84   0.401     -.446801    1.117437
+        727  |   .4922491   .3985099     1.24   0.217    -.2888161    1.273314
+        728  |   .4104824   .4012125     1.02   0.306    -.3758796    1.196844
+        729  |   .4019506   .3976625     1.01   0.312    -.3774537    1.181355
+        730  |   .5696143   .3987247     1.43   0.153    -.2118717      1.3511
+        731  |   .4959698     .39839     1.24   0.213    -.2848603      1.2768
+        732  |   .6665902   .3956197     1.68   0.092    -.1088102    1.441991
+        733  |   .6771299   .3951975     1.71   0.087     -.097443    1.451703
+        734  |   .5380088   .3961012     1.36   0.174    -.2383353    1.314353
+        735  |   .6117815   .3952879     1.55   0.122    -.1629685    1.386532
+        736  |   .6663618   .3951379     1.69   0.092    -.1080942    1.440818
+        737  |   .6021618   .3961231     1.52   0.128    -.1742252    1.378549
+        738  |   .6295151   .3954247     1.59   0.111    -.1455031    1.404533
+        739  |   .6556801   .3970464     1.65   0.099    -.1225165    1.433877
+        740  |   .7358417   .3968741     1.85   0.064    -.0420172    1.513701
+        741  |   .6950958   .3961505     1.75   0.079     -.081345    1.471536
+        742  |   .6561165   .3973603     1.65   0.099    -.1226954    1.434928
+        743  |   .6801775    .396212     1.72   0.086    -.0963837    1.456739
+        744  |   .8213468   .3942863     2.08   0.037     .0485599    1.594134
+        745  |   .8015717    .394463     2.03   0.042     .0284386    1.574705
+        746  |   .6788876    .395668     1.72   0.086    -.0966073    1.454383
+        747  |   .7099021   .3960298     1.79   0.073    -.0663021    1.486106
+        748  |   .5870289   .3953302     1.48   0.138     -.187804    1.361862
+        749  |   .7419522   .3953214     1.88   0.061    -.0328634    1.516768
+        750  |   .6458982   .3946354     1.64   0.102    -.1275731    1.419369
+        751  |   .6741659   .3950095     1.71   0.088    -.1000384     1.44837
+        752  |   .6768531   .3961934     1.71   0.088    -.0996717    1.453378
+        753  |   .7207764   .3958172     1.82   0.069    -.0550111    1.496564
+        754  |   .7360654   .3969727     1.85   0.064    -.0419867    1.514118
+        755  |   .7119796   .3956858     1.80   0.072    -.0635503     1.48751
+        756  |   .8862856   .3937205     2.25   0.024     .1146076    1.657964
+        757  |   .8626595   .3944044     2.19   0.029      .089641    1.635678
+        758  |   .8203458   .3943778     2.08   0.038     .0473795    1.593312
+        759  |   .9096919    .393999     2.31   0.021     .1374681    1.681916
+        760  |   .8567359   .3940358     2.17   0.030     .0844398    1.629032
+        761  |   .7980837   .3942796     2.02   0.043     .0253099    1.570858
+        762  |   .9133135   .3938735     2.32   0.020     .1413356    1.685291
+        763  |   .8540843   .3939654     2.17   0.030     .0819263    1.626242
+        764  |   .8433014   .3943171     2.14   0.032     .0704541    1.616149
+        765  |   .9294643   .3939594     2.36   0.018      .157318    1.701611
+        766  |   .8939752   .3945757     2.27   0.023     .1206211    1.667329
+        767  |   .7592757   .3946007     1.92   0.054    -.0141274    1.532679
+             |
+       _cons |  -2.218308   .4048143    -5.48   0.000     -3.01173   -1.424887
+------------------------------------------------------------------------------
+Note: 9 failures and 0 successes completely determined.
+----------------------------------------------------------------------------------------
+        Variable     Sample |    Treated     Controls   Difference         S.E.   T-stat
+----------------------------+-----------------------------------------------------------
+       ShannonBD  Unmatched | 2.44980596   2.44300792    .00679804   .009255195     0.73
+                        ATT | 2.45007261   2.49057694   -.04050433    .01224461    -3.31
+----------------------------+-----------------------------------------------------------
+Note: S.E. does not take into account that the propensity score is estimated.
+
+ psmatch2: |   psmatch2: Common
+ Treatment |        support
+assignment | Off suppo  On suppor |     Total
+-----------+----------------------+----------
+ Untreated |         0     27,512 |    27,512 
+   Treated |        10     19,006 |    19,016 
+-----------+----------------------+----------
+     Total |        10     46,518 |    46,528 
+
+. di _n "Kernel weights of matched controls (far from uniform):"
+
+Kernel weights of matched controls (far from uniform):
+
+. summarize _weight if treated==0 & _weight!=., detail
+
+            psmatch2: weight of matched controls
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%     .0101678       .0101677
+ 5%     .0101835       .0101677
+10%     .0104474       .0101677       Obs              27,512
+25%     .0446356       .0101677       Sum of wgt.      27,512
+
+50%     .2785268                      Mean           .6908258
+                        Largest       Std. dev.      .9455946
+75%     .9914602       4.471396
+90%     2.019149       4.473488       Variance       .8941492
+95%     2.981106       4.482493       Skewness       1.903034
+99%     4.069773       4.491751       Kurtosis       6.189848
+
+. eststo D3: reghdfe ShannonBD PI $control [aw=_weight] if _weight!=., absorb(county year) cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,361
+Absorbing 2 HDFE groups                           F(  10,   2343) =      74.20
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3451
+                                                  Adj R-squared   =     0.3082
+                                                  Within R-sq.    =     0.0476
+Number of clusters (county)  =      2,344         Root MSE        =     0.8382
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0054281   .0039915    -1.36   0.174    -.0132554    .0023992
+        Temp |  -.0031422   .0227137    -0.14   0.890    -.0476832    .0413989
+        Wind |  -.0389135   .0968279    -0.40   0.688    -.2287908    .1509639
+         Pop |  -.2348717   .2300051    -1.02   0.307    -.6859063    .2161629
+    Duration |   .1913914   .0071391    26.81   0.000     .1773917     .205391
+      Carbon |  -.0617558   .0605765    -1.02   0.308     -.180545    .0570333
+       Water |  -.9476682   1.176764    -0.81   0.421    -3.255275    1.359939
+       Green |   .1563589    1.24601     0.13   0.900    -2.287038    2.599756
+        Farm |  -.2431115   .8827489    -0.28   0.783    -1.974162    1.487939
+       Grass |   1.060531   1.427987     0.74   0.458    -1.739718    3.860781
+       _cons |   4.347861   1.702417     2.55   0.011      1.00946    7.686261
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. drop _*
+
+. esttab D1 D2 D3, keep(PI) b(4) se(4) star(* 0.10 ** 0.05 *** 0.01) stats(N N_clust, fmt(0 0)) ///
+>     mtitles("1:1 NN, weighted" "1:2 NN, weighted" "Kernel, weighted") ///
+>     title("Panel D. Table S11 with matching weights applied")
+
+Panel D. Table S11 with matching weights applied
+------------------------------------------------------------
+                      (1)             (2)             (3)   
+             1:1 NN, we~d    1:2 NN, we~d    Kernel, we~d   
+------------------------------------------------------------
+PI                -0.0051         -0.0052         -0.0054   
+                 (0.0046)        (0.0043)        (0.0040)   
+------------------------------------------------------------
+N                   27202           30968           46361   
+N_clust              2028            2106            2344   
+------------------------------------------------------------
+Standard errors in parentheses
+* p<0.10, ** p<0.05, *** p<0.01
+
+. esttab D1 D2 D3 using "$T1/tables/1_5_twfe_diagnostics.rtf", append keep(PI) b(4) se(4) ///
+>     star(* 0.10 ** 0.05 *** 0.01) stats(N N_clust, fmt(0 0)) ///
+>     mtitles("1:1 NN, weighted" "1:2 NN, weighted" "Kernel, weighted") ///
+>     title("Panel D. Table S11 with matching weights applied")
+(output written to /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/tables/1_5_t
+> wfe_diagnostics.rtf)
+
+. 
+end of do-file
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/logs/1_5_twfe_diag
+> nostics.log
+  log type:  text
+ closed on:   7 Nov 2026, 21:27:03
+------------------------------------------------------------------------------------------------------------------------

@@ -1,0 +1,4 @@
+spec,att,se,N_cy
+"Main sample, unconditional",.0569461924600406,.1430659001128054,3907
+"Main sample, conditional on urban",.0565831143050347,.141280166841584,3907
+Paper-style sample (missing PSI = never),-.0913307479427021,.1197749114732555,7984

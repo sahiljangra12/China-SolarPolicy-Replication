@@ -1,0 +1,18 @@
+Table R2. Within-city temporal variation of the CPU index: Annual summary statistics.
+
+  ------- ------- -------- -------- -------- --------
+          N       Mean     S.D.     Min      Max
+  2014    119     1.3383   0.5135   0.3514   3.2076
+  2015    219     1.5577   0.5707   0.0908   3.2237
+  2016    197     1.4241   0.5706   0.2218   3.2237
+  2017    200     1.5207   0.5804   0.1762   3.2237
+  2018    241     1.5324   0.5731   0.0908   3.2237
+  2019    221     1.4664   0.5189   0.0958   2.6663
+  2020    259     1.2170   0.5258   0.0908   3.2237
+  2021    276     1.4954   0.6216   0.1193   3.2237
+  2022    284     1.3798   0.4513   0.2222   2.7286
+  2023    288     0.3300   0.3511   0.0908   3.2237
+  Total   2,304   1.2992   0.6501   0.0908   3.2237
+  ------- ------- -------- -------- -------- --------
+
+Notes: This table reports the annual summary statistics of the city-level CPU index. The data is collapsed to city-year means. N denotes the number of cities with available CPU data in each year. The CPU index is sourced from Ma et al. (2023).

@@ -1,0 +1,35 @@
+Table S17. Cross-sectional heterogeneity.
+
+  --------------- ---------------------- ------------------ ------------------------- --------------------- ----------------------------- -------------------------
+                  (1)                    (2)                (3)                       (4)                   (5)                           (6)
+                  Non-poverty counties   Poverty counties   Non-Three-North regions   Three-North regions   Non-sandy and gravel desert   Sandy and gravel desert
+  PI              -0.0132***          0.0007             -0.0196***             0.0056                -0.0165***                 0.0190
+                  (0.0047)               (0.0060)           (0.0042)                  (0.0076)              (0.0038)                      (0.0119)
+  Temp            0.0104                 -0.0015            0.0088                    -0.0363               -0.0140                       0.0853**
+                  (0.0219)               (0.0336)           (0.0225)                  (0.0323)              (0.0203)                      (0.0430)
+  Wind            0.0636                 -0.1120            0.0225                    0.2438                0.0567                        0.0249
+                  (0.0790)               (0.2085)           (0.0819)                  (0.2002)              (0.0794)                      (0.1854)
+  Pop             -0.0898                0.4532             -0.1300                   0.0618                -0.1185                       0.1882
+                  (0.1282)               (0.9063)           (0.1682)                  (0.1688)              (0.1568)                      (0.1614)
+  Duration        0.1477***           0.2253***       0.1572***              0.1758***          0.1563***                  0.2179***
+                  (0.0062)               (0.0127)           (0.0066)                  (0.0117)              (0.0060)                      (0.0164)
+  Carbon          -0.1064**           -0.2203            -0.0923*               -0.1232*           -0.1139**                  0.0186
+                  (0.0449)               (0.1629)           (0.0559)                  (0.0713)              (0.0528)                      (0.0603)
+  Water           -0.7030                -5.5089            -1.2933                   -0.2996               -0.9192                       1.1535
+                  (1.1621)               (4.9648)           (1.2203)                  (3.4485)              (1.1677)                      (5.6236)
+  Green           1.6224                 1.3952             0.3391                    4.0844*            1.1031                        -0.9902
+                  (1.0059)               (3.1610)           (1.0859)                  (2.2267)              (1.0600)                      (1.8543)
+  Farm            0.0121                 3.1569             -0.5089                   2.0584                0.0850                        1.2061
+                  (0.7362)               (2.4737)           (0.8026)                  (1.4398)              (0.8039)                      (1.4109)
+  Grass           2.1995**            1.7462             -3.2858                   2.6775***          0.3367                        2.1022**
+                  (1.0978)               (2.1226)           (2.2156)                  (1.0290)              (1.2977)                      (0.9255)
+  Year-month FE   YES                    YES                YES                       YES                   YES                           YES
+  County FE       YES                    YES                YES                       YES                   YES                           YES
+  Observations    37665                  8704               34829                     11542                 41355                         5016
+  R-squared       0.2851                 0.3626             0.2749                    0.3304                0.3023                        0.2776
+  --------------- ---------------------- ------------------ ------------------------- --------------------- ----------------------------- -------------------------
+
+Notes: Specification 1 divides the sample into Non-poverty counties and poverty counties. Specification 2 divides the sample into Non-Three-North regions and Three-North regions. Specification 3 divides the sample into Non-sandy and gravel desert and sandy and gravel desert. The bdiff row reports the results of the between-group coefficient difference test. The dependent variable is ShannonBD (the
+negative sum of the proportion of each bird species multiplied by its natural logarithm). The independent variable is PSI (the weighted sum of policies at the provincial, municipal, and county levels). Other control variables include Temp (annual average temperature), Wind (annual average wind speed), Pop (the logarithm of the ratio of total population to regional area), Duration (the logarithm of
+the ratio of birdwatching duration to the number of birdwatchers), Carbon (the logarithm of the carbon emissions), Water (the area of water divided by the total area), Green (the sum of the area of forests and shrubs divided by the total area), Farm (the area of farmland divided by the total area), Grass (the area of the grassland divided by the total area). All specifications include county and
+Year-month fixed effects. The robust standard errors clustered by the county are reported in parenthesis. ***, **, * denote the significance at the 1%, 5%, and 10% levels, respectively.

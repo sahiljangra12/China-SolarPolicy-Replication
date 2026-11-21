@@ -1,0 +1,45 @@
+Table S10. Share exogeneity and shift-based IV identification tests.
+
+  ------------------------------ ------------------ ----------------------------------------------------------------------- --------------- ---------------------------- ---------------
+                                 Balance test       Panel A: [Ln(Sunshine) / city CPU] AND [Ln(Sunshine) x Year-month FE]                   Panel B: 1 / city CPU only   
+                                 (1)                (2)                                                                     (3)             (4)                          (5)
+                                 Share exogeneity   First stage                                                             Second stage    First stage                  Second stage
+  Sun_ccpu                                          0.0291***                                                                                                         
+                                                    (0.0044)                                                                                                             
+  inv_CCPU                                                                                                                                  0.2054***                 
+                                                                                                                                            (0.0293)                     
+  PI                                                                                                                        -0.1169***                                -0.0938***
+                                                                                                                            (0.0288)                                     (0.0291)
+  Temp                           -0.0202***      -0.1504*                                                             -0.0069         -0.0600                      -0.0029
+                                 (0.0008)           (0.0788)                                                                (0.0241)        (0.0815)                     (0.0233)
+  Wind                           0.0926***       0.9537***                                                            0.1845**     0.3476                       0.1289
+                                 (0.0069)           (0.2317)                                                                (0.0922)        (0.2328)                     (0.0807)
+  Pop                            -0.0126***      -0.2821                                                                 -0.1192         -0.2438                      -0.1253
+                                 (0.0031)           (0.3205)                                                                (0.1343)        (0.3230)                     (0.1341)
+  Duration                       -0.0120*        -0.0263***                                                           0.1551***    -0.0294***                0.1552***
+                                 (0.0070)           (0.0096)                                                                (0.0065)        (0.0096)                     (0.0063)
+  Carbon                         0.0238***       0.0430                                                                  -0.1069**    -0.0536                      -0.1143**
+                                 (0.0028)           (0.1871)                                                                (0.0527)        (0.2033)                     (0.0517)
+  Water                          -0.3906***      17.8066***                                                           0.9475          15.4788***                0.3096
+                                 (0.0641)           (3.8446)                                                                (1.2933)        (3.7700)                     (1.2532)
+  Green                          -0.3035***      4.5472                                                                  1.8035*      5.3258                       1.6576
+                                 (0.0215)           (4.1782)                                                                (1.0191)        (4.1523)                     (1.0177)
+  Farm                           -0.2832***      6.1941**                                                             1.1296          5.1342*                   0.7884
+                                 (0.0228)           (2.8800)                                                                (0.8167)        (2.8275)                     (0.7949)
+  Grass                          -0.0920***      -5.9045                                                                 0.1901          1.5858                       1.1088
+                                 (0.0201)           (4.2661)                                                                (1.2718)        (4.4327)                     (1.3081)
+  Observations                   2471               37503                                                                   37503           38099                        38099
+  R-squared                      0.5808             0.9067                                                                  0.0112          0.8973                       0.0185
+  F-statistic                    485.64             8.78                                                                    66.10           8.00                         66.89
+  Year-month FE                                     YES                                                                     YES             YES                          YES
+  County FE                                         YES                                                                     YES             YES                          YES
+  Ln(Sunshine) x Year-month FE                      YES                                                                     YES             NO                           NO
+  ------------------------------ ------------------ ----------------------------------------------------------------------- --------------- ---------------------------- ---------------
+
+Notes: This table reports the share exogeneity test and the shift-based IV identification results. Column (1) tests whether the time-invariant share component Ln(Sunshine) is correlated with observable county characteristics following Goldsmith-Pinkham et al. (70). The dependent variable in Column (1) is Ln(Sunshine), natural logarithm of average sunshine duration from 1984 to 2013. The data is
+collapsed to county-level means. If the share is exogenous, it should be uncorrelated with county-level covariates. Note that in the main IV specification, county fixed effects fully absorb the time-invariant cross-sectional variation in Ln(Sunshine), so any correlations observed here do not threaten identification. Columns (2)-(5) report the shift-based IV identification results following
+Borusyak et al. (69). Columns (2)-(3) use the original instrument Ln(Sunshine)/CPU but additionally control for Ln(Sunshine) x Year-month FE, so that any time-varying effect of sunshine operating through channels other than climate policy is fully absorbed; identification relies exclusively on within-city temporal variation in CPU. Columns (4)-(5) use a pure shift instrument 1/CPU, which does not
+involve the sunshine share at all. Columns (2) and (4) report first-stage regressions where the dependent variable is PSI (the weighted sum of policies at the provincial, municipal, and county levels). Columns (3) and (5) report second-stage regressions where the dependent variable is ShannonBD (the negative sum of the proportion of each bird species multiplied by its natural logarithm). The
+slight variation in sample sizes across specifications reflects differences in the availability of the CPU index and sunshine data across county-year observations. Control variables include Temp (annual average temperature), Wind (annual average wind speed), Pop (the logarithm of the ratio of total population to regional area), Duration (the logarithm of the ratio of birdwatching duration to the
+number of birdwatchers), Carbon (the logarithm of carbon emissions), Water (the area of water divided by the total area), Green (the sum of the area of forests and shrubs divided by the total area), Farm (the area of farmland divided by the total area), Grass (the area of the grassland divided by the total area). Columns (2)-(5) include county and year-month fixed effects with robust standard
+errors clustered by county. Column (1) reports robust standard errors. ***, **, * denote significance at the 1%, 5%, and 10% levels, respectively.

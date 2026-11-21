@@ -1,0 +1,168 @@
+\documentclass[10pt]{article}
+\usepackage[landscape,margin=0.65in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,longtable,array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{microtype}
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage[most]{tcolorbox}
+\usepackage{colortbl}
+
+\definecolor{jhublue}{RGB}{0,45,114}
+\definecolor{boxgray}{RGB}{244,246,250}
+\definecolor{secgray}{RGB}{226,231,240}
+\definecolor{okgreen}{RGB}{15,110,86}
+\definecolor{gapred}{RGB}{163,45,45}
+\definecolor{partamber}{RGB}{133,79,11}
+\definecolor{ntgray}{RGB}{95,94,90}
+\titleformat{\section}{\large\bfseries\color{jhublue}}{\thesection}{0.6em}{}
+\pagestyle{fancy}\fancyhf{}
+\lhead{\small Ferraro \& Hanauer framework: results of the replication}
+\rhead{\small Sahil, Johns Hopkins University}
+\cfoot{\small\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+\setlength{\tabcolsep}{4.5pt}
+\renewcommand{\arraystretch}{1.22}
+\emergencystretch=3em
+\sloppy
+
+\newcolumntype{N}{>{\centering\arraybackslash}p{0.6cm}}
+\newcolumntype{F}{>{\raggedright\arraybackslash}p{3.6cm}}
+\newcolumntype{P}{>{\raggedright\arraybackslash}p{4.4cm}}
+\newcolumntype{E}{>{\raggedright\arraybackslash}p{7.1cm}}
+\newcolumntype{V}{>{\raggedright\arraybackslash}p{6.4cm}}
+\newcommand{\sect}[1]{\rowcolor{secgray}\multicolumn{5}{l}{\textbf{\color{jhublue}#1}}\\}
+\newcommand{\gap}{\textbf{\textcolor{gapred}{Gap confirmed.}}\ }
+\newcommand{\partly}{\textbf{\textcolor{partamber}{Partly.}}\ }
+\newcommand{\meets}{\textbf{\textcolor{okgreen}{Meets framework.}}\ }
+\newcommand{\nt}{\textbf{\textcolor{ntgray}{Not tested.}}\ }
+\newcommand{\src}[1]{{\scriptsize\textcolor{ntgray}{[#1]}}}
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries What the evidence shows: the solar--birds paper under Ferraro \& Hanauer}\\[5pt]
+{\large Companion to the conceptual comparison: the paper's results, our Stata results, and the verdict for each check}\\[7pt]
+Sahil \quad$\cdot$\quad Research Assistant, Johns Hopkins University \quad$\cdot$\quad Prepared for Prof.\ Paul J.\ Ferraro \quad$\cdot$\quad November 2026
+\end{center}
+
+\begin{tcolorbox}[colback=boxgray,colframe=jhublue,boxrule=0.6pt,arc=2pt,left=6pt,right=6pt,top=4pt,bottom=4pt,title=\textbf{Headline: how the main estimate changes as each framework check is applied}]
+\small
+\begin{tabular}{@{}l l c c c l@{}}
+\toprule
+Framework check & Specification & PSI effect & SE & $p$ & Source\\
+\midrule
+--- & Paper's main estimate (Table 1, col.\ 3) & $-0.0125$ & 0.0037 & 0.001 & Task 1\\
+F4 / G1: similar environments, group trends & Urban $\times$ year-month fixed effects & $-0.0027$ & 0.0037 & 0.47 & Task 1\\
+C1 / D1: common support, measured treatment & Only counties with measured PSI & $-0.0027$ & 0.0038 & 0.49 & Task 1\\
+F7: matching done properly & Kernel matching, weights applied & $-0.0054$ & 0.0040 & 0.17 & Task 1\\
+A4 / G2: heterogeneity-robust timing & Staggered DiD (BJS), adoption & $+0.078$ & 0.069 & n.s. & Task 3\\
+I4: sensitivity to hidden bias & Confounder that removes the effect: & \multicolumn{3}{c}{2.2\% of residual variance of PSI and Shannon} & Task 2\\
+\bottomrule
+\end{tabular}
+
+\smallskip
+\textbf{Reading.} The paper's result is reproduced exactly (12 of 12 published numbers checked). It does not survive the framework's checks: every design that compares like with like, measures the treatment, or applies matching properly gives a small and insignificant estimate. A hidden confounder explaining about 2\% of the residual variance would remove it, and a measured one (urban trends) is far stronger. Verdicts: \textcolor{gapred}{\textbf{gap confirmed}} by our evidence; \textcolor{partamber}{\textbf{partly}} supported; \textcolor{okgreen}{\textbf{meets}} the framework; \textcolor{ntgray}{\textbf{not tested}} in Tasks 1--3 (conceptual only).
+\end{tcolorbox}
+
+\vspace{3pt}
+\begin{longtable}{N F P E V}
+\toprule
+\textbf{\#} & \textbf{\color{jhublue}Framework check} & \textbf{\color{jhublue}What the paper reports} & \textbf{\color{jhublue}What our Stata analysis found} & \textbf{\color{jhublue}Verdict and reasoning}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{\#} & \textbf{\color{jhublue}Framework check} & \textbf{\color{jhublue}What the paper reports} & \textbf{\color{jhublue}What our Stata analysis found} & \textbf{\color{jhublue}Verdict and reasoning}\\
+\midrule
+\endhead
+\midrule\multicolumn{5}{r}{\small\itshape continued on next page}\\
+\endfoot
+\bottomrule
+\endlastfoot
+
+\sect{A. Defining the causal question}
+A1 & Clearly defined alternative ($D=0$) & PSI\,$=0$ treated as ``no policy''. & 724 of 2,501 counties (43.8\% of observations) are absent from the policy file and set to 0; none appears there under its name, so it is a coverage gap, not a merge error. PSI falls from one year to the next in 12.6\% of county-years, so it is a \emph{flow} of new policies. \src{T1 \S4} & \gap ``Zero'' mixes no new policy, earlier policy and unknown status. The control condition is therefore not well defined.\\
+A2 & Name the estimand & One ``effect of policy stringency'', confirmed by TWFE, IV and PSM. & TWFE $-0.0125$; IV $-0.1264$ (ten times larger); PSM as coded $-0.0125$ (identical to TWFE because the weights are unused). \src{T1 \S5--6} & \gap The three numbers estimate different things (weighted dose response, LATE, unweighted TWFE), so they cannot ``confirm'' one another.\\
+A3 & Dose: one potential outcome per level & Linear effect per PSI unit. & Binary ``any PSI$>$0'': $-0.0344$ (SE 0.0278), insignificant. PSI stock (measured counties): $-0.0012$ (0.0022). Correlation of PSI with installed PV area: 0.07 in our sample (paper's Table S6: 0.03--0.05). \src{T1 \S4, \S7} & \gap The result depends on the specific flow coding; other plausible doses show no effect, and the index barely tracks actual installations.\\
+A4 & Allow heterogeneous effects & Single TWFE coefficient. & Heterogeneity-robust staggered DiD on measured-PSI counties: Callaway--Sant'Anna $+0.057$ (0.143); BJS $+0.078$ (0.069); Sun--Abraham $+0.024$ (0.089); static TWFE $+0.032$ (0.041). All insignificant, none negative. \src{T3 \S5} & \gap Once timing and heterogeneity are handled properly, no estimator finds a decline.\\
+
+\sect{B. Rival explanations and selection}
+B1 & Understand selection & No analysis of who receives policy. & PSI is missing (set to 0) for 83.0\% of urban-district observations but 1.2\% of rural ones, so ``untreated'' largely means ``urban''. \src{T1 \S4} & \gap Selection, partly through missing data, sorts cities into the control group: the back door identified in our analysis.\\
+B2 & Explicit causal diagram & None. & --- & \nt Conceptual gap; no statistical test applies.\\
+B3 & $p$-values $\neq$ protection from bias & $p<0.01$ on 46,371 observations. & PSI explains only 0.048\% of the residual variance in Shannon diversity, yet $t=-4.58$ (classical) or $-3.43$ (clustered). \src{T2 \S4} & \gap A very small partial correlation becomes ``highly significant'' purely through sample size; significance says nothing about bias.\\
+B4 & Effects of a cause only & Crop yield regressed on PSI and diversity together. & --- & \nt Conceptual; we did not re-estimate these analyses.\\
+
+\sect{C. Two assumptions every design needs}
+C1 & Common support & All counties pooled, including those with unknown status. & Restricting to counties with measured PSI: $-0.0027$ (0.0038), $p=0.49$. \src{T1 \S7} & \gap Removing units without valid treatment information removes the effect.\\
+C2 & SUTVA / spillovers & Excludes neighbours of high-PSI counties: $-0.0132$ (0.0049). & Reproduced exactly. \src{T1 authors' tables} & \partly A useful first check, but it keeps the same urban comparison group, so it does not address the main gap.\\
+
+\sect{D. Measurement}
+D1 & Non-random measurement error in $D$ & Missing PSI set to 0 (not discussed). & Missing PSI is concentrated in cities: 99\% of the 724 missing counties are districts (named ``\ldots\emph{qu}''), and 83\% of urban-district observations lack PSI. \src{T1 \S4} & \gap Measurement error correlated with a confounder: the worst case in the framework, and impossible to fix by regression alone.\\
+D2 & Measurement error in $Y$ & Shannon index from citizen-science records. & County-months with records grow 24-fold (563 in 2014 to 13,734 in 2023); median county appears in 11 of 120 months. The paper's own low-effort trimming shrinks the estimate to about $-0.008$. Effort (Duration) is the strongest control. \src{T1 \S4; paper Table S14} & \gap The outcome partly measures birding activity, which grew unevenly across places; the estimate is sensitive to effort.\\
+
+\sect{E. The benchmark experiment}
+E1 & Compare to the ideal RCT & Not stated. & --- & \nt Conceptual; the departures from the ideal experiment are listed in the Task 1 report.\\
+
+\sect{F. Conditioning designs: regression and matching}
+F1 & Controls drive selection & Nine generic controls. & No control explains more than 0.38\% of PSI's residual variance (Water); urban $\times$ year-month trends explain 12.3\%, 32 times more. \src{T2 \S4} & \gap The controls do not capture selection; the variable that does was omitted.\\
+F2 & Pre-program controls only & Includes observer effort (Duration). & PSI predicts Duration: $-0.0177$ (0.0042), $p<0.001$. Dropping Duration: $-0.0154$ (0.0037). \src{T1 \S7} & \partly Duration is a bad control, but removing it makes the estimate \emph{more} negative, so this gap is not what drives the result.\\
+F3 & Pre-program outcomes & County fixed effects only. & Event-study pre-period estimates (main sample): joint $p=0.34$ (TWFE), $0.24$ (BJS); Callaway--Sant'Anna's test of all pre-period cells rejects ($p<0.001$). \src{T3 \S5--6} & \partly Pre-trends are small on average, but the strictest test rejects parallel trends, so the assumption is not secure.\\
+F4 & Similar environments & Cities and countryside pooled. & Rural only $-0.0056$ (0.0042), $p=0.19$; urban only $+0.0056$ (0.0079), $p=0.48$; urban $\times$ year-month FE $-0.0027$ (0.0037), $p=0.47$; province $\times$ year-month FE $-0.0146$ (0.0047). \src{T1 \S7} & \gap Comparing like with like on urban status removes about 80\% of the effect. The confounder is urban/rural, not region (province trends do not remove it).\\
+F5 & Report balance & No balance table. & --- & \nt Balance not computed; the more decisive problem is F7.\\
+F6 & Trimming changes estimand & Not discussed. & 1:1 matching keeps 27,202 and 1:2 keeps 30,968 of 46,371 observations. \src{T1 \S5} & \partly Different matched samples estimate effects for different populations, which is not acknowledged.\\
+F7 & Matching reweights the sample & Kernel PSM $-0.0125$, read as confirmation. & Kernel weights range from 0.01 to 4.5 but are never used. Applied: 1:1 $-0.0051$ (0.0046); 1:2 $-0.0052$ (0.0043); kernel $-0.0054$ (0.0040); all insignificant. \src{T1 \S7} & \gap Done as intended, matching does not support the result.\\
+F8 & Methods are not independent & Many methods presented as confirmations. & Main TWFE, PSM (as coded) and all robustness checks share the urban comparison group; all fall once it is addressed. \src{T1} & \gap Agreement between methods reflects a shared design flaw, not independent evidence.\\
+
+\sect{G. Panel data and fixed effects}
+G1 & FE remove only fixed confounders & County + year-month FE. & Urban-specific month effects reduce the estimate to $-0.0027$; county FE alone do not absorb diverging urban/rural trends. \src{T1 \S7} & \gap Fixed effects are good practice, but the decisive confounder varies over time.\\
+G2 & Staggered timing & Plain TWFE. & See A4: all heterogeneity-robust estimators give small, positive, insignificant effects among measured-PSI counties. \src{T3} & \gap The staggered design does not reproduce a negative effect.\\
+
+\sect{H. Instrumental variables and discontinuities}
+H1 & Exclusion: $I$ affects $Y$ only through $D$ & IV $-0.1264$, $F=30.2$; balance tests on observables. & Where PSI cannot change (first stage exactly zero), the instrument still lowers Shannon: $-0.0021$ (0.0011), $p<0.05$, two-thirds of the full reduced form ($-0.0032$). It also predicts observer effort ($-0.0020$) and the CEI inspection policy ($+0.0021$). Clustering by city: SE 0.047, first-stage $F=10.8$. \src{T1 \S8} & \gap Direct evidence of an exclusion violation (a test of known effects), and the instrument is near weak at its own level of variation. The IV is robust to urban trends ($-0.148$), so its credibility rests entirely on exclusion.\\
+H2 & IV estimates a LATE & Read as confirming the TWFE result. & IV is ten times the TWFE estimate. Illustratively, subtracting the direct effect found in H1 implies an IV of about $-0.04$, not $-0.126$. \src{T1 \S8} & \gap The size gap is consistent with an exclusion violation, not just a different complier population.\\
+H3 & Discontinuities & Not used. & --- & \nt\\
+
+\sect{I. Interrogating the assumptions}
+I1 & Placebo outcomes & Specification checks only. & The zero-first-stage test (H1) acts as a placebo test for the IV and fails. \src{T1 \S8} & \partly Only the IV was placebo-tested; placebo outcomes for TWFE remain to be done.\\
+I2 & No effect before treatment & No event study. & Main sample: pre-period estimates small (joint $p=0.24$--$0.34$). Paper-style sample (missing PSI = never treated): adopters already fall behind before adoption ($-0.173$, SE 0.087, at $t=-1$). \src{T3 \S5} & \gap With the paper's implicit comparison group, outcomes diverge \emph{before} policy, a sign of confounding rather than effect.\\
+I3 & Dose-response & Alternative PSI weightings only. & Binary adoption and policy stock give no effect (A3). \src{T1 \S7} & \partly No evidence that more policy produces more decline; a full dose-response design was not run.\\
+I4 & Sensitivity analysis & None. & Robustness value 2.16\%; significance lost at 1.24\% (classical) or 0.93\% (clustered). A confounder twice as strong as observer effort makes it insignificant under clustered SEs ($t=-1.92$); one half as strong as urban trends removes it ($-0.0027$). Cross-checked with the official \texttt{sensemakr}. \src{T2 \S4} & \gap The estimate is fragile, and a known, measured confounder already exceeds the strength needed.\\
+I5 & Multiple control groups & One control group. & Rural-only controls: $-0.0056$, n.s.; never-adopter and not-yet-treated controls (DiD): positive, n.s. \src{T1, T3} & \gap The result appears only with the urban-dominated control group.\\
+
+\sect{J. Heterogeneity (moderators)}
+J1 & Few pre-specified subgroups & 6 regional subgroup regressions (S17) plus 12 bird-group outcomes (S18). & Reproduced exactly. \src{T1 authors' tables} & \gap 18 separate estimates, so some significant results are expected by chance.\\
+J2 & Joint test; family-wise error & No joint test, no correction. & --- & \nt We did not re-run these with corrections.\\
+J3 & Credible main effect first & Subgroups on the main specification. & The main effect does not survive the checks above. \src{T1--T3} & \gap Subgroup patterns inherit the same comparison-group problem.\\
+J4 & Moderators unaffected by treatment & Poverty, Three-North, desert status. & --- & \meets Pre-determined characteristics.\\
+
+\sect{K. Mechanisms}
+K1 & Two-step mediation & PSI lowers NDVI ($-0.0609$) and nightlight ($-0.2220$), raises LAI ($+0.0039$). & Reproduced exactly. The instrument also predicts NDVI ($-0.0085$) and nightlight ($-0.0241$) directly. \src{T1 \S5, \S8} & \gap Only $D\rightarrow M$ is shown; $M\rightarrow Y$ is never estimated, and the mediators move with the instrument too.\\
+K2 & Coherent mechanism theory & ``Inferior greening''. & NDVI falls while LAI rises. \src{T1} & \partly The mediators point in different directions without a reconciling explanation.\\
+K3 & Unselected sample for mediators & Mediators on the birding sample. & --- & \nt Not re-estimated.\\
+
+\sect{L. Overall practice}
+L1 & Transparency & Code and data shared. & All published results reproduced exactly from the authors' package. \src{T1 \S5} & \meets Exemplary openness; it is what made every check here possible. Identifying assumptions are still not stated.\\
+L2 & Design over methods & Many methods, one comparison. & See F8. & \gap\\
+L3 & Field knowledge & Not discussed. & Why most urban districts are missing from the policy file is unknown. & \nt The key open question for the authors.\\
+L4 & Limit claims to what is identified & China-wide conclusions. & The effect is not identified once comparisons are made like-with-like. & \gap\\
+\end{longtable}
+
+\vspace{4pt}
+\begin{tcolorbox}[colback=white,colframe=jhublue!60,boxrule=0.4pt,arc=2pt,left=6pt,right=6pt,top=3pt,bottom=3pt,title=\textbf{Questions to resolve with the authors and Prof.\ Ferraro}]
+\small
+\begin{enumerate}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+\item Why are most urban districts absent from the policy file, and were they verified to have no solar policy?
+\item Is PSI meant as a flow of new policies or as policy in force?
+\item Callaway--Sant'Anna rejects parallel trends on its full pre-period test: which pre-trend standard should govern Task 3?
+\item Clustered SEs in the sensitivity analysis: is scaling the significance threshold by the clustered/classical SE ratio acceptable?
+\end{enumerate}
+\end{tcolorbox}
+
+{\footnotesize\textbf{Sources.} T1, T2, T3 = Task 1, 2, 3 reports in \texttt{RA/Solar\_Birds\_Replication/}, with all numbers produced by the Stata code in each task's \texttt{code/} folder and logged in \texttt{logs/}. Ferraro, P.\ J.\ and Hanauer, M.\ M.\ (2014), \textit{Annual Review of Environment and Resources} 39, 495--517. Zhang, H.\ et al.\ (2026), \textit{Science} 393, 831.}
+
+\end{document}

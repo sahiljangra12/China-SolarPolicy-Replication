@@ -1,0 +1,35 @@
+Table S11. Propensity score matching.
+
+  --------------- -------------- -------------- ---------------
+                  (1)            (2)            (3)
+                  ShannonBD      ShannonBD      ShannonBD
+  PI              -0.0072*    -0.0083**   -0.0125***
+                  (0.0039)       (0.0038)       (0.0037)
+  Temp            -0.0024        0.0129         -0.0074
+                  (0.0234)       (0.0222)       (0.0181)
+  Wind            -0.0083        -0.0420        0.0429
+                  (0.0992)       (0.0907)       (0.0736)
+  Pop             -0.1996        -0.2396        -0.0887
+                  (0.2180)       (0.1971)       (0.1287)
+  Duration        0.1862***   0.1822***   0.1637***
+                  (0.0075)       (0.0070)       (0.0057)
+  Carbon          -0.0865*    -0.0775        -0.1119***
+                  (0.0522)       (0.0497)       (0.0431)
+  Water           -1.3545        -0.6969        -1.2808
+                  (1.2507)       (1.2236)       (1.1270)
+  Green           0.0350         0.4795         1.1436
+                  (1.1828)       (1.1420)       (0.9520)
+  Farm            -0.3074        0.0238         0.0688
+                  (0.9684)       (0.8994)       (0.7089)
+  Grass           0.5010         0.6740         1.2628
+                  (1.4603)       (1.3074)       (0.9470)
+  Year-month FE   YES            YES            YES
+  County FE       YES            YES            YES
+  Observations    27202          30968          46361
+  R-squared       0.2912         0.2923         0.3000
+  --------------- -------------- -------------- ---------------
+
+Notes: Column (1) presents the PSM results using 1:1 nearest neighbor matching with a caliper of 0.05. Column (2) reports the PSM results using 1:2 nearest neighbor matching with a caliper of 0.05. Column (3) shows the PSM results based on kernel matching. The dependent variable is ShannonBD (the negative sum of the proportion of each bird species multiplied by its natural logarithm). The
+independent variable is PSI (the weighted sum of policies at the provincial, municipal, and county levels). Other control variables include Temp (annual average temperature), Wind (annual average wind speed), Pop (the logarithm of the ratio of total population to regional area), Duration (the logarithm of the ratio of birdwatching duration to the number of birdwatchers), Carbon (the logarithm of
+the carbon emissions), Water (the area of water divided by the total area), Green (the sum of the area of forests and shrubs divided by the total area), Farm (the area of farmland divided by the total area), Grass (the area of the grassland divided by the total area). All specifications include county and Year-month fixed effects. The robust standard errors clustered by the county are reported in
+parenthesis. ***, **, * denote the significance at the 1%, 5%, and 10% levels, respectively.

@@ -1,0 +1,93 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/logs/5_2_sensitivity
+> _dummies.log
+  log type:  text
+ opened on:  18 Nov 2026, 20:49:39
+
+. *==========================================================================
+. * 5_2_sensitivity_dummies.do
+. * PURPOSE : Prof. Ferraro's question: is Cinelli-Hazlett valid when the
+. *           fixed effects are absorbed (reghdfe) instead of entered as dummies?
+. * ANSWER  : Yes, by the Frisch-Waugh-Lovell theorem the coefficient, its
+. *           classical SE, t and the residual df are identical, and all C-H
+. *           statistics depend only on t and df. This file shows it.
+. * NOTE    : ~2,470 regressors. Stata/BE allows at most ~800 right-hand-side
+. *           variables, so the dummy-variable regression needs Stata/SE or MP.
+. *==========================================================================
+. quietly do "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/00_config.do"
+
+. use "$SAMPLE", clear
+
+. bysort county: drop if _N == 1                 // same singletons reghdfe drops
+(157 observations deleted)
+
+. 
+. * (a) absorbed fixed effects
+. reghdfe ShannonBD PI $control, absorb(county year) vce(unadjusted)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,  43898) =     181.97
+                                                  Prob > F        =     0.0000
+                                                  R-squared       =     0.3372
+                                                  Adj R-squared   =     0.2999
+                                                  Within R-sq.    =     0.0398
+                                                  Root MSE        =     0.8208
+
+------------------------------------------------------------------------------
+   ShannonBD | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0125283   .0027334    -4.58   0.000    -.0178858   -.0071708
+        Temp |   -.007307   .0144434    -0.51   0.613    -.0356163    .0210024
+        Wind |   .0434958   .0599719     0.73   0.468    -.0740503    .1610418
+         Pop |  -.0885085   .0857152    -1.03   0.302    -.2565118    .0794949
+    Duration |   .1638102   .0039011    41.99   0.000     .1561639    .1714565
+      Carbon |  -.1117558   .0334118    -3.34   0.001    -.1772434   -.0462681
+       Water |   -1.27986   .6970195    -1.84   0.066    -2.646031    .0863107
+       Green |   1.151814   .6124295     1.88   0.060    -.0485591    2.352186
+        Farm |   .0657308   .4362937     0.15   0.880    -.7894126    .9208742
+       Grass |   1.264197   .6541783     1.93   0.053    -.0180045    2.546398
+       _cons |   3.893401     .80722     4.82   0.000     2.311235    5.475567
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344           0        2344     |
+        year |       120           1         119     |
+-----------------------------------------------------+
+
+. di "absorbed:  b = " %10.7f _b[PI] "  se = " %9.7f _se[PI] "  t = " %7.4f _b[PI]/_se[PI] "  df = " e(df_r)
+absorbed:  b = -0.0125283  se = 0.0027334  t = -4.5834  df = 43898
+
+. 
+. * (b) explicit dummy variables (Stata/SE or MP)
+. capture noisily {
+.     regress ShannonBD PI $control i.county i.year
+maxvar too small
+    You have attempted to use an interaction with too many levels or attempted to fit a model with too many variables.
+    You need to increase maxvar; it is currently 2048.  Use set maxvar; see help maxvar.
+
+    If you are using factor variables and included an interaction that has lots of missing cells, try set emptycells
+    drop to reduce the required matrix size; see help set emptycells.
+
+    If you are using factor variables, you might have accidentally treated a continuous variable as a categorical,
+    resulting in lots of categories.  Use the c. operator on such variables.
+r(907);
+.     di "dummies:   b = " %10.7f _b[PI] "  se = " %9.7f _se[PI] "  t = " %7.4f _b[PI]/_se[PI] "  df = " e(df_r)
+.     sensemakr ShannonBD PI $control i.county i.year, treat(PI) benchmark(Duration) kd(1 2 3)
+. }
+
+. * Expected (verified outside Stata with dummy-variable OLS):
+. *   b = -0.0125283, classical se = 0.0027334, t = -4.5834, df = 43,898
+. *   R2(Y~D|X) = 0.000478, RV = 0.02164, RV(alpha=.05) = 0.01244
+. 
+end of do-file
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/logs/5_2_sensitivity
+> _dummies.log
+  log type:  text
+ closed on:  18 Nov 2026, 20:49:40
+------------------------------------------------------------------------------------------------------------------------

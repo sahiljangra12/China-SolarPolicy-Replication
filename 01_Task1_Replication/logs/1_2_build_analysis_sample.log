@@ -1,0 +1,1105 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/logs/1_2_build_ana
+> lysis_sample.log
+  log type:  text
+ opened on:   7 Nov 2026, 21:23:36
+
+================ 1_2_build_analysis_sample ================
+
+. *==========================================================================
+. * 00_config.do
+. * Project : Replication of Zhang et al. (2026), "China's solar expansion
+. *           policy reduces bird diversity", Science 393, 831.
+. * Purpose : One place for paths, globals and package installation.
+. *           Every task do-file starts with:  do "<ROOT>/00_config.do"
+. * Author  : Sahil (Research Assistant, Johns Hopkins University)
+. *==========================================================================
+. version 16
+
+. set more off
+
+. set linesize 120
+
+. 
+. *---------------------------------------------------------------- paths
+. global ROOT "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication"
+
+. global ORIG "$ROOT/00_Original_Package"
+
+. global DATA "$ORIG/DATA"
+
+. global T1   "$ROOT/01_Task1_Replication"
+
+. global T2   "$ROOT/02_Task2_Sensitivity"
+
+. global T3   "$ROOT/03_Task3_Staggered_DiD"
+
+. 
+. * analysis sample built in Task 1 (used by all tasks)
+. global SAMPLE "$T1/data/analysis_sample.dta"
+
+. 
+. *---------------------------------------------------------------- model
+. * the authors' nine control variables (Table 1, column 3)
+. global control     "Temp Wind Pop Duration Carbon Water Green Farm Grass"
+
+. global control_noD "Temp Wind Pop Carbon Water Green Farm Grass"
+
+. 
+. *---------------------------------------------------------------- packages
+. * installed only if missing
+. foreach p in require ftools reghdfe ivreg2 ranktest ivreghdfe estout winsor2 ///
+>              psmatch2 binscatter sensemakr drdid csdid did_imputation       ///
+>              event_plot avar eventstudyinteract {
+  2.     capture which `p'
+  3.     if _rc {
+  4.         di as txt "installing `p' ..."
+  5.         capture noisily ssc install `p', replace
+  6.     }
+  7. }
+
+. set scheme s2color
+
+. 
+end of do-file
+
+. *==========================================================================
+. * 1_2_build_analysis_sample.do
+. * PURPOSE : Build the authors' analysis sample (46,528 county-months) using
+. *           their own data-preparation code VERBATIM (Part A), then add the
+. *           flags our later checks need (Part B). Saves data/analysis_sample.dta
+. * WHY     : Every later step (Tasks 1-3) must start from exactly the sample
+. *           the authors analysed.
+. *==========================================================================
+. 
+. *-------------------------------------------------------------------------
+. * PART A — authors' data preparation (CODE.do lines 1-245, unchanged)
+. *-------------------------------------------------------------------------
+. *------------------------------------------------------------------------
+. * Data preparation
+. *------------------------------------------------------------------------
+. cd "$DATA"   // [PATH] originally the authors' local DATA folder
+/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/00_Original_Package/DATA
+
+. 
+. *核心变量+控制变量
+. use "Bird.dta",clear
+
+. merge 1:1 id year using "BTN.dta",keepus(BT BN)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         1,088
+        from master                       543  (_merge==1)
+        from using                        545  (_merge==2)
+
+    Matched                            48,357  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(545 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "PI.dta",keepus(PI)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        33,957
+        from master                    22,273  (_merge==1)
+        from using                     11,684  (_merge==2)
+
+    Matched                            26,627  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(11,684 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "Climate.dta",keepus(Avt Wind)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        16,996
+        from master                     1,705  (_merge==1)
+        from using                     15,291  (_merge==2)
+
+    Matched                            47,195  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(15,291 observations deleted)
+
+. drop _merge
+
+. rename Avt Temp
+
+. merge m:1 id YEAR using "PD.dta",keepus(PD)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        15,540
+        from master                        11  (_merge==1)
+        from using                     15,529  (_merge==2)
+
+    Matched                            48,889  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(15,529 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "air.dta",keepus(CO2 PM)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        15,531
+        from master                         4  (_merge==1)
+        from using                     15,527  (_merge==2)
+
+    Matched                            48,896  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(15,527 observations deleted)
+
+. drop _merge
+
+. rename PM PM25
+
+. merge m:1 id YEAR using "TD.dta",keepus(Water Green Farm Grass)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        15,538
+        from master                        11  (_merge==1)
+        from using                     15,527  (_merge==2)
+
+    Matched                            48,889  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(15,527 observations deleted)
+
+. drop _merge
+
+. 
+. 
+. *稳健性
+. **替换PI
+. merge m:1 id YEAR using "PI1.dta",keepus(PI1)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        35,910
+        from master                    22,273  (_merge==1)
+        from using                     13,637  (_merge==2)
+
+    Matched                            26,627  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(13,637 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "PI2.dta",keepus(PI2)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        35,910
+        from master                    22,273  (_merge==1)
+        from using                     13,637  (_merge==2)
+
+    Matched                            26,627  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(13,637 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "PI3.dta",keepus(PI3)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        35,910
+        from master                    22,273  (_merge==1)
+        from using                     13,637  (_merge==2)
+
+    Matched                            26,627  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(13,637 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "PI4.dta",keepus(PI4)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        35,910
+        from master                    22,273  (_merge==1)
+        from using                     13,637  (_merge==2)
+
+    Matched                            26,627  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(13,637 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "PI5.dta",keepus(PI5)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        35,910
+        from master                    22,273  (_merge==1)
+        from using                     13,637  (_merge==2)
+
+    Matched                            26,627  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(13,637 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "PI6.dta",keepus(PI6)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        35,910
+        from master                    22,273  (_merge==1)
+        from using                     13,637  (_merge==2)
+
+    Matched                            26,627  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(13,637 observations deleted)
+
+. drop _merge
+
+. replace PI1 = 0 if missing(PI1)
+(22,273 real changes made)
+
+. replace PI2 = 0 if missing(PI2)
+(22,273 real changes made)
+
+. replace PI3 = 0 if missing(PI3)
+(22,273 real changes made)
+
+. replace PI4 = 0 if missing(PI4)
+(22,273 real changes made)
+
+. replace PI5 = 0 if missing(PI5)
+(22,273 real changes made)
+
+. replace PI6 = 0 if missing(PI6)
+(22,273 real changes made)
+
+. **王老师装机规模
+. merge m:1 id YEAR using "IC.dta",keepus(ICtotal)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        44,263
+        from master                    27,377  (_merge==1)
+        from using                     16,886  (_merge==2)
+
+    Matched                            21,523  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(16,886 observations deleted)
+
+. drop _merge
+
+. replace ICtotal=0 if missing(ICtotal)
+(27,377 real changes made)
+
+. **省会城市直辖市cities
+. merge m:1 省 市 using "cities.dta",keepus(cities)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        34,589
+        from master                    34,586  (_merge==1)
+        from using                          3  (_merge==2)
+
+    Matched                            14,314  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(3 observations deleted)
+
+. drop _merge
+
+. replace cities = 0 if missing(cities)
+(34,586 real changes made)
+
+. **环保督察政策CEI
+. merge m:1 省 YEAR using "enin.dta",keepus(enin)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            48,900  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(0 observations deleted)
+
+. drop _merge
+
+. rename enin CEI
+
+. **煤电厂
+. merge m:1 id YEAR using "Coal.dta",keepus(FFP)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        48,651
+        from master                    48,537  (_merge==1)
+        from using                        114  (_merge==2)
+
+    Matched                               363  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(114 observations deleted)
+
+. drop _merge     
+
+. gen 煤电厂=0 
+
+. replace 煤电厂=1 if FFP !=.  
+(363 real changes made)
+
+. rename 煤电厂 Coal
+
+. **风电扩张
+. merge m:1 id YEAR using "Windexp.dta",keepus(风电数量)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        40,744
+        from master                    36,086  (_merge==1)
+        from using                      4,658  (_merge==2)
+
+    Matched                            12,814  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(4,658 observations deleted)
+
+. drop _merge     
+
+. gen 风电扩张=0 
+
+. replace 风电扩张=1 if 风电数量 !=0      
+(39,105 real changes made)
+
+. rename 风电扩张 Windexp
+
+. **绿色金融
+. gen 绿色金融 = 0
+
+. local group1 "湖州市 衢州市 广州市 哈密市 昌吉回族自治州 克拉玛依市"
+
+. foreach city in `group1' {
+  2.     replace 绿色金融 = 1 if strpos(市, "`city'") > 0 & (YEAR > 2017 | (YEAR == 2017 & month >= 7))
+  3. }
+(165 real changes made)
+(109 real changes made)
+(564 real changes made)
+(18 real changes made)
+(150 real changes made)
+(79 real changes made)
+
+. *赣江新区
+. replace 绿色金融 = 1 if (strpos(市, "南昌市") > 0 & (strpos(县, "新建区") > 0 | strpos(县, "青山湖区") > 0)) ///
+>                 & (YEAR > 2017 | (YEAR == 2017 & month >= 7))
+(119 real changes made)
+
+. replace 绿色金融 = 1 if (strpos(市, "九江市") > 0 & (strpos(县, "共青城市") > 0 | strpos(县, "永修县") > 0)) ///
+>                 & (YEAR > 2017 | (YEAR == 2017 & month >= 7))
+(46 real changes made)
+
+. *贵安新区
+. replace 绿色金融 = 1 if (strpos(市, "贵阳市") > 0) ///
+>                 & (YEAR > 2017 | (YEAR == 2017 & month >= 7))
+(199 real changes made)
+
+. replace 绿色金融 = 1 if (strpos(市, "安顺市") > 0 & strpos(县, "平坝区") > 0) ///
+>                 & (YEAR > 2017 | (YEAR == 2017 & month >= 7))
+(19 real changes made)
+
+. * 兰州新区
+. replace 绿色金融 = 1 if (strpos(市, "兰州市") > 0 & (strpos(县, "皋兰县") > 0 | strpos(县, "永登县") > 0)) ///
+>                 & (YEAR > 2019 | (YEAR == 2019 & month >= 12))
+(39 real changes made)
+
+. * 重庆市
+. replace 绿色金融 = 1 if strpos(市, "重庆市") > 0 ///
+>                 & (YEAR > 2022 | (YEAR == 2022 & month >= 9))
+(304 real changes made)
+
+. rename 绿色金融 Greenfin
+
+. **IV 
+. ***sun算术平均1984-2013
+. merge m:1 id YEAR using "sunshine.dta",keepus(sun)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        89,680
+        from master                     2,593  (_merge==1)
+        from using                     87,087  (_merge==2)
+
+    Matched                            46,307  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(87,087 observations deleted)
+
+. drop _merge
+
+. ***地级市CPU
+. merge m:1 市 YEAR using "CCPU.dta",keepus(CCPU)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        13,570
+        from master                     8,863  (_merge==1)
+        from using                      4,707  (_merge==2)
+
+    Matched                            40,037  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(4,707 observations deleted)
+
+. drop _merge
+
+. **高PI县相邻县
+. merge m:1 id using "highPI.dta",keepus(is_neighbor_of_highPI)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        25,873
+        from master                    25,759  (_merge==1)
+        from using                        114  (_merge==2)
+
+    Matched                            23,141  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(114 observations deleted)
+
+. drop _merge
+
+. replace is_neighbor_of_highPI=0 if missing(is_neighbor_of_highPI)
+(25,759 real changes made)
+
+. **剔除低于最低观鸟记录阈值的观测值
+. merge 1:1 id year using "BirdDrop3.dta",keepus(ShannonBD3)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        20,369
+        from master                    20,362  (_merge==1)
+        from using                          7  (_merge==2)
+
+    Matched                            28,538  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(7 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "BirdDrop5.dta",keepus(ShannonBD5)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        25,222
+        from master                    25,216  (_merge==1)
+        from using                          6  (_merge==2)
+
+    Matched                            23,684  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(6 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "BirdDrop10.dta",keepus(ShannonBD10)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        32,699
+        from master                    32,697  (_merge==1)
+        from using                          2  (_merge==2)
+
+    Matched                            16,203  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(2 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "BirdDrop20.dta",keepus(ShannonBD20)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        40,310
+        from master                    40,310  (_merge==1)
+        from using                          0  (_merge==2)
+
+    Matched                             8,590  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(0 observations deleted)
+
+. drop _merge
+
+. 
+. 
+. *异质性
+. **贫困县poverty_county、三北地区north_region、低碳试点low_carbon_city
+. merge m:1 县 using "poverty.dta",keepus(poverty_county)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           101
+        from master                         1  (_merge==1)
+        from using                        100  (_merge==2)
+
+    Matched                            48,899  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(100 observations deleted)
+
+. drop _merge
+
+. replace poverty_county = 0 if missing(poverty_county)
+(1 real change made)
+
+. merge m:1 省 using "north_region.dta",keepus(north_region)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        36,659
+        from master                    36,659  (_merge==1)
+        from using                          0  (_merge==2)
+
+    Matched                            12,241  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(0 observations deleted)
+
+. drop _merge
+
+. replace north_region = 0 if missing(north_region)
+(36,659 real changes made)
+
+. merge m:1 id using "Gebi.dta",keepus(desert_gobi)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           223
+        from master                         4  (_merge==1)
+        from using                        219  (_merge==2)
+
+    Matched                            48,896  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(219 observations deleted)
+
+. drop _merge
+
+. **候鸟Migratory、留鸟Resident+特有物种Endemic、非特有物种non_Endemic+国家保护Protected、非国家保护non_Protected
+. merge 1:1 id year using "Migratory.dta", keepus(Migratory)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         6,857
+        from master                     6,854  (_merge==1)
+        from using                          3  (_merge==2)
+
+    Matched                            42,046  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(3 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "Resident.dta", keepus(Resident)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           985
+        from master                       983  (_merge==1)
+        from using                          2  (_merge==2)
+
+    Matched                            47,917  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(2 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "Endemic.dta", keepus(Endemic)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        22,587
+        from master                    22,584  (_merge==1)
+        from using                          3  (_merge==2)
+
+    Matched                            26,316  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(3 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "non_Endemic.dta", keepus(non_Endemic)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           167
+        from master                       166  (_merge==1)
+        from using                          1  (_merge==2)
+
+    Matched                            48,734  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(1 observation deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "Protected.dta", keepus(Protected)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        13,606
+        from master                    13,604  (_merge==1)
+        from using                          2  (_merge==2)
+
+    Matched                            35,296  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(2 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "non_Protected.dta", keepus(non_Protected)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           744
+        from master                       740  (_merge==1)
+        from using                          4  (_merge==2)
+
+    Matched                            48,160  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(4 observations deleted)
+
+. drop _merge
+
+. **植物筑巢Nest_veg、水上筑巢Land_water+食肉杂食non_herbivorous、食草Herbivorous+小群落Small_flock、大群落Large_flock
+. merge 1:1 id year using "Nest_veg.dta", keepus(Nest_veg)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         1,683
+        from master                     1,680  (_merge==1)
+        from using                          3  (_merge==2)
+
+    Matched                            47,220  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(3 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "Land_water.dta", keepus(Land_water)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         2,500
+        from master                     2,497  (_merge==1)
+        from using                          3  (_merge==2)
+
+    Matched                            46,403  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(3 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "non_Herbivorous.dta", keepus(non_Herbivorous)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           127
+        from master                       125  (_merge==1)
+        from using                          2  (_merge==2)
+
+    Matched                            48,775  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(2 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "Herbivorous.dta", keepus(Herbivorous)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        38,322
+        from master                    38,322  (_merge==1)
+        from using                          0  (_merge==2)
+
+    Matched                            10,578  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(0 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "Small_flock.dta", keepus(Small_flock)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           350
+        from master                       346  (_merge==1)
+        from using                          4  (_merge==2)
+
+    Matched                            48,554  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(4 observations deleted)
+
+. drop _merge
+
+. merge 1:1 id year using "Large_flock.dta", keepus(Large_flock)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         8,046
+        from master                     8,041  (_merge==1)
+        from using                          5  (_merge==2)
+
+    Matched                            40,859  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(5 observations deleted)
+
+. drop _merge
+
+. 
+. 
+. *机制
+. merge m:1 id YEAR using "Ndvi.dta",keepus(Ndvi)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        15,540
+        from master                        11  (_merge==1)
+        from using                     15,529  (_merge==2)
+
+    Matched                            48,889  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(15,529 observations deleted)
+
+. drop _merge
+
+. replace Ndvi = Ndvi*100
+(48,889 real changes made)
+
+. merge m:1 id YEAR using "NL.dta",keepus(Nightlight)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        15,540
+        from master                        11  (_merge==1)
+        from using                     15,529  (_merge==2)
+
+    Matched                            48,889  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(15,529 observations deleted)
+
+. drop _merge
+
+. merge m:1 id YEAR using "LAI.dta",keepus(LAI)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        15,557
+        from master                        37  (_merge==1)
+        from using                     15,520  (_merge==2)
+
+    Matched                            48,863  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(15,520 observations deleted)
+
+. drop _merge
+
+. 
+. 
+. *经济后果
+. **丰富度与均匀度
+. merge 1:1 id year using "Richeven.dta",keepus(丰富度)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         2,620
+        from master                     2,617  (_merge==1)
+        from using                          3  (_merge==2)
+
+    Matched                            46,283  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(3 observations deleted)
+
+. drop _merge
+
+. gen 均匀度 = ShannonBD/ln(丰富度)
+(4,284 missing values generated)
+
+. rename 丰富度 Richness
+
+. rename 均匀度 Evenness
+
+. **农作物产量
+. merge m:1 id YEAR using "AP.dta",keepus(APtotal)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        33,949
+        from master                    22,910  (_merge==1)
+        from using                     11,039  (_merge==2)
+
+    Matched                            25,990  (_merge==3)
+    -----------------------------------------
+
+. drop if _merge==2
+(11,039 observations deleted)
+
+. drop _merge
+
+. 
+. 
+. *数据预处理
+. **生成人均观鸟时长
+. gen BTN=BT/BN
+(543 missing values generated)
+
+. **PI缺失值替换为0
+. replace PI = 0 if missing(PI)
+(22,273 real changes made)
+
+. **剔除控制变量存在缺失的样本
+. drop if missing(Temp, Wind, PD, BTN, CO2, Water, Green, Farm, Grass)
+(2,372 observations deleted)
+
+. **王老师装机规模换算成面积
+. gen Area = ICtotal*1000/0.15
+
+. replace Area = Area / 1000000
+(17,048 real changes made)
+
+. label var Area "集中式光伏电站面积平方千米"
+
+. **取对数
+. gen Pop=ln(PD)
+
+. gen Duration=ln(BTN+1)
+
+. gen Carbon=ln(CO2)
+
+. gen PM=ln(PM25)
+(406 missing values generated)
+
+. gen Output = ln(APtotal) 
+(21,228 missing values generated)
+
+. **所有连续变量缩尾
+. local var "ShannonBD SimpsonBD PI Temp Wind Pop Duration Carbon Water Green Farm Grass PM ICtotal Area Ndvi Nightlight
+>  LAI PI1 PI2 PI3 PI4 PI5 PI6 Migratory Resident Endemic non_Endemic Protected non_Protected Nest_veg Land_water non_He
+> rbivorous Herbivorous Small_flock Large_flock Richness Evenness Output ShannonBD3 ShannonBD5 ShannonBD10 ShannonBD20 s
+> un CCPU"
+
+. winsor2 `var', cuts(1 99) replace
+
+. **生成IV
+. gen lnsun = ln(sun)
+(744 missing values generated)
+
+. gen inv_CCPU = 1 / CCPU
+(8,287 missing values generated)
+
+. gen Sun_ccpu = lnsun / CCPU
+(9,025 missing values generated)
+
+. **生成county
+. egen county = group(id)
+
+. 
+. 
+. 
+. 
+. *-------------------------------------------------------------------------
+. * PART B — flags added for our analysis (not in the authors' code)
+. *-------------------------------------------------------------------------
+. * (1) Does the county appear in the PSI source file at all?
+. *     The authors set PSI = 0 whenever it is missing (line "replace PI = 0").
+. preserve
+
+.     use "$DATA/PI.dta", clear
+
+.     keep id
+
+.     duplicates drop
+
+Duplicates in terms of all variables
+
+(17,577 observations deleted)
+
+.     gen byte in_PI_file = 1
+
+.     tempfile pif
+
+.     save `pif'
+file /var/folders/wt/r578njlx4vx70bfy46gk25bm0000gn/T//S_34499.000002 saved as .dta format
+
+. restore
+
+. merge m:1 id using `pif', keep(master match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        20,385
+        from master                    20,385  
+        from using                          0  
+
+    Matched                            26,143  
+    -----------------------------------------
+
+. replace in_PI_file = 0 if missing(in_PI_file)
+(20,385 real changes made)
+
+. label var in_PI_file "County present in PI.dta (1) or PSI imputed as 0 (0)"
+
+. 
+. * (2) Urban district vs rural county (Chinese admin code: last two digits
+. *     01-20 = urban district 'shixiaqu'; 21+ = county / county-level city)
+. gen byte urban = mod(id,100) <= 20
+
+. label var urban "Urban district (admin code ending 01-20)"
+
+. * name check: urban districts are named ...区 (district)
+. gen byte name_is_district = ustrregexm(县, "区$")
+
+. label var name_is_district "County name ends in 区 (district)"
+
+. 
+. * (3) Alternative PSI definitions kept in PI.dta but unused by the authors
+. merge m:1 id YEAR using "$DATA/PI.dta", keepusing(PI_stock PI_total) keep(master match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        20,385
+        from master                    20,385  
+        from using                          0  
+
+    Matched                            26,143  
+    -----------------------------------------
+
+. gen byte any_PSI = (PI > 0)
+
+. label var any_PSI "PSI > 0 in this year"
+
+. 
+. * (4) Identifiers
+. egen prov = group(省)
+
+. egen city = group(市)
+(756 missing values generated)
+
+. gen month_of_year = month
+
+. label var prov "Province id"
+
+. label var city "Prefecture city id"
+
+. 
+. compress
+  variable YEAR was float now int
+  variable month was float now byte
+  variable year was float now int
+  variable PI6 was float now byte
+  variable FFP was float now byte
+  variable Coal was float now byte
+  variable 风电数量 was float now byte
+  variable Windexp was float now byte
+  variable Greenfin was float now byte
+  variable is_neighbor_of_highPI was float now byte
+  variable poverty_county was float now byte
+  variable desert_gobi was float now byte
+  variable county was float now int
+  variable prov was float now byte
+  variable city was float now int
+  variable month_of_year was float now byte
+  (2,047,232 bytes saved)
+
+. save "$SAMPLE", replace
+file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/data/analysis_sample.dta
+    saved
+
+. di as res "Analysis sample saved: " _N " county-months"
+Analysis sample saved: 46528 county-months
+
+. 
+end of do-file
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/01_Task1_Replication/logs/1_2_build_ana
+> lysis_sample.log
+  log type:  text
+ closed on:   7 Nov 2026, 21:23:37
+------------------------------------------------------------------------------------------------------------------------

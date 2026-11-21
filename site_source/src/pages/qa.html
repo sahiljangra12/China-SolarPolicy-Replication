@@ -1,0 +1,65 @@
+<!--title:Q&A-->
+<section id="qa" data-nav="Questions answered">
+  <div class="kicker">Q&amp;A</div>
+  <h2>Questions answered</h2>
+  <input class="filter" type="search" id="qsearch" placeholder="Filter, e.g. IV, birdwatchers, area, dCDH" aria-label="Filter questions">
+  <div id="qlist">
+  <details><summary>Do the paper's results reproduce?</summary><div><p>Yes. Running the authors' code with only file paths changed reproduces all 12 numbers checked, to four decimals. <a href="paper.html#repro">See the check.</a></p></div></details>
+  <details><summary>Why does the main estimate shrink in a fair comparison?</summary><div><p>PSI is missing for 724 counties and set to 0. They are 694 of 847 urban districts but only 9 of 1,497 rural counties, so the regression mostly compares rural counties with urban districts. Birdwatching grew much faster in cities. Comparing urban with urban and rural with rural gives &minus;0.0027 (p = 0.47). <a href="evidence.html#main">Details.</a></p></div></details>
+  <details><summary>What does &ldquo;83% of urban county-months have imputed PSI&rdquo; mean?</summary><div><p>Of all urban county-months in the regression, 83.1% belong to counties whose PSI was missing and filled in as 0. For rural the share is 1.2%. The real-PSI sample drops 20,364 rows, 98.7% of them urban. <a class="src" data-file="files/06_Followups_Nov19/logs/6_3_meeting_facts.log" data-find="83.06">log</a></p></div></details>
+  <details><summary>Where does the paper analyze the number of birdwatchers?</summary><div><p>Only inside the control <i>Duration</i> (<a class="ref" data-s="s1">Table S1, SM p. 24</a>). In the authors' file the variable is a count of submitted records per county-month, so it measures checklists, not people. No table uses birdwatching as an outcome.</p></div></details>
+  <details><summary>Is there evidence that birding grew faster in cities?</summary><div><p>Yes. The share of months with any record grew 2.3 percentage points a year faster in urban districts, and the log number of records 0.060 a year faster. <a class="src" data-file="files/06_Followups_Nov19/logs/6_4_extra_checks.log" data-find="reghdfe obs c.trend#i.urban">log</a></p></div></details>
+  <details><summary>How little confounding would overturn the result?</summary><div><p>A confounder explaining 2.16% of leftover variation in both PSI and Shannon brings the estimate to zero; 1.24% makes it insignificant. <a href="lab.html#lab-sens">Try it.</a></p></div></details>
+  <details><summary>Why did the first sensitivity run fail, and how was it fixed?</summary><div><p>Explicit county dummies need 2,344 variables; Stata/BE allows 2,048. Residualizing every variable on the fixed effects first gives exactly the same coefficient and lets <code>sensemakr</code> run. <a class="src" data-file="files/06_Followups_Nov19/logs/6_1_sensitivity_residualized.log" data-find="check: reghdfe b = -0.0125283">log</a></p></div></details>
+  <details><summary>Is the instrument weak?</summary><div><p>Its F is 30.2 with county clusters, 10.8 with city clusters, 2.8 with province clusters. But Anderson&ndash;Rubin sets, valid with weak instruments, still exclude zero. The problem is exclusion, not strength.</p></div></details>
+  <details><summary>Is the plausibly-exogenous IV step valid?</summary><div><p>As a sensitivity check, yes. As a corrected estimate, no: the direct effect is measured in mostly urban counties. It shows the IV conclusion depends on an assumption the data contradict. <a href="lab.html#lab-iv">Try other values.</a></p></div></details>
+  <details><summary>Where does the solar-area data come from? Is it missing for the same counties as PSI?</summary><div><p>Licensed plants from the National Energy Administration (<a class="ref" data-s="s2">Table S2, SM p. 26</a>). It is missing for 1,184 counties; only 473 of them also lack PSI. The file has 11,699 true zeros, so missing counties can be told apart from counties with no plants.</p></div></details>
+  <details><summary>Which staggered estimators were run?</summary><div><p>Callaway &amp; Sant'Anna, Sun &amp; Abraham, Borusyak, Jaravel &amp; Spiess, and both de Chaisemartin &amp; D'Haultf&oelig;uille packages. <a href="lab.html#lab-es">Compare the event studies.</a></p></div></details>
+  <details><summary>Why do dCDH and the binary estimators disagree?</summary><div><p>They answer different questions: the effect of more policy versus the effect of a first policy. Most PSI variation is later increases in counties already treated in 2014, which only dCDH uses.</p></div></details>
+  <details><summary>Was the &ldquo;no stayers&rdquo; dCDH method used?</summary><div><p>No. It needs all units untreated at the start and one common adoption date. Here 838 counties already have PSI above 0 in 2014, timing varies, and about 74% of year-to-year steps are stayers. So the stayers-based estimator was used.</p></div></details>
+  <details><summary>What could not be run?</summary><div><p><code>did_multiplegt_dyn</code> with <code>controls()</code> and with <code>continuous()</code>, and explicit-dummy sensitivity, all because of Stata/BE limits. Workarounds are documented; all three can run in Stata/MP or R.</p></div></details>
+  <details><summary>Are the live tools real estimates?</summary><div><p>Yes. Tools A, C and D read Stata results computed in advance. Tool B uses closed-form formulas with Stata inputs and reproduces <code>sensemakr</code> to four decimals. <a class="src" data-file="files/07_Interactive/code/7_1_spec_grid.do">code</a></p></div></details>
+  <details><summary>Why is the paper itself not posted here?</summary><div><p>It is under copyright. Load your own copy on the <a href="paper.html">Paper check</a> page and every reference opens at the exact page, inside this site.</p></div></details>
+  </div>
+</section>
+
+<section id="glossary" data-nav="Glossary">
+  <h2>Glossary</h2>
+  <div class="gloss">
+    <div><b>Shannon index</b><br>A diversity score: higher when more species are recorded and records are spread evenly.</div>
+    <div><b>PSI</b><br>Policy Stringency Index: how many, and how binding, solar-promotion documents a county has in a year.</div>
+    <div><b>TWFE / fixed effects</b><br>A regression that compares each county with itself over time, net of shocks common to all counties in a month.</div>
+    <div><b>Imputed PSI</b><br>PSI that was missing and filled in as 0 by the authors.</div>
+    <div><b>Confounder</b><br>Something that affects both the policy and the outcome, creating a non-causal link.</div>
+    <div><b>Robustness value</b><br>How strong a hidden confounder must be, as a share of leftover variation, to bring the estimate to zero.</div>
+    <div><b>Instrumental variable</b><br>A variable that shifts the treatment and should affect the outcome only through it (the exclusion restriction).</div>
+    <div><b>Anderson&ndash;Rubin set</b><br>A confidence interval for an IV estimate that stays valid when the instrument is weak.</div>
+    <div><b>Staggered DiD</b><br>Difference-in-differences when units start treatment at different times.</div>
+    <div><b>Pre-trend (placebo) test</b><br>Checks whether treated and comparison units were already diverging before treatment.</div>
+    <div><b>Stayers and switchers</b><br>Units whose treatment stays the same, and units whose treatment changes, between two periods.</div>
+    <div><b>Clustering</b><br>Allowing errors to be correlated within a group (county, city, province) when computing standard errors.</div>
+    <div><b>n.s. and stars</b><br>n.s. = not significant at 5%. ** p &lt; 0.05, *** p &lt; 0.01.</div>
+  </div>
+</section>
+
+<section id="refs" data-nav="References">
+  <h2>References</h2>
+  <ul class="small">
+    <li>Borusyak, Jaravel &amp; Spiess (2024). Revisiting event-study designs. <i>Review of Economic Studies</i>.</li>
+    <li>Callaway &amp; Sant'Anna (2021). Difference-in-differences with multiple time periods. <i>Journal of Econometrics</i>.</li>
+    <li>Cinelli &amp; Hazlett (2020). Making sense of sensitivity. <i>JRSS-B</i> 82(1).</li>
+    <li>Conley, Hansen &amp; Rossi (2012). Plausibly exogenous. <i>Review of Economics and Statistics</i>.</li>
+    <li>de Chaisemartin &amp; D'Haultf&oelig;uille. Difference-in-differences estimators of intertemporal treatment effects. <i>Review of Economics and Statistics</i> 108(4).</li>
+    <li>de Chaisemartin, D'Haultf&oelig;uille &amp; Vazquez-Bare (2024). DiD estimators with continuous treatments and no stayers. <i>AEA Papers and Proceedings</i>.</li>
+    <li>Ferraro &amp; Hanauer (2014). Advances in measuring the environmental and social impacts of environmental programs. <i>Annual Review of Environment and Resources</i>.</li>
+    <li>Montiel Olea &amp; Pflueger (2013). A robust test for weak instruments. <i>JBES</i>.</li>
+    <li>Sun &amp; Abraham (2021). Estimating dynamic treatment effects in event studies. <i>Journal of Econometrics</i>.</li>
+    <li>van Kippersluis &amp; Rietveld (2018). Beyond plausibly exogenous. <i>Econometrics Journal</i>.</li>
+    <li>Wing et al. (2024). Designing difference-in-difference studies with staggered treatment adoption. <i>Annual Review of Public Health</i>.</li>
+    <li>Zhang et al. (2026). China's solar expansion policy reduces bird diversity. <i>Science</i> 393, 831.</li>
+  </ul>
+</section>
+<script>
+(function(){var q=document.getElementById('qsearch'),items=[].slice.call(document.querySelectorAll('#qlist details'));
+q.addEventListener('input',function(){var s=q.value.trim().toLowerCase();items.forEach(function(d){var hit=!s||d.textContent.toLowerCase().indexOf(s)>-1;d.style.display=hit?'':'none';d.open=!!s&&hit;});});})();
+</script>

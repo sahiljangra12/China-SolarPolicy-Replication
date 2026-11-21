@@ -1,0 +1,1353 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/logs/5_5_pv_area_tre
+> atment.log
+  log type:  text
+ opened on:  18 Nov 2026, 20:49:45
+
+. *==========================================================================
+. * 5_5_pv_area_treatment.do
+. * PURPOSE : Action item 3 (13 Nov). Use the land area of centralized solar
+. *           (PV) plants as the treatment instead of the policy index PSI.
+. * WHY     : PSI measures policy documents. What could harm birds is the
+. *           physical solar plant. The authors run this once (Table S12,
+. *           column 1); we stress-test it the same way we tested PSI.
+. * DATA    : Area = ICtotal*1000/0.15/1e6 (km2). ICtotal = cumulative
+. *           installed capacity (MW) of centralized PV in the county-year,
+. *           converted with 0.15 kW per m2 (authors' formula). Counties not in
+. *           IC.dta get Area = 0 (authors' rule) - flag in_IC_file.
+. * TESTS   : A  paper spec, urban x YM FE, province x YM FE, IC-file counties,
+. *              real-PSI counties, rural only
+. *           B  functional form: ln(1+Area), any plant (0/1)
+. *           C  timing: Area 1 and 2 years earlier, 1 year later (placebo)
+. *           D  measurement: does Area reduce birdwatchers? does the Shannon
+. *              effect remain when the number of birdwatchers is held fixed?
+. *              richness (species count) vs evenness
+. *           E  is PSI related to Area within a county?
+. *==========================================================================
+. if "$ROOT" == "" quietly do "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/00_config.do"
+
+. global T5 "$ROOT/05_Followups_Nov13"
+
+. 
+. *------------------------------------------------ lags and leads of Area
+. use "$DATA/IC.dta", clear
+
+. keep id YEAR ICtotal
+
+. gen Area_raw = ICtotal*1000/0.15/1000000
+
+. xtset id YEAR
+
+Panel variable: id (strongly balanced)
+ Time variable: YEAR, 2009 to 2024
+         Delta: 1 unit
+
+. gen Area_l1 = L1.Area_raw
+(1,430 missing values generated)
+
+. gen Area_l2 = L2.Area_raw
+(2,860 missing values generated)
+
+. gen Area_f1 = F1.Area_raw
+(1,430 missing values generated)
+
+. gen Area_f2 = F2.Area_raw
+(2,860 missing values generated)
+
+. gen byte one = 1
+
+. tempfile icl
+
+. save `icl'
+file /var/folders/wt/r578njlx4vx70bfy46gk25bm0000gn/T//S_03199.000001 saved as .dta format
+
+. 
+. use "$SAMPLE", clear
+
+. merge m:1 id YEAR using `icl', keepus(Area_l1 Area_l2 Area_f1 one) keep(master match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        25,386
+        from master                    25,386  
+        from using                          0  
+
+    Matched                            21,142  
+    -----------------------------------------
+
+. gen byte in_IC_file = (one==1)
+
+. bysort id: egen tmp = max(in_IC_file)
+
+. replace in_IC_file = tmp
+(0 real changes made)
+
+. drop tmp one
+
+. foreach v in Area_l1 Area_l2 Area_f1 {
+  2.     replace `v' = 0 if missing(`v')
+  3. }
+(25,386 real changes made)
+(25,386 real changes made)
+(25,386 real changes made)
+
+. winsor2 Area_l1 Area_l2 Area_f1, cuts(1 99) replace
+
+. gen lnArea = ln(1 + Area)
+
+. gen byte anyPV = Area > 0
+
+. gen lnBN = ln(BN)
+
+. egen pym = group(prov year)
+
+. 
+. * descriptives
+. summarize Area, detail
+
+           集中式光伏电站面积平方千米
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%            0              0
+ 5%            0              0
+10%            0              0       Obs              46,528
+25%            0              0       Sum of wgt.      46,528
+
+50%            0                      Mean           .4055427
+                        Largest       Std. dev.       1.11575
+75%     .2666667       7.733609
+90%     1.144667       7.733609       Variance       1.244898
+95%     2.110667       7.733609       Skewness        4.55214
+99%     7.733609       7.733609       Kurtosis       26.51255
+
+. tab urban, summarize(anyPV)
+
+      Urban |
+   district |
+(admin code |
+     ending |          Summary of anyPV
+     01-20) |        Mean   Std. dev.       Freq.
+------------+------------------------------------
+          0 |   .46825789   .49900261      22,289
+          1 |   .27274227   .44537861      24,239
+------------+------------------------------------
+      Total |   .36640303   .48182656      46,528
+
+. egen tagc = tag(county)
+
+. tab in_IC_file if tagc
+
+ in_IC_file |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |      1,184       47.34       47.34
+          1 |      1,317       52.66      100.00
+------------+-----------------------------------
+      Total |      2,501      100.00
+
+. drop tagc
+
+. 
+. *------------------------------------------------ A. comparison groups
+. eststo clear
+
+. eststo A1: reghdfe ShannonBD Area $control,                  absorb(county year)       cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      86.83
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3372
+                                                  Adj R-squared   =     0.2999
+                                                  Within R-sq.    =     0.0398
+Number of clusters (county)  =      2,344         Root MSE        =     0.8208
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |   -.038703   .0117588    -3.29   0.001    -.0617617   -.0156444
+        Temp |  -.0070861   .0179971    -0.39   0.694     -.042378    .0282058
+        Wind |   .0402578   .0736769     0.55   0.585     -.104221    .1847366
+         Pop |  -.0936044   .1273825    -0.73   0.463    -.3433986    .1561898
+    Duration |   .1641431   .0057168    28.71   0.000     .1529327    .1753536
+      Carbon |  -.0993747   .0429924    -2.31   0.021    -.1836819   -.0150676
+       Water |  -1.410788    1.12264    -1.26   0.209    -3.612258    .7906825
+       Green |   1.190526   .9473302     1.26   0.209    -.6671669    3.048219
+        Farm |   .1599561   .7050549     0.23   0.821     -1.22264    1.542553
+       Grass |   1.129161   .9392902     1.20   0.229    -.7127652    2.971088
+       _cons |   3.697045   1.142747     3.24   0.001     1.456144    5.937946
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo A2: reghdfe ShannonBD Area $control,                  absorb(county year#urban) cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      82.72
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3413
+                                                  Adj R-squared   =     0.3023
+                                                  Within R-sq.    =     0.0383
+Number of clusters (county)  =      2,344         Root MSE        =     0.8194
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |  -.0297538   .0110284    -2.70   0.007    -.0513802   -.0081274
+        Temp |   .0018038   .0181142     0.10   0.921    -.0337179    .0373254
+        Wind |   .0401412   .0730146     0.55   0.583    -.1030387    .1833211
+         Pop |  -.0825233   .1262155    -0.65   0.513     -.330029    .1649823
+    Duration |   .1618414   .0057291    28.25   0.000     .1506068    .1730761
+      Carbon |  -.0902805   .0419561    -2.15   0.032    -.1725554   -.0080056
+       Water |  -.2653024   1.112436    -0.24   0.812    -2.446764    1.916159
+       Green |   1.685299   .8968675     1.88   0.060    -.0734373    3.444036
+        Farm |   1.000774   .6995337     1.43   0.153     -.370996    2.372543
+       Grass |   1.816068   .9445388     1.92   0.055    -.0361506    3.668287
+       _cons |   2.799212   1.136362     2.46   0.014     .5708326    5.027592
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2344        2344           0    *|
+   year#urban |       240           1         239     |
+------------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo A3: reghdfe ShannonBD Area $control,                  absorb(county pym)        cluster(county)
+(dropped 452 singleton observations)
+(MWFE estimator converged in 14 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,076
+Absorbing 2 HDFE groups                           F(  10,   2342) =      79.52
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.4063
+                                                  Adj R-squared   =     0.3275
+                                                  Within R-sq.    =     0.0373
+Number of clusters (county)  =      2,343         Root MSE        =     0.8028
+
+                             (Std. err. adjusted for 2,343 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |  -.0251383   .0119932    -2.10   0.036    -.0486566     -.00162
+        Temp |   .0229322   .0321098     0.71   0.475    -.0400344    .0858989
+        Wind |   .1042382   .1287026     0.81   0.418    -.1481446     .356621
+         Pop |   .0332901   .1121151     0.30   0.767    -.1865651    .2531453
+    Duration |   .1593912   .0057713    27.62   0.000     .1480739    .1707086
+      Carbon |   -.063265   .0468809    -1.35   0.177    -.1551975    .0286675
+       Water |   -.900561   1.191469    -0.76   0.450    -3.237005    1.435883
+       Green |  -.0460579   1.027605    -0.04   0.964    -2.061169    1.969053
+        Farm |  -.7708505   .7319772    -1.05   0.292    -2.206241    .6645402
+       Grass |   .8415294   .8254762     1.02   0.308    -.7772108     2.46027
+       _cons |   2.637569   1.198203     2.20   0.028       .28792    4.987217
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2343        2343           0    *|
+         pym |      3045           1        3044     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo A4: reghdfe ShannonBD Area $control if in_IC_file==1, absorb(county year)       cluster(county)
+(dropped 88 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     21,054
+Absorbing 2 HDFE groups                           F(  10,   1228) =      44.41
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3251
+                                                  Adj R-squared   =     0.2786
+                                                  Within R-sq.    =     0.0425
+Number of clusters (county)  =      1,229         Root MSE        =     0.8492
+
+                             (Std. err. adjusted for 1,229 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |  -.0225448   .0122456    -1.84   0.066    -.0465695    .0014799
+        Temp |  -.0290263   .0266103    -1.09   0.276     -.081233    .0231804
+        Wind |   .0041162   .1071736     0.04   0.969    -.2061474    .2143798
+         Pop |  -.1386437   .3195268    -0.43   0.664    -.7655225    .4882351
+    Duration |    .180641   .0087503    20.64   0.000     .1634738    .1978081
+      Carbon |  -.0238115   .0462847    -0.51   0.607    -.1146174    .0669943
+       Water |  -1.060528    1.41399    -0.75   0.453    -3.834631    1.713575
+       Green |  -.4504138   1.228498    -0.37   0.714    -2.860602    1.959774
+        Farm |   .2894273   .8873267     0.33   0.744    -1.451417    2.030272
+       Grass |   2.612448    .902027     2.90   0.004      .842763    4.382132
+       _cons |   3.383135   2.000993     1.69   0.091    -.5426079    7.308878
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1229        1229           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo A5: reghdfe ShannonBD Area $control if in_PI_file==1, absorb(county year)       cluster(county)
+(dropped 136 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     26,007
+Absorbing 2 HDFE groups                           F(  10,   1640) =      67.37
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3474
+                                                  Adj R-squared   =     0.2998
+                                                  Within R-sq.    =     0.0511
+Number of clusters (county)  =      1,641         Root MSE        =     0.8563
+
+                             (Std. err. adjusted for 1,641 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |  -.0303614   .0137469    -2.21   0.027    -.0573246   -.0033981
+        Temp |   .0072894   .0226384     0.32   0.747    -.0371138    .0516927
+        Wind |   .0353071   .0973941     0.36   0.717    -.1557228     .226337
+         Pop |   .0598926   .2205009     0.27   0.786    -.3726005    .4923856
+    Duration |   .1974086   .0078176    25.25   0.000      .182075    .2127423
+      Carbon |  -.0899245   .0516817    -1.74   0.082    -.1912936    .0114445
+       Water |  -3.545237   1.318435    -2.69   0.007    -6.131231   -.9592434
+       Green |   .3709405   1.241533     0.30   0.765    -2.064216    2.806097
+        Farm |   -.364864   .9883887    -0.37   0.712    -2.303501    1.573773
+       Grass |   .1197034   1.200673     0.10   0.921     -2.23531    2.474717
+       _cons |   3.012328   1.572874     1.92   0.056    -.0727248     6.09738
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1641        1641           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo A6: reghdfe ShannonBD Area $control if urban==0,      absorb(county year)       cluster(county)
+(dropped 125 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     22,164
+Absorbing 2 HDFE groups                           F(  10,   1496) =      64.46
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3582
+                                                  Adj R-squared   =     0.3075
+                                                  Within R-sq.    =     0.0523
+Number of clusters (county)  =      1,497         Root MSE        =     0.8541
+
+                             (Std. err. adjusted for 1,497 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |  -.0278586   .0151168    -1.84   0.066    -.0575109    .0017937
+        Temp |   .0046024   .0240664     0.19   0.848    -.0426051    .0518099
+        Wind |   .0404548   .1013443     0.40   0.690    -.1583372    .2392469
+         Pop |   .0875119    .211948     0.41   0.680    -.3282349    .5032586
+    Duration |   .1996612   .0081266    24.57   0.000     .1837204     .215602
+      Carbon |  -.1163352   .0528738    -2.20   0.028    -.2200498   -.0126206
+       Water |  -.8143618   1.748108    -0.47   0.641    -4.243365    2.614641
+       Green |   1.475743   1.286066     1.15   0.251     -1.04694    3.998426
+        Farm |   .9210582   1.065625     0.86   0.388     -1.16922    3.011336
+       Grass |   1.300507   1.392185     0.93   0.350    -1.430335    4.031348
+       _cons |   2.150453   1.606858     1.34   0.181    -1.001481    5.302387
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1497        1497           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. esttab A*, keep(Area) cells(b(fmt(4) star) se(fmt(4) par) p(fmt(3) par("[" "]"))) star(* 0.10 ** 0.05 *** 0.01) stats(
+> N N_clust, fmt(0 0)) ///
+>     mtitles("Paper" "Urban x YM" "Prov x YM" "IC-file only" "Real-PSI only" "Rural only") ///
+>     title("A. Solar-plant area (km2) and ShannonBD")
+
+A. Solar-plant area (km2) and ShannonBD
+------------------------------------------------------------------------------------------------------------
+                      (1)             (2)             (3)             (4)             (5)             (6)   
+                    Paper      Urban x YM       Prov x YM    IC-file only    Real-PSI o~y      Rural only   
+                   b/se/p          b/se/p          b/se/p          b/se/p          b/se/p          b/se/p   
+------------------------------------------------------------------------------------------------------------
+Area              -0.0387***      -0.0298***      -0.0251**       -0.0225*        -0.0304**       -0.0279*  
+                 (0.0118)        (0.0110)        (0.0120)        (0.0122)        (0.0137)        (0.0151)   
+                  [0.001]         [0.007]         [0.036]         [0.066]         [0.027]         [0.066]   
+------------------------------------------------------------------------------------------------------------
+N                   46371           46371           46076           21054           26007           22164   
+N_clust              2344            2344            2343            1229            1641            1497   
+------------------------------------------------------------------------------------------------------------
+
+. esttab A* using "$T5/tables/5_5_pv_area.rtf", replace keep(Area) cells(b(fmt(4) star) se(fmt(4) par) p(fmt(3) par("[" 
+> "]"))) ///
+>     star(* 0.10 ** 0.05 *** 0.01) stats(N N_clust, fmt(0 0))
+(file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/tables/5_5_pv_area.rtf
+    not found)
+(output written to /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/tables/5_5_pv_
+> area.rtf)
+
+. 
+. *------------------------------------------------ B. functional form
+. eststo clear
+
+. eststo B1: reghdfe ShannonBD lnArea $control, absorb(county year)       cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      88.43
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3375
+                                                  Adj R-squared   =     0.3002
+                                                  Within R-sq.    =     0.0403
+Number of clusters (county)  =      2,344         Root MSE        =     0.8206
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+      lnArea |  -.1605399   .0339426    -4.73   0.000    -.2271006   -.0939792
+        Temp |  -.0050254   .0179666    -0.28   0.780    -.0402575    .0302067
+        Wind |   .0383066   .0736107     0.52   0.603    -.1060422    .1826554
+         Pop |  -.0943237   .1262714    -0.75   0.455     -.341939    .1532917
+    Duration |   .1640839    .005723    28.67   0.000     .1528613    .1753066
+      Carbon |  -.0931687   .0427479    -2.18   0.029    -.1769964    -.009341
+       Water |  -1.472058   1.118766    -1.32   0.188    -3.665933    .7218167
+       Green |   1.338785   .9357957     1.43   0.153    -.4962883    3.173859
+        Farm |    .341168   .7013809     0.49   0.627    -1.034224     1.71656
+       Grass |   1.256418   .9324255     1.35   0.178    -.5720471    3.084883
+       _cons |   3.478408   1.134002     3.07   0.002     1.254657    5.702159
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo B2: reghdfe ShannonBD lnArea $control, absorb(county year#urban) cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      83.65
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3415
+                                                  Adj R-squared   =     0.3025
+                                                  Within R-sq.    =     0.0386
+Number of clusters (county)  =      2,344         Root MSE        =     0.8193
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+      lnArea |  -.1302306   .0336468    -3.87   0.000    -.1962111     -.06425
+        Temp |   .0032304   .0180853     0.18   0.858    -.0322344    .0386953
+        Wind |   .0393279   .0730081     0.54   0.590    -.1038393    .1824951
+         Pop |   -.083259   .1251126    -0.67   0.506    -.3286018    .1620839
+    Duration |   .1618648    .005732    28.24   0.000     .1506246     .173105
+      Carbon |  -.0852559   .0419258    -2.03   0.042    -.1674715   -.0030404
+       Water |  -.3574368     1.1093    -0.32   0.747    -2.532748    1.817874
+       Green |   1.789025   .8891231     2.01   0.044     .0454752    3.532575
+        Farm |   1.117269   .6969734     1.60   0.109    -.2494793    2.484018
+       Grass |   1.892025   .9374731     2.02   0.044     .0536615    3.730388
+       _cons |   2.645836   1.129537     2.34   0.019     .4308393    4.860833
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2344        2344           0    *|
+   year#urban |       240           1         239     |
+------------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo B3: reghdfe ShannonBD anyPV  $control, absorb(county year)       cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      86.12
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3370
+                                                  Adj R-squared   =     0.2997
+                                                  Within R-sq.    =     0.0395
+Number of clusters (county)  =      2,344         Root MSE        =     0.8209
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+       anyPV |  -.0608286   .0332933    -1.83   0.068    -.1261161    .0044588
+        Temp |  -.0086472   .0180378    -0.48   0.632    -.0440189    .0267246
+        Wind |   .0334462   .0738617     0.45   0.651    -.1113948    .1782872
+         Pop |  -.0854858   .1280662    -0.67   0.505    -.3366207    .1656491
+    Duration |   .1641206   .0057254    28.67   0.000     .1528932    .1753479
+      Carbon |  -.1074098   .0428911    -2.50   0.012    -.1915183   -.0233014
+       Water |  -1.497401   1.128021    -1.33   0.184    -3.709423    .7146221
+       Green |   1.125784   .9597794     1.17   0.241    -.7563209     3.00789
+        Farm |   .0564494   .7136242     0.08   0.937    -1.342951     1.45585
+       Grass |   1.272088   .9311349     1.37   0.172    -.5538458    3.098023
+       _cons |   3.863263   1.137126     3.40   0.001     1.633385    6.093141
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo B4: reghdfe ShannonBD anyPV  $control, absorb(county year#urban) cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      82.22
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3412
+                                                  Adj R-squared   =     0.3022
+                                                  Within R-sq.    =     0.0381
+Number of clusters (county)  =      2,344         Root MSE        =     0.8195
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+       anyPV |  -.0470511   .0339468    -1.39   0.166    -.1136199    .0195177
+        Temp |   .0007517   .0181501     0.04   0.967    -.0348402    .0363437
+        Wind |   .0349491   .0731296     0.48   0.633    -.1084562    .1783545
+         Pop |  -.0762344   .1266239    -0.60   0.547    -.3245409    .1720722
+    Duration |   .1617851   .0057355    28.21   0.000      .150538    .1730322
+      Carbon |  -.0961772   .0418878    -2.30   0.022    -.1783181   -.0140362
+       Water |  -.3084339   1.118743    -0.28   0.783    -2.502263    1.885395
+       Green |   1.645798   .9059733     1.82   0.069    -.1307947    3.422391
+        Farm |   .9397385   .7057196     1.33   0.183    -.4441614    2.323638
+       Grass |   1.938455   .9346305     2.07   0.038     .1056662    3.771244
+       _cons |   2.908417   1.133342     2.57   0.010     .6859593    5.130875
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2344        2344           0    *|
+   year#urban |       240           1         239     |
+------------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. esttab B*, keep(lnArea anyPV) cells(b(fmt(4) star) se(fmt(4) par) p(fmt(3) par("[" "]"))) star(* 0.10 ** 0.05 *** 0.01
+> ) ///
+>     title("B. Functional form")
+
+B. Functional form
+----------------------------------------------------------------------------
+                      (1)             (2)             (3)             (4)   
+                ShannonBD       ShannonBD       ShannonBD       ShannonBD   
+                   b/se/p          b/se/p          b/se/p          b/se/p   
+----------------------------------------------------------------------------
+lnArea            -0.1605***      -0.1302***                                
+                 (0.0339)        (0.0336)                                   
+                  [0.000]         [0.000]                                   
+anyPV                                             -0.0608*        -0.0471   
+                                                 (0.0333)        (0.0339)   
+                                                  [0.068]         [0.166]   
+----------------------------------------------------------------------------
+N                   46371           46371           46371           46371   
+----------------------------------------------------------------------------
+
+. esttab B* using "$T5/tables/5_5_pv_area.rtf", append keep(lnArea anyPV) cells(b(fmt(4) star) se(fmt(4) par) p(fmt(3) p
+> ar("[" "]"))) ///
+>     star(* 0.10 ** 0.05 *** 0.01)
+(output written to /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/tables/5_5_pv_
+> area.rtf)
+
+. 
+. *------------------------------------------------ C. timing
+. eststo clear
+
+. eststo C1: reghdfe ShannonBD Area_l1 $control,      absorb(county year)       cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      85.98
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3373
+                                                  Adj R-squared   =     0.3000
+                                                  Within R-sq.    =     0.0399
+Number of clusters (county)  =      2,344         Root MSE        =     0.8208
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     Area_l1 |  -.0724649    .021506    -3.37   0.001    -.1146378   -.0302921
+        Temp |  -.0095008    .017953    -0.53   0.597    -.0447063    .0257046
+        Wind |   .0369447   .0735991     0.50   0.616    -.1073815    .1812709
+         Pop |  -.0991335   .1264839    -0.78   0.433    -.3471656    .1488986
+    Duration |   .1641314   .0057243    28.67   0.000     .1529061    .1753566
+      Carbon |  -.0986664   .0425871    -2.32   0.021    -.1821786   -.0151541
+       Water |  -1.369905   1.112616    -1.23   0.218     -3.55172     .811909
+       Green |   1.294962   .9481388     1.37   0.172    -.5643162    3.154241
+        Farm |   .2570536   .7136063     0.36   0.719    -1.142312    1.656419
+       Grass |    1.21046   .9327389     1.30   0.195    -.6186201    3.039539
+       _cons |   3.687641   1.136412     3.24   0.001     1.459163     5.91612
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo C2: reghdfe ShannonBD Area_l2 $control,      absorb(county year)       cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      86.36
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3372
+                                                  Adj R-squared   =     0.2999
+                                                  Within R-sq.    =     0.0398
+Number of clusters (county)  =      2,344         Root MSE        =     0.8208
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     Area_l2 |  -.0732874   .0236738    -3.10   0.002    -.1197112   -.0268636
+        Temp |  -.0088154   .0179715    -0.49   0.624    -.0440571    .0264264
+        Wind |   .0337498   .0735229     0.46   0.646    -.1104269    .1779265
+         Pop |  -.0976646   .1262982    -0.77   0.439    -.3453324    .1500033
+    Duration |   .1640772   .0057233    28.67   0.000      .152854    .1753004
+      Carbon |   -.100416   .0425969    -2.36   0.018    -.1839476   -.0168844
+       Water |  -1.331114   1.106894    -1.20   0.229    -3.501708    .8394805
+       Green |   1.200551   .9516528     1.26   0.207    -.6656186     3.06672
+        Farm |   .1989498   .7140069     0.28   0.781    -1.201201    1.599101
+       Grass |   1.120221    .939439     1.19   0.233    -.7219974    2.962439
+       _cons |   3.757673   1.137525     3.30   0.001     1.527014    5.988333
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo C3: reghdfe ShannonBD Area_f1 $control,      absorb(county year)       cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      86.39
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3371
+                                                  Adj R-squared   =     0.2997
+                                                  Within R-sq.    =     0.0396
+Number of clusters (county)  =      2,344         Root MSE        =     0.8209
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     Area_f1 |  -.0217041   .0088336    -2.46   0.014    -.0390266   -.0043817
+        Temp |  -.0079218   .0179631    -0.44   0.659     -.043147    .0273034
+        Wind |   .0327816   .0737661     0.44   0.657    -.1118719    .1774352
+         Pop |  -.0935465   .1276974    -0.73   0.464    -.3439581    .1568652
+    Duration |   .1641899   .0057188    28.71   0.000     .1529754    .1754044
+      Carbon |  -.1006479   .0434662    -2.32   0.021     -.185884   -.0154118
+       Water |  -1.373551   1.126245    -1.22   0.223    -3.582092    .8349908
+       Green |   1.102609   .9532178     1.16   0.248     -.766629    2.971847
+        Farm |   .1038518   .7053254     0.15   0.883    -1.279275    1.486979
+       Grass |   1.100445   .9440517     1.17   0.244    -.7508192    2.951708
+       _cons |   3.791055   1.141629     3.32   0.001     1.552348    6.029763
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo C4: reghdfe ShannonBD Area_f1 $control,      absorb(county year#urban) cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      82.61
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3412
+                                                  Adj R-squared   =     0.3022
+                                                  Within R-sq.    =     0.0382
+Number of clusters (county)  =      2,344         Root MSE        =     0.8194
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     Area_f1 |  -.0172606   .0082688    -2.09   0.037    -.0334755   -.0010456
+        Temp |   .0013601   .0180895     0.08   0.940    -.0341129    .0368331
+        Wind |   .0341296    .073072     0.47   0.640    -.1091629    .1774221
+         Pop |   -.082635   .1264736    -0.65   0.514    -.3306468    .1653767
+    Duration |   .1618418   .0057312    28.24   0.000     .1506031    .1730805
+      Carbon |  -.0907124   .0423354    -2.14   0.032    -.1737311   -.0076937
+       Water |  -.2136802   1.113303    -0.19   0.848    -2.396841    1.969481
+       Green |   1.628491   .9007521     1.81   0.071    -.1378632    3.394845
+        Farm |   .9775411   .6997403     1.40   0.163    -.3946335    2.349716
+       Grass |   1.801044   .9492811     1.90   0.058     -.060474    3.662563
+       _cons |   2.850138   1.136232     2.51   0.012     .6220132    5.078263
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2344        2344           0    *|
+   year#urban |       240           1         239     |
+------------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo C5: reghdfe ShannonBD Area_f1 Area $control, absorb(county year)       cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  11,   2343) =      78.94
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3372
+                                                  Adj R-squared   =     0.2998
+                                                  Within R-sq.    =     0.0398
+Number of clusters (county)  =      2,344         Root MSE        =     0.8208
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     Area_f1 |  -.0038749     .01029    -0.38   0.707    -.0240532    .0163035
+        Area |  -.0350721   .0141408    -2.48   0.013     -.062802   -.0073423
+        Temp |  -.0069901   .0179831    -0.39   0.698    -.0422546    .0282744
+        Wind |    .039274   .0737709     0.53   0.595     -.105389     .183937
+         Pop |  -.0940656   .1273908    -0.74   0.460     -.343876    .1557448
+    Duration |   .1641414   .0057171    28.71   0.000     .1529303    .1753525
+      Carbon |  -.0986439   .0432625    -2.28   0.023    -.1834807   -.0138071
+       Water |  -1.398579   1.125612    -1.24   0.214    -3.605878    .8087209
+       Green |   1.186887   .9472751     1.25   0.210    -.6706971    3.044472
+        Farm |   .1658541    .704037     0.24   0.814    -1.214746    1.546454
+       Grass |   1.116786   .9423915     1.19   0.236    -.7312226    2.964794
+       _cons |    3.69009   1.142773     3.23   0.001      1.44914    5.931041
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo C6: reghdfe ShannonBD Area PI $control,      absorb(county year)       cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  11,   2343) =      81.41
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3375
+                                                  Adj R-squared   =     0.3002
+                                                  Within R-sq.    =     0.0402
+Number of clusters (county)  =      2,344         Root MSE        =     0.8206
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |  -.0387267   .0118194    -3.28   0.001    -.0619043   -.0155491
+          PI |  -.0125357   .0036557    -3.43   0.001    -.0197045    -.005367
+        Temp |  -.0044096   .0180745    -0.24   0.807    -.0398533    .0310341
+        Wind |    .047645   .0734851     0.65   0.517    -.0964576    .1917475
+         Pop |  -.0940784   .1273277    -0.74   0.460     -.343765    .1556082
+    Duration |   .1636913   .0057222    28.61   0.000     .1524701    .1749124
+      Carbon |  -.1004395   .0430935    -2.33   0.020    -.1849449   -.0159342
+       Water |  -1.214061   1.117667    -1.09   0.277     -3.40578    .9776588
+       Green |   1.294289   .9366801     1.38   0.167    -.5425191    3.131097
+        Farm |   .2537538    .699746     0.36   0.717    -1.118432     1.62594
+       Grass |   1.178607   .9494921     1.24   0.215    -.6833247     3.04054
+       _cons |   3.612972   1.139385     3.17   0.002     1.378664    5.847281
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. esttab C*, keep(Area_l1 Area_l2 Area_f1 Area PI) cells(b(fmt(4) star) se(fmt(4) par) p(fmt(3) par("[" "]"))) star(* 0.
+> 10 ** 0.05 *** 0.01) ///
+>     mtitles("Lag 1" "Lag 2" "Lead 1" "Lead 1 urbYM" "Lead+current" "Area+PSI") ///
+>     title("C. Timing and horse race")
+
+C. Timing and horse race
+------------------------------------------------------------------------------------------------------------
+                      (1)             (2)             (3)             (4)             (5)             (6)   
+                    Lag 1           Lag 2          Lead 1    Lead 1 urbYM    Lead+current        Area+PSI   
+                   b/se/p          b/se/p          b/se/p          b/se/p          b/se/p          b/se/p   
+------------------------------------------------------------------------------------------------------------
+Area_l1           -0.0725***                                                                                
+                 (0.0215)                                                                                   
+                  [0.001]                                                                                   
+Area_l2                           -0.0733***                                                                
+                                 (0.0237)                                                                   
+                                  [0.002]                                                                   
+Area_f1                                           -0.0217**       -0.0173**       -0.0039                   
+                                                 (0.0088)        (0.0083)        (0.0103)                   
+                                                  [0.014]         [0.037]         [0.707]                   
+Area                                                                              -0.0351**       -0.0387***
+                                                                                 (0.0141)        (0.0118)   
+                                                                                  [0.013]         [0.001]   
+PI                                                                                                -0.0125***
+                                                                                                 (0.0037)   
+                                                                                                  [0.001]   
+------------------------------------------------------------------------------------------------------------
+N                   46371           46371           46371           46371           46371           46371   
+------------------------------------------------------------------------------------------------------------
+
+. esttab C* using "$T5/tables/5_5_pv_area.rtf", append keep(Area_l1 Area_l2 Area_f1 Area PI) ///
+>     cells(b(fmt(4) star) se(fmt(4) par) p(fmt(3) par("[" "]"))) star(* 0.10 ** 0.05 *** 0.01)
+(output written to /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/tables/5_5_pv_
+> area.rtf)
+
+. 
+. *------------------------------------------------ D. measurement (effort)
+. eststo clear
+
+. eststo D1: reghdfe lnBN      Area $control_noD,      absorb(county year)       cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(   9,   2343) =       4.13
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.4930
+                                                  Adj R-squared   =     0.4644
+                                                  Within R-sq.    =     0.0049
+Number of clusters (county)  =      2,344         Root MSE        =     0.8247
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+        lnBN | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |  -.0842721   .0223144    -3.78   0.000      -.12803   -.0405142
+        Temp |  -.0574326   .0277145    -2.07   0.038    -.1117801   -.0030851
+        Wind |   .1813539   .1186407     1.53   0.126    -.0512977    .4140056
+         Pop |  -.1411108   .2055829    -0.69   0.493    -.5442542    .2620325
+      Carbon |  -.1680667   .0689554    -2.44   0.015    -.3032866   -.0328468
+       Water |  -3.449037   2.157946    -1.60   0.110    -7.680719    .7826447
+       Green |  -2.694285   1.778062    -1.52   0.130    -6.181022     .792453
+        Farm |  -.8004523   1.438651    -0.56   0.578    -3.621615     2.02071
+       Grass |   1.379201   1.144929     1.20   0.228     -.865978     3.62438
+       _cons |    5.93164   1.745919     3.40   0.001     2.507933    9.355347
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo D2: reghdfe lnBN      Area $control_noD,      absorb(county year#urban) cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(   9,   2343) =       3.97
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.5085
+                                                  Adj R-squared   =     0.4794
+                                                  Within R-sq.    =     0.0033
+Number of clusters (county)  =      2,344         Root MSE        =     0.8131
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+        lnBN | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |  -.0548909   .0181385    -3.03   0.003    -.0904601   -.0193218
+        Temp |  -.0221261   .0257423    -0.86   0.390    -.0726062    .0283539
+        Wind |   .1446154   .1122786     1.29   0.198    -.0755604    .3647913
+         Pop |  -.1117628   .2024486    -0.55   0.581    -.5087598    .2852342
+      Carbon |  -.1545474   .0727879    -2.12   0.034    -.2972828   -.0118119
+       Water |   .1394019   2.070694     0.07   0.946    -3.921181    4.199985
+       Green |  -1.240751   1.540739    -0.81   0.421    -4.262104    1.780601
+        Farm |   2.006366   1.332565     1.51   0.132    -.6067637    4.619495
+       Grass |   3.548643   1.094191     3.24   0.001      1.40296    5.694326
+       _cons |   3.293825   1.742488     1.89   0.059    -.1231535    6.710803
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2344        2344           0    *|
+   year#urban |       240           1         239     |
+------------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo D3: reghdfe ShannonBD Area lnBN $control,     absorb(county year)       cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  11,   2343) =     313.70
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.4431
+                                                  Adj R-squared   =     0.4117
+                                                  Within R-sq.    =     0.1932
+Number of clusters (county)  =      2,344         Root MSE        =     0.7524
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |  -.0055231   .0112742    -0.49   0.624    -.0276317    .0165854
+        lnBN |   .4009892   .0072963    54.96   0.000     .3866813    .4152971
+        Temp |   .0149333   .0169961     0.88   0.380    -.0183956    .0482622
+        Wind |  -.0376088   .0670958    -0.56   0.575    -.1691822    .0939646
+         Pop |  -.0372517   .1117463    -0.33   0.739    -.2563837    .1818803
+    Duration |    .122839   .0054067    22.72   0.000     .1122365    .1334414
+      Carbon |  -.0263174   .0395117    -0.67   0.505    -.1037988    .0511641
+       Water |  -.1479143   .9125917    -0.16   0.871    -1.937486    1.641657
+       Green |   2.249926   .7782654     2.89   0.004     .7237654    3.776086
+        Farm |   .3400363   .6440158     0.53   0.598    -.9228639    1.602937
+       Grass |   .4992445    .963171     0.52   0.604    -1.389512    2.388001
+       _cons |   1.395427   .9877572     1.41   0.158    -.5415421    3.332396
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo D4: reghdfe ShannonBD Area lnBN $control,     absorb(county year#urban) cluster(county)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  11,   2343) =     327.58
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.4451
+                                                  Adj R-squared   =     0.4123
+                                                  Within R-sq.    =     0.1899
+Number of clusters (county)  =      2,344         Root MSE        =     0.7520
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |  -.0077257   .0110218    -0.70   0.483    -.0293391    .0138878
+        lnBN |   .4029402   .0071489    56.36   0.000     .3889213    .4169591
+        Temp |   .0103757    .016988     0.61   0.541    -.0229374    .0436888
+        Wind |  -.0240369    .066818    -0.36   0.719    -.1550655    .1069916
+         Pop |  -.0371511   .1104887    -0.34   0.737     -.253817    .1795148
+    Duration |   .1232657   .0053851    22.89   0.000     .1127057    .1338257
+      Carbon |   -.022508   .0411938    -0.55   0.585     -.103288     .058272
+       Water |  -.3749156   .9520995    -0.39   0.694    -2.241961     1.49213
+       Green |   2.191327   .7891651     2.78   0.006     .6437927    3.738862
+        Farm |   .1077059   .6735723     0.16   0.873    -1.213154    1.428566
+       Grass |   .3459732   .9730053     0.36   0.722    -1.562068    2.254014
+       _cons |   1.500553   1.015815     1.48   0.140    -.4914371    3.492544
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2344        2344           0    *|
+   year#urban |       240           1         239     |
+------------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo D5: reghdfe Richness  Area $control,          absorb(county year)       cluster(county)
+(dropped 156 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     45,606
+Absorbing 2 HDFE groups                           F(  10,   2314) =      76.40
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.4888
+                                                  Adj R-squared   =     0.4598
+                                                  Within R-sq.    =     0.0477
+Number of clusters (county)  =      2,315         Root MSE        =    23.9514
+
+                             (Std. err. adjusted for 2,315 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+    Richness | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |  -1.830823   .6180222    -2.96   0.003    -3.042758   -.6188879
+        Temp |  -1.101323   .7276164    -1.51   0.130    -2.528171    .3255254
+        Wind |   .3377301   2.880189     0.12   0.907    -5.310292    5.985752
+         Pop |  -4.841871   5.751472    -0.84   0.400    -16.12045    6.436707
+    Duration |   5.182378    .196653    26.35   0.000     4.796743    5.568012
+      Carbon |  -3.798224   1.711381    -2.22   0.027    -7.154224   -.4422233
+       Water |  -47.80374   52.24967    -0.91   0.360    -150.2648    54.65732
+       Green |   30.32714   44.14833     0.69   0.492    -56.24727    116.9015
+        Farm |   28.34333   34.63927     0.82   0.413    -39.58391    96.27058
+       Grass |   102.0278   36.10475     2.83   0.005     31.22671    172.8288
+       _cons |   98.59137   44.48517     2.22   0.027     11.35641    185.8263
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2315        2315           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo D6: reghdfe Evenness  Area $control,          absorb(county year)       cluster(county)
+(dropped 177 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     43,958
+Absorbing 2 HDFE groups                           F(  10,   2281) =       0.87
+Statistics robust to heteroskedasticity           Prob > F        =     0.5642
+                                                  R-squared       =     0.2360
+                                                  Adj R-squared   =     0.1916
+                                                  Within R-sq.    =     0.0004
+Number of clusters (county)  =      2,282         Root MSE        =     0.1456
+
+                             (Std. err. adjusted for 2,282 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+    Evenness | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |   .0039254   .0026209     1.50   0.134    -.0012143     .009065
+        Temp |   .0020426    .003191     0.64   0.522    -.0042151    .0083002
+        Wind |   .0035771   .0131729     0.27   0.786     -.022255    .0294092
+         Pop |   .0042208   .0211253     0.20   0.842     -.037206    .0456477
+    Duration |   .0011342   .0007919     1.43   0.152    -.0004187    .0026871
+      Carbon |   .0025554   .0077286     0.33   0.741    -.0126003    .0177112
+       Water |   .1589945   .1789609     0.89   0.374    -.1919486    .5099376
+       Green |   .1590439   .1279983     1.24   0.214    -.0919613     .410049
+        Farm |   .1590931   .1151462     1.38   0.167    -.0667091    .3848953
+       Grass |   .0350267   .1549061     0.23   0.821     -.268745    .3387983
+       _cons |   .5827406   .1834156     3.18   0.002     .2230618    .9424193
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2282        2282           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo D7: reghdfe ShannonBD5 Area $control,         absorb(county year)       cluster(county)
+(dropped 338 singleton observations)
+(MWFE estimator converged in 8 iterations)
+
+HDFE Linear regression                            Number of obs   =     22,314
+Absorbing 2 HDFE groups                           F(  10,   1487) =      20.12
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3963
+                                                  Adj R-squared   =     0.3492
+                                                  Within R-sq.    =     0.0154
+Number of clusters (county)  =      1,488         Root MSE        =     0.5287
+
+                             (Std. err. adjusted for 1,488 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+  ShannonBD5 | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |  -.0261689    .015742    -1.66   0.097    -.0570478    .0047101
+        Temp |  -.0261809   .0167607    -1.56   0.118     -.059058    .0066963
+        Wind |   .0212238   .0656175     0.32   0.746    -.1074889    .1499365
+         Pop |  -.0585521   .1248663    -0.47   0.639    -.3034849    .1863806
+    Duration |    .064486   .0046779    13.79   0.000       .05531     .073662
+      Carbon |  -.0630464   .0379162    -1.66   0.097    -.1374214    .0113285
+       Water |   .4732362   1.070052     0.44   0.658    -1.625737    2.572209
+       Green |   .2737282   .7232515     0.38   0.705    -1.144973     1.69243
+        Farm |  -.2582053   .5062103    -0.51   0.610    -1.251168    .7347569
+       Grass |   1.336542    1.11376     1.20   0.230    -.8481669     3.52125
+       _cons |   4.479015   .9604777     4.66   0.000     2.594979     6.36305
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1488        1488           0    *|
+        year |       119           1         118     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. esttab D*, keep(Area) cells(b(fmt(4) star) se(fmt(4) par) p(fmt(3) par("[" "]"))) star(* 0.10 ** 0.05 *** 0.01) stats(
+> N, fmt(0)) ///
+>     mtitles("lnBN" "lnBN urbYM" "Shannon|lnBN" "Shannon|lnBN urbYM" "Richness" "Evenness" "Shannon (BT>=5)") ///
+>     title("D. Is the area effect an effort / measurement effect?")
+
+D. Is the area effect an effort / measurement effect?
+------------------------------------------------------------------------------------------------------------------------
+> ----
+                      (1)             (2)             (3)             (4)             (5)             (6)             (7
+> )   
+                     lnBN      lnBN urbYM    Shannon|lnBN    Shannon|ln~M        Richness        Evenness    Shannon (~5
+> )   
+                   b/se/p          b/se/p          b/se/p          b/se/p          b/se/p          b/se/p          b/se/
+> p   
+------------------------------------------------------------------------------------------------------------------------
+> ----
+Area              -0.0843***      -0.0549***      -0.0055         -0.0077         -1.8308***       0.0039         -0.026
+> 2*  
+                 (0.0223)        (0.0181)        (0.0113)        (0.0110)        (0.6180)        (0.0026)        (0.0157
+> )   
+                  [0.000]         [0.003]         [0.624]         [0.483]         [0.003]         [0.134]         [0.097
+> ]   
+------------------------------------------------------------------------------------------------------------------------
+> ----
+N                   46371           46371           46371           46371           45606           43958           2231
+> 4   
+------------------------------------------------------------------------------------------------------------------------
+> ----
+
+. esttab D* using "$T5/tables/5_5_pv_area.rtf", append keep(Area) cells(b(fmt(4) star) se(fmt(4) par) p(fmt(3) par("[" "
+> ]"))) ///
+>     star(* 0.10 ** 0.05 *** 0.01) stats(N, fmt(0))
+(output written to /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/tables/5_5_pv_
+> area.rtf)
+
+. 
+. *------------------------------------------------ E. PSI and Area within county
+. use "$DATA/IC.dta", clear
+
+. keep id YEAR ICtotal
+
+. gen Area_raw = ICtotal*1000/0.15/1000000
+
+. xtset id YEAR
+
+Panel variable: id (strongly balanced)
+ Time variable: YEAR, 2009 to 2024
+         Delta: 1 unit
+
+. gen Area_f1 = F1.Area_raw
+(1,430 missing values generated)
+
+. gen Area_f2 = F2.Area_raw
+(2,860 missing values generated)
+
+. merge 1:1 id YEAR using "$DATA/PI.dta", keepus(PI) keep(match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            11,560  
+    -----------------------------------------
+
+. keep if YEAR >= 2014
+(0 observations deleted)
+
+. pwcorr PI Area_raw Area_f1 Area_f2, sig
+
+             |       PI Area_raw  Area_f1  Area_f2
+-------------+------------------------------------
+          PI |   1.0000 
+             |
+             |
+    Area_raw |  -0.0261   1.0000 
+             |   0.0050
+             |
+     Area_f1 |  -0.0308   0.9518   1.0000 
+             |   0.0009   0.0000
+             |
+     Area_f2 |  -0.0460   0.9141   0.9515   1.0000 
+             |   0.0000   0.0000   0.0000
+             |
+
+. eststo clear
+
+. eststo E1: reghdfe Area_raw PI, absorb(id YEAR) cluster(id)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =     11,560
+Absorbing 2 HDFE groups                           F(   1,   1155) =       9.09
+Statistics robust to heteroskedasticity           Prob > F        =     0.0026
+                                                  R-squared       =     0.7218
+                                                  Adj R-squared   =     0.6906
+                                                  Within R-sq.    =     0.0032
+Number of clusters (id)      =      1,156         Root MSE        =     1.1341
+
+                                 (Std. err. adjusted for 1,156 clusters in id)
+------------------------------------------------------------------------------
+             |               Robust
+    Area_raw | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0349321   .0115888    -3.01   0.003    -.0576695   -.0121946
+       _cons |   .7683796   .0389737    19.72   0.000     .6919125    .8448467
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+          id |      1156        1156           0    *|
+        YEAR |        10           1           9     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo E2: reghdfe Area_f1  PI, absorb(id YEAR) cluster(id)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =     11,560
+Absorbing 2 HDFE groups                           F(   1,   1155) =      19.27
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.7102
+                                                  Adj R-squared   =     0.6777
+                                                  Within R-sq.    =     0.0062
+Number of clusters (id)      =      1,156         Root MSE        =     1.4394
+
+                                 (Std. err. adjusted for 1,156 clusters in id)
+------------------------------------------------------------------------------
+             |               Robust
+     Area_f1 | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0617658   .0140699    -4.39   0.000    -.0893712   -.0341604
+       _cons |   1.051536   .0473176    22.22   0.000      .958698    1.144374
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+          id |      1156        1156           0    *|
+        YEAR |        10           1           9     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo E3: reghdfe Area_f2  PI, absorb(id YEAR) cluster(id)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =     10,404
+Absorbing 2 HDFE groups                           F(   1,   1155) =      18.09
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.7413
+                                                  Adj R-squared   =     0.7087
+                                                  Within R-sq.    =     0.0035
+Number of clusters (id)      =      1,156         Root MSE        =     1.4304
+
+                                 (Std. err. adjusted for 1,156 clusters in id)
+------------------------------------------------------------------------------
+             |               Robust
+     Area_f2 | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0541488   .0127314    -4.25   0.000     -.079128   -.0291695
+       _cons |   1.085075   .0391787    27.70   0.000     1.008206    1.161944
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+          id |      1156        1156           0    *|
+        YEAR |         9           1           8     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. esttab E*, keep(PI) cells(b(fmt(4) star) se(fmt(4) par) p(fmt(3) par("[" "]"))) mtitles("Area same yr" "Area +1 yr" "A
+> rea +2 yr") ///
+>     title("E. Within-county link between PSI and solar-plant area")
+
+E. Within-county link between PSI and solar-plant area
+------------------------------------------------------------
+                      (1)             (2)             (3)   
+             Area same yr      Area +1 yr      Area +2 yr   
+                   b/se/p          b/se/p          b/se/p   
+------------------------------------------------------------
+PI                -0.0349**       -0.0618***      -0.0541***
+                 (0.0116)        (0.0141)        (0.0127)   
+                  [0.003]         [0.000]         [0.000]   
+------------------------------------------------------------
+N                   11560           11560           10404   
+------------------------------------------------------------
+
+. 
+. * Expected (verified): A1 -0.0387 (0.0118)  A2 -0.0298 (0.0110)
+. *   D1 -0.0843  D3 -0.0055 (p=0.62)  D5 -1.83 species  D6 +0.0039 (p=0.13)
+. *   E1 -0.035  E2 -0.062  E3 -0.054  (all negative)
+. 
+end of do-file
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/logs/5_5_pv_area_tre
+> atment.log
+  log type:  text
+ closed on:  18 Nov 2026, 20:49:49
+------------------------------------------------------------------------------------------------------------------------

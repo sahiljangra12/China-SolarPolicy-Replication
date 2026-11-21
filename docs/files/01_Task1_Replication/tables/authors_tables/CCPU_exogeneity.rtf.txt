@@ -1,0 +1,36 @@
+Table S8. Exogeneity test of the shift component (city CPU).
+
+  ------------------- --------------------- -----------------------------
+                      (1)                   (2)
+                      Cross-sectional OLS   Panel with city and year FE
+  Temp                -0.0001               0.0194
+                      (0.0063)              (0.0219)
+  Wind                -0.0309               0.0189
+                      (0.0338)              (0.0832)
+  Pop                 0.1119***          -0.0432
+                      (0.0234)              (0.0461)
+  Duration            0.1814***          0.0124
+                      (0.0508)              (0.0138)
+  Carbon              -0.0334               -0.0217
+                      (0.0248)              (0.0219)
+  Water               0.9403*            1.6308**
+                      (0.4962)              (0.7579)
+  Green               -0.6294***         0.2787
+                      (0.1579)              (0.3788)
+  Farm                -0.9385***         0.3704
+                      (0.1627)              (0.3444)
+  Grass               0.0503                0.3696
+                      (0.1938)              (0.4614)
+  City FE                                   YES
+  Year FE                                   YES
+  Joint F-statistic                         1.10
+  Joint F p-value                           0.360
+  Observations        288                   2294
+  R-squared           0.2377                0.5743
+  Within R-squared                          0.0068
+  ------------------- --------------------- -----------------------------
+
+Notes: This table tests whether the shift component of the instrument, the city-level climate policy uncertainty index (CPU), is correlated with observable ecological and socioeconomic characteristics. The dependent variable is city CPU, sourced from Ma et al.(66). Column (1) reports a cross-sectional regression of city-level mean CPU on city-level mean covariates. Column (2) reports a panel
+regression controlling for city and year fixed effects with robust standard errors clustered by city. The key result is Column (2): after absorbing city and year fixed effects (consistent with the main IV specification), none of the covariates significantly predict the within-city time variation in CPU. Control variables include Temp (annual average temperature), Wind (annual average wind speed),
+Pop (the logarithm of the ratio of total population to regional area), Duration (the logarithm of the ratio of birdwatching duration to the number of birdwatchers), Carbon (the logarithm of the carbon emissions), Water (the area of water divided by the total area), Green (the sum of the area of forests and shrubs divided by the total area), Farm (the area of farmland divided by the total area),
+Grass (the area of the grassland divided by the total area). ***, **, * denote significance at the 1%, 5%, and 10% levels, respectively.

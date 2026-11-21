@@ -1,0 +1,234 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/logs/3_5_sun_abr
+> aham.log
+  log type:  text
+ opened on:  11 Nov 2026, 17:51:27
+
+================ 3_5_sun_abraham ================
+
+. *==========================================================================
+. * 00_config.do
+. * Project : Replication of Zhang et al. (2026), "China's solar expansion
+. *           policy reduces bird diversity", Science 393, 831.
+. * Purpose : One place for paths, globals and package installation.
+. *           Every task do-file starts with:  do "<ROOT>/00_config.do"
+. * Author  : Sahil (Research Assistant, Johns Hopkins University)
+. *==========================================================================
+. version 16
+
+. set more off
+
+. set linesize 120
+
+. 
+. *---------------------------------------------------------------- paths
+. global ROOT "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication"
+
+. global ORIG "$ROOT/00_Original_Package"
+
+. global DATA "$ORIG/DATA"
+
+. global T1   "$ROOT/01_Task1_Replication"
+
+. global T2   "$ROOT/02_Task2_Sensitivity"
+
+. global T3   "$ROOT/03_Task3_Staggered_DiD"
+
+. 
+. * analysis sample built in Task 1 (used by all tasks)
+. global SAMPLE "$T1/data/analysis_sample.dta"
+
+. 
+. *---------------------------------------------------------------- model
+. * the authors' nine control variables (Table 1, column 3)
+. global control     "Temp Wind Pop Duration Carbon Water Green Farm Grass"
+
+. global control_noD "Temp Wind Pop Carbon Water Green Farm Grass"
+
+. 
+. *---------------------------------------------------------------- packages
+. * installed only if missing
+. foreach p in require ftools reghdfe ivreg2 ranktest ivreghdfe estout winsor2 ///
+>              psmatch2 binscatter sensemakr drdid csdid did_imputation       ///
+>              event_plot avar eventstudyinteract {
+  2.     capture which `p'
+  3.     if _rc {
+  4.         di as txt "installing `p' ..."
+  5.         capture noisily ssc install `p', replace
+  6.     }
+  7. }
+
+. set scheme s2color
+
+. 
+end of do-file
+
+. *==========================================================================
+. * 3_5_sun_abraham.do
+. * PURPOSE : Sun & Abraham (2021) interaction-weighted event study on the
+. *           monthly data, never-treated counties as the control cohort.
+. *           A third heterogeneity-robust check on the same question.
+. * OUTPUT  : tables/3_5_sun_abraham.csv, figures/3_5_event_study_sa.pdf
+. *==========================================================================
+. use "$T3/data/staggered_monthly.dta", clear
+
+. keep if !missing(g_main)
+(20,385 observations deleted)
+
+. 
+. * relative-time indicators for every period except the reference (-1)
+. summarize rel_year
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+    rel_year |      9,904    2.614398    3.969468         -9          8
+
+. local mn = -r(min)
+
+. local mx = r(max)
+
+. local leads ""
+
+. forvalues k = 2/`mn' {
+  2.     gen byte F`k' = (rel_year == -`k')
+  3.     local leads "`leads' F`k'"
+  4. }
+
+. local lags ""
+
+. forvalues k = 0/`mx' {
+  2.     gen byte L`k' = (rel_year == `k')
+  3.     local lags "`lags' L`k'"
+  4. }
+
+. gen cohort = cond(g_main == 0, ., g_main)
+(2,849 missing values generated)
+
+. 
+. eventstudyinteract ShannonBD `leads' `lags', cohort(cohort) control_cohort(never_main) ///
+>     absorb(county year) vce(cluster county)
+(obs=9,904)
+
+IW estimates for dynamic effects                        Number of obs = 12,667
+Absorbing 2 HDFE groups                                 F(77, 852)    =   9.06
+                                                        Prob > F      = 0.0000
+                                                        R-squared     = 0.3531
+                                                        Adj R-squared = 0.2947
+                                                        Root MSE      = 0.8650
+                               (Std. err. adjusted for 853 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          F2 |   .0839674   .0778365     1.08   0.281    -.0688064    .2367412
+          F3 |  -.0657221   .0902239    -0.73   0.467    -.2428092    .1113651
+          F4 |  -.0563658   .1209607    -0.47   0.641    -.2937816      .18105
+          F5 |   .0341556   .1060172     0.32   0.747      -.17393    .2422412
+          F6 |    .005658   .1172021     0.05   0.962    -.2243808    .2356967
+          F7 |   .2033941   .1704272     1.19   0.233    -.1311124    .5379005
+          F8 |   .0662762   .1452225     0.46   0.648    -.2187596    .3513119
+          F9 |   .1385531   .3308625     0.42   0.675     -.510848    .7879543
+          L0 |   .0835069   .0650387     1.28   0.200     -.044148    .2111618
+          L1 |  -.0290519   .0829248    -0.35   0.726    -.1918128    .1337089
+          L2 |   .0532694   .0928482     0.57   0.566    -.1289686    .2355075
+          L3 |   .0135127   .1314624     0.10   0.918    -.2445154    .2715408
+          L4 |   .0374153   .1280107     0.29   0.770     -.213838    .2886687
+          L5 |  -.0168006   .1578354    -0.11   0.915    -.3265924    .2929911
+          L6 |   .1522333    .189929     0.80   0.423    -.2205501    .5250168
+          L7 |   .1792777   .2386864     0.75   0.453    -.2892044    .6477599
+          L8 |   .2524943   .3131895     0.81   0.420     -.362219    .8672077
+------------------------------------------------------------------------------
+
+. 
+. matrix bb = e(b_iw)
+
+. matrix VV = e(V_iw)
+
+. tempname S
+
+. postfile `S' str12 estimator int event_time double(b se) using "$T3/tables/sa.dta", replace
+
+. forvalues k = 5(-1)2 {
+  2.     capture post `S' ("SA") (-`k') (bb[1,"F`k'"]) (sqrt(VV["F`k'","F`k'"]))
+  3. }
+
+. post `S' ("SA") (-1) (0) (0)
+
+. forvalues k = 0/5 {
+  2.     capture post `S' ("SA") (`k') (bb[1,"L`k'"]) (sqrt(VV["L`k'","L`k'"]))
+  3. }
+
+. * overall post-adoption effect: simple average of event years 0-5
+. matrix w = J(1, colsof(bb), 0)
+
+. local cn : colnames bb
+
+. local j = 0
+
+. foreach nm of local cn {
+  2.     local ++j
+  3.     if inlist("`nm'","L0","L1","L2","L3","L4","L5") matrix w[1,`j'] = 1/6
+  4. }
+
+. matrix avg  = w*bb'
+
+. matrix vavg = w*VV*w'
+
+. post `S' ("SA_avg_0_5") (99) (avg[1,1]) (sqrt(vavg[1,1]))
+
+. di as res "Sun-Abraham average effect, years 0-5: " %8.4f avg[1,1] "  (SE " %6.4f sqrt(vavg[1,1]) ")"
+Sun-Abraham average effect, years 0-5:   0.0236  (SE 0.0888)
+
+. postclose `S'
+
+. 
+. use "$T3/tables/sa.dta", clear
+
+. gen lo = b - 1.96*se
+
+. gen hi = b + 1.96*se
+
+. list, noobs sep(0)
+
+  +-----------------------------------------------------------------------+
+  |  estimator   event_~e            b          se          lo         hi |
+  |-----------------------------------------------------------------------|
+  |         SA         -5    .03415561   .10601724   -.1736382   .2419494 |
+  |         SA         -4   -.05636583   .12096066   -.2934487   .1807171 |
+  |         SA         -3   -.06572206   .09022388   -.2425609   .1111168 |
+  |         SA         -2    .08396735   .07783652   -.0685922   .2365269 |
+  |         SA         -1            0           0           0          0 |
+  |         SA          0     .0835069   .06503871    -.043969   .2109828 |
+  |         SA          1   -.02905193   .08292481   -.1915846   .1334807 |
+  |         SA          2    .05326942   .09284821   -.1287131   .2352519 |
+  |         SA          3     .0135127   .13146241   -.2441536    .271179 |
+  |         SA          4    .03741533   .12801073   -.2134857   .2883164 |
+  |         SA          5   -.01680065   .15783537    -.326158   .2925567 |
+  | SA_avg_0_5         99    .02364196   .08875797   -.1503237   .1976076 |
+  +-----------------------------------------------------------------------+
+
+. export delimited using "$T3/tables/3_5_sun_abraham.csv", replace
+file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/tables/3_5_sun_abraham.c
+> sv saved
+
+. twoway (rcap hi lo event_time if event_time != 99, lcolor(dkorange)) ///
+>        (scatter b event_time if event_time != 99, mcolor(dkorange)), ///
+>     yline(0, lpattern(dash)) xline(-0.5, lpattern(dot)) ///
+>     xtitle("Years relative to first solar policy") ytitle("Effect on Shannon diversity") ///
+>     title("Sun-Abraham event study (PSI-data counties)", size(medium)) ///
+>     subtitle("Control cohort: never-treated; reference year = -1; 95% CI", size(small)) ///
+>     xlabel(-5(1)5) legend(off)
+
+. graph export "$T3/figures/3_5_event_study_sa.pdf", replace
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/figures/3_5_event_study_sa.pdf saved as PDF format
+
+. 
+end of do-file
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/logs/3_5_sun_abr
+> aham.log
+  log type:  text
+ closed on:  11 Nov 2026, 17:51:29
+------------------------------------------------------------------------------------------------------------------------

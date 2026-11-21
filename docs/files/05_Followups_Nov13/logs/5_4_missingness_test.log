@@ -1,0 +1,1009 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/logs/5_4_missingness
+> _test.log
+  log type:  text
+ opened on:  18 Nov 2026, 20:49:40
+
+. *==========================================================================
+. * 5_4_missingness_test.do
+. * PURPOSE : Action item 2 (13 Nov). Does solar policy (PSI) predict WHETHER
+. *           a county-month has any bird record at all?
+. * WHY     : The paper only uses county-months where somebody reported birds
+. *           (about 14% of all possible county-months). If PSI changes the
+. *           chance that a month is observed, the observed sample is selected
+. *           by the treatment and the Shannon estimate can be biased.
+. * DESIGN  : 1. Build the FULL grid: every county with complete controls x
+. *              all 120 months (2014-2023), observed or not.
+. *           2. obs = 1 if Bird.dta has a record for that county-month.
+. *           3. Regress obs on PSI + controls (no Duration: it only exists
+. *              when somebody went birding) with county and year-month FE.
+. *           4. Repeat with urban x year-month FE and with real-PSI counties
+. *              only (the two fair-comparison checks from Task 1).
+. *           5. County-year version: months observed (0-12) and any month.
+. *==========================================================================
+. if "$ROOT" == "" quietly do "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/00_config.do"
+
+. global T5 "$ROOT/05_Followups_Nov13"
+
+. cd "$DATA"
+/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/00_Original_Package/DATA
+
+. 
+. *------------------------------------------------ 1. county-year controls
+. use "Climate.dta", clear
+
+. keep id YEAR Avt Wind
+
+. rename Avt Temp
+
+. merge 1:1 id YEAR using "PD.dta",  keepus(PD)  keep(match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            27,240  
+    -----------------------------------------
+
+. merge 1:1 id YEAR using "air.dta", keepus(CO2) keep(match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            27,230  
+    -----------------------------------------
+
+. merge 1:1 id YEAR using "TD.dta",  keepus(Water Green Farm Grass) keep(match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            27,228  
+    -----------------------------------------
+
+. drop if missing(Temp, Wind, PD, CO2, Water, Green, Farm, Grass)
+(68 observations deleted)
+
+. gen Pop    = ln(PD)
+
+. gen Carbon = ln(CO2)
+
+. * PSI: authors' rule, missing -> 0; keep a flag for real PSI data
+. merge 1:1 id YEAR using "PI.dta", keepus(PI) keep(master match)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         7,690
+        from master                     7,690  (_merge==1)
+        from using                          0  (_merge==2)
+
+    Matched                            19,470  (_merge==3)
+    -----------------------------------------
+
+. gen byte in_PI_file = (_merge==3)
+
+. bysort id: egen tmp = max(in_PI_file)
+
+. replace in_PI_file = tmp
+(0 real changes made)
+
+. drop tmp _merge
+
+. replace PI = 0 if missing(PI)
+(7,690 real changes made)
+
+. * solar-plant area (for item 3), missing -> 0 as the authors do
+. merge 1:1 id YEAR using "IC.dta", keepus(ICtotal) keep(master match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        12,930
+        from master                    12,930  
+        from using                          0  
+
+    Matched                            14,230  
+    -----------------------------------------
+
+. replace ICtotal = 0 if missing(ICtotal)
+(12,930 real changes made)
+
+. gen Area = ICtotal*1000/0.15/1000000
+
+. winsor2 PI Area Temp Wind Pop Carbon Water Green Farm Grass, cuts(1 99) replace
+
+. gen byte urban = mod(id,100) <= 20
+
+. di as res "county-years with complete controls: " _N
+county-years with complete controls: 27160
+
+. 
+. *------------------------------------------------ 2. expand to months
+. * bird records with the number of birdwatchers, keyed by id YEAR month
+. preserve
+
+.     use "Bird.dta", clear
+
+.     merge 1:1 id year using "BTN.dta", keepus(BN) keep(master match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           543
+        from master                       543  
+        from using                          0  
+
+    Matched                            48,357  
+    -----------------------------------------
+
+.     keep id YEAR month BN
+
+.     tempfile birds
+
+.     save `birds'
+file /var/folders/wt/r578njlx4vx70bfy46gk25bm0000gn/T//S_03199.000002 saved as .dta format
+
+. restore
+
+. expand 12
+(298,760 observations created)
+
+. bysort id YEAR: gen month = _n
+
+. merge 1:1 id YEAR month using `birds', keep(master match)
+(variable YEAR was int, now float to accommodate using data's values)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                       278,859
+        from master                   278,859  (_merge==1)
+        from using                          0  (_merge==2)
+
+    Matched                            47,061  (_merge==3)
+    -----------------------------------------
+
+. gen byte obs = (_merge==3)
+
+. drop _merge
+
+. * number of birdwatchers, 0 when nobody reported
+. replace BN = 0 if missing(BN)
+(279,392 real changes made)
+
+. gen lnBN1 = ln(1 + BN)
+
+. gen ym = YEAR*100 + month
+
+. egen county = group(id)
+
+. bysort id: egen ever_obs = max(obs)
+
+. label var obs   "County-month has >= 1 bird record (1) or not (0)"
+
+. label var lnBN1 "ln(1 + number of birdwatchers), 0 if no record"
+
+. compress
+  variable YEAR was float now int
+  variable month was float now byte
+  variable county was float now int
+  variable ever_obs was float now byte
+  (3,259,200 bytes saved)
+
+. save "$T5/data/county_month_grid.dta", replace
+(file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/data/county_month_grid.dta not found)
+file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/data/county_month_grid.dta
+    saved
+
+. summarize obs
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+         obs |    325,920    .1443943    .3514897          0          1
+
+. tab YEAR, summarize(obs)
+
+            |  Summary of County-month has >= 1
+            |     bird record (1) or not (0)
+       year |        Mean   Std. dev.       Freq.
+------------+------------------------------------
+       2014 |   .01662985   .12788197      32,592
+       2015 |   .06299092   .24295035      32,592
+       2016 |   .05725331   .23232957      32,592
+       2017 |   .05863402   .23494205      32,592
+       2018 |   .09146416   .28827247      32,592
+       2019 |    .0842538   .27777233      32,592
+       2020 |   .14770496   .35481272      32,592
+       2021 |   .23665317    .4250341      32,592
+       2022 |   .28022214   .44911455      32,592
+       2023 |   .40813697   .49149628      32,592
+------------+------------------------------------
+      Total |   .14439433   .35148967     325,920
+
+. tab urban, summarize(obs)
+
+            |  Summary of County-month has >= 1
+            |     bird record (1) or not (0)
+      urban |        Mean   Std. dev.       Freq.
+------------+------------------------------------
+          0 |   .10543904   .30711901     214,560
+          1 |   .21945043   .41387616     111,360
+------------+------------------------------------
+      Total |   .14439433   .35148967     325,920
+
+. 
+. *------------------------------------------------ 3-4. county-month tests
+. global cg "Temp Wind Pop Carbon Water Green Farm Grass"
+
+. eststo clear
+
+. eststo M1: reghdfe obs   PI $cg,                    absorb(county ym)       cluster(county)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =    325,920
+Absorbing 2 HDFE groups                           F(   9,   2715) =       9.29
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3506
+                                                  Adj R-squared   =     0.3449
+                                                  Within R-sq.    =     0.0050
+Number of clusters (county)  =      2,716         Root MSE        =     0.2845
+
+                             (Std. err. adjusted for 2,716 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+         obs | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0054924   .0008735    -6.29   0.000    -.0072051   -.0037796
+        Temp |   .0004373   .0032519     0.13   0.893    -.0059391    .0068137
+        Wind |   .0222591   .0171404     1.30   0.194    -.0113504    .0558687
+         Pop |   .0314524   .0266914     1.18   0.239    -.0208852      .08379
+      Carbon |   .0069786   .0092771     0.75   0.452    -.0112123    .0251694
+       Water |  -3.558041   .9348366    -3.81   0.000    -5.391104   -1.724977
+       Green |  -.7631678   .3326713    -2.29   0.022    -1.415482   -.1108534
+        Farm |  -.3890311    .301083    -1.29   0.196    -.9794061    .2013438
+       Grass |  -.0204755   .3108414    -0.07   0.947    -.6299851    .5890342
+       _cons |   .3279203   .3320816     0.99   0.324    -.3232379    .9790785
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2716        2716           0    *|
+          ym |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo M2: reghdfe obs   PI $cg if ever_obs==1,     absorb(county ym)       cluster(county)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =    300,600
+Absorbing 2 HDFE groups                           F(   9,   2504) =      11.50
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3515
+                                                  Adj R-squared   =     0.3458
+                                                  Within R-sq.    =     0.0050
+Number of clusters (county)  =      2,505         Root MSE        =     0.2939
+
+                             (Std. err. adjusted for 2,505 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+         obs | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |    -.00703   .0009239    -7.61   0.000    -.0088417   -.0052183
+        Temp |  -.0051686   .0034914    -1.48   0.139     -.012015    .0016777
+        Wind |   .0362663   .0178017     2.04   0.042     .0013587    .0711739
+         Pop |   .0317916   .0276458     1.15   0.250    -.0224193    .0860025
+      Carbon |   .0007592   .0095603     0.08   0.937    -.0179878    .0195062
+       Water |  -3.216197   .8914318    -3.61   0.000    -4.964216   -1.468177
+       Green |   -1.00646   .3331146    -3.02   0.003    -1.659668   -.3532513
+        Farm |  -.5326087   .2974472    -1.79   0.073    -1.115876     .050659
+       Grass |  -.1864429   .3098924    -0.60   0.547    -.7941146    .4212287
+       _cons |   .6312395   .3342091     1.89   0.059     -.024115    1.286594
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2505        2505           0    *|
+          ym |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo M3: reghdfe obs   PI $cg,                    absorb(county ym#urban) cluster(county)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =    325,920
+Absorbing 2 HDFE groups                           F(   9,   2715) =       4.10
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3588
+                                                  Adj R-squared   =     0.3529
+                                                  Within R-sq.    =     0.0024
+Number of clusters (county)  =      2,716         Root MSE        =     0.2827
+
+                             (Std. err. adjusted for 2,716 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+         obs | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |    .000082   .0008298     0.10   0.921    -.0015452    .0017091
+        Temp |   .0043315   .0031447     1.38   0.168    -.0018346    .0104977
+        Wind |   .0045433   .0164442     0.28   0.782    -.0277011    .0367876
+         Pop |   .0286154   .0283953     1.01   0.314    -.0270632     .084294
+      Carbon |   .0017497   .0092162     0.19   0.849    -.0163218    .0198213
+       Water |   -2.18121   .8473334    -2.57   0.010    -3.842694   -.5197266
+       Green |  -.0834655   .3109547    -0.27   0.788    -.6931973    .5262663
+        Farm |    .459893   .2813735     1.63   0.102    -.0918348    1.011621
+       Grass |   .6741431   .2871867     2.35   0.019     .1110165     1.23727
+       _cons |  -.2834107   .3190691    -0.89   0.374    -.9090536    .3422322
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2716        2716           0    *|
+    ym#urban |       240           1         239     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo M4: reghdfe obs   PI $cg if in_PI_file==1,   absorb(county ym)       cluster(county)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =    233,640
+Absorbing 2 HDFE groups                           F(   9,   1946) =       6.79
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.2890
+                                                  Adj R-squared   =     0.2827
+                                                  Within R-sq.    =     0.0049
+Number of clusters (county)  =      1,947         Root MSE        =     0.2687
+
+                             (Std. err. adjusted for 1,947 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+         obs | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   .0002229   .0008291     0.27   0.788    -.0014031    .0018489
+        Temp |   .0029857   .0033388     0.89   0.371    -.0035623    .0095337
+        Wind |  -.0032056   .0176171    -0.18   0.856     -.037756    .0313449
+         Pop |     .03263    .070198     0.46   0.642    -.1050412    .1703011
+      Carbon |   .0101714   .0095367     1.07   0.286    -.0085317    .0288746
+       Water |    -3.3569   .9880804    -3.40   0.001    -5.294707   -1.419093
+       Green |   .8561569   .3901782     2.19   0.028     .0909457    1.621368
+        Farm |   1.385311    .359167     3.86   0.000     .6809181    2.089703
+       Grass |   1.494679   .3401176     4.39   0.000     .8276458    2.161712
+       _cons |  -1.212568   .4806479    -2.52   0.012    -2.155207   -.2699294
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1947        1947           0    *|
+          ym |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo E1: reghdfe lnBN1 PI $cg,                    absorb(county ym)       cluster(county)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =    325,920
+Absorbing 2 HDFE groups                           F(   9,   2715) =      12.26
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.4324
+                                                  Adj R-squared   =     0.4274
+                                                  Within R-sq.    =     0.0122
+Number of clusters (county)  =      2,716         Root MSE        =     0.4583
+
+                             (Std. err. adjusted for 2,716 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+       lnBN1 | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   -.016729   .0020779    -8.05   0.000    -.0208035   -.0126544
+        Temp |  -.0076717   .0072745    -1.05   0.292    -.0219359    .0065925
+        Wind |   .0097266   .0458294     0.21   0.832    -.0801376    .0995907
+         Pop |   .0137696   .0621848     0.22   0.825    -.1081647    .1357039
+      Carbon |  -.0038222   .0184539    -0.21   0.836    -.0400074    .0323629
+       Water |  -8.346956   2.694071    -3.10   0.002    -13.62959   -3.064319
+       Green |  -2.164618   .8578478    -2.52   0.012    -3.846718   -.4825172
+        Farm |  -1.108913   .8237278    -1.35   0.178     -2.72411    .5062844
+       Grass |  -.1519848   .7842563    -0.19   0.846    -1.689784    1.385815
+       _cons |   1.654554   .8221111     2.01   0.044     .0425277    3.266581
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2716        2716           0    *|
+          ym |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo E3: reghdfe lnBN1 PI $cg,                    absorb(county ym#urban) cluster(county)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =    325,920
+Absorbing 2 HDFE groups                           F(   9,   2715) =       4.26
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.4520
+                                                  Adj R-squared   =     0.4470
+                                                  Within R-sq.    =     0.0050
+Number of clusters (county)  =      2,716         Root MSE        =     0.4504
+
+                             (Std. err. adjusted for 2,716 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+       lnBN1 | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0016362   .0017998    -0.91   0.363    -.0051652    .0018928
+        Temp |   .0034999    .007001     0.50   0.617    -.0102279    .0172277
+        Wind |  -.0354081   .0431295    -0.82   0.412     -.119978    .0491619
+         Pop |   .0068883   .0665292     0.10   0.918    -.1235646    .1373412
+      Carbon |  -.0163262    .019049    -0.86   0.391    -.0536781    .0210258
+       Water |  -4.762999   2.479755    -1.92   0.055    -9.625396    .0993985
+       Green |  -.5224038   .8099867    -0.64   0.519    -2.110657    1.065849
+        Farm |   .9965011   .7894977     1.26   0.207     -.551576    2.544578
+       Grass |   1.554682   .7436621     2.09   0.037     .0964806    3.012883
+       _cons |   .1229291   .7934517     0.15   0.877    -1.432901    1.678759
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2716        2716           0    *|
+    ym#urban |       240           1         239     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo E4: reghdfe lnBN1 PI $cg if in_PI_file==1,   absorb(county ym)       cluster(county)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =    233,640
+Absorbing 2 HDFE groups                           F(   9,   1946) =       5.28
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3404
+                                                  Adj R-squared   =     0.3345
+                                                  Within R-sq.    =     0.0102
+Number of clusters (county)  =      1,947         Root MSE        =     0.3980
+
+                             (Std. err. adjusted for 1,947 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+       lnBN1 | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0007543   .0017446    -0.43   0.666    -.0041758    .0026673
+        Temp |   .0070073   .0060326     1.16   0.246    -.0048237    .0188382
+        Wind |  -.0744895   .0349652    -2.13   0.033    -.1430626   -.0059164
+         Pop |   .0697137   .1490367     0.47   0.640    -.2225745     .362002
+      Carbon |   .0187397   .0180983     1.04   0.301    -.0167544    .0542338
+       Water |  -8.398419   2.445731    -3.43   0.001    -13.19495   -3.601891
+       Green |    .971024   .8497218     1.14   0.253    -.6954366    2.637485
+        Farm |   2.174328   .8018146     2.71   0.007     .6018219    3.746833
+       Grass |    2.31753      .7307     3.17   0.002     .8844928    3.750567
+       _cons |   -1.74768   1.019937    -1.71   0.087    -3.747964    .2526044
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1947        1947           0    *|
+          ym |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo A1: reghdfe obs   Area $cg,                  absorb(county ym)       cluster(county)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =    325,920
+Absorbing 2 HDFE groups                           F(   9,   2715) =       4.47
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3501
+                                                  Adj R-squared   =     0.3444
+                                                  Within R-sq.    =     0.0042
+Number of clusters (county)  =      2,716         Root MSE        =     0.2846
+
+                             (Std. err. adjusted for 2,716 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+         obs | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |  -.0099171   .0037541    -2.64   0.008    -.0172782   -.0025559
+        Temp |   .0008915   .0032518     0.27   0.784    -.0054848    .0072677
+        Wind |   .0117688   .0171165     0.69   0.492    -.0217939    .0453314
+         Pop |   .0314289   .0269019     1.17   0.243    -.0213214    .0841792
+      Carbon |   .0096475   .0092563     1.04   0.297    -.0085026    .0277976
+       Water |  -3.632908   .9452036    -3.84   0.000      -5.4863   -1.779517
+       Green |  -.8543193   .3382614    -2.53   0.012    -1.517595   -.1910436
+        Farm |  -.4135115   .3066425    -1.35   0.178    -1.014788    .1877648
+       Grass |  -.0786139   .3152634    -0.25   0.803    -.6967944    .5395667
+       _cons |   .3450769   .3366539     1.03   0.305     -.315047    1.005201
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2716        2716           0    *|
+          ym |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo A3: reghdfe obs   Area $cg,                  absorb(county ym#urban) cluster(county)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =    325,920
+Absorbing 2 HDFE groups                           F(   9,   2715) =       4.17
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3588
+                                                  Adj R-squared   =     0.3529
+                                                  Within R-sq.    =     0.0025
+Number of clusters (county)  =      2,716         Root MSE        =     0.2827
+
+                             (Std. err. adjusted for 2,716 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+         obs | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Area |  -.0027357    .003616    -0.76   0.449    -.0098261    .0043547
+        Temp |   .0043205   .0031397     1.38   0.169    -.0018358    .0104769
+        Wind |   .0050966   .0163604     0.31   0.755    -.0269835    .0371767
+         Pop |   .0285347   .0283665     1.01   0.315    -.0270875    .0841569
+      Carbon |   .0022987   .0092151     0.25   0.803    -.0157706    .0203679
+       Water |  -2.180331   .8475391    -2.57   0.010    -3.842218   -.5184438
+       Green |  -.0748784   .3108689    -0.24   0.810     -.684442    .5346852
+        Farm |   .4683942   .2818877     1.66   0.097    -.0843419     1.02113
+       Grass |   .6706436    .287442     2.33   0.020     .1070164    1.234271
+       _cons |  -.2966379   .3197452    -0.93   0.354    -.9236066    .3303307
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2716        2716           0    *|
+    ym#urban |       240           1         239     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. esttab M* E* A*, keep(PI Area) cells(b(fmt(5) star) se(fmt(5) par) p(fmt(3) par("[" "]"))) star(* 0.10 ** 0.05 *** 0.0
+> 1) ///
+>     stats(N N_clust, fmt(0 0)) ///
+>     mtitles("obs" "obs ever-obs" "obs urbYM" "obs realPSI" "lnBN1" "lnBN1 urbYM" "lnBN1 realPSI" "obs~Area" "obs~Area 
+> urbYM") ///
+>     title("Does the treatment predict whether a county-month is observed?")
+
+Does the treatment predict whether a county-month is observed?
+------------------------------------------------------------------------------------------------------------------------
+> ------------------------------------
+                      (1)             (2)             (3)             (4)             (5)             (6)             (7
+> )             (8)             (9)   
+                      obs    obs ever-obs       obs urbYM     obs realPSI           lnBN1     lnBN1 urbYM    lnBN1 real~
+> I        obs~Area    obs~Area u~M   
+                   b/se/p          b/se/p          b/se/p          b/se/p          b/se/p          b/se/p          b/se/
+> p          b/se/p          b/se/p   
+------------------------------------------------------------------------------------------------------------------------
+> ------------------------------------
+PI               -0.00549***     -0.00703***      0.00008         0.00022        -0.01673***     -0.00164        -0.0007
+> 5                                   
+                (0.00087)       (0.00092)       (0.00083)       (0.00083)       (0.00208)       (0.00180)       (0.00174
+> )                                   
+                  [0.000]         [0.000]         [0.921]         [0.788]         [0.000]         [0.363]         [0.666
+> ]                                   
+Area                                                                                                                    
+>          -0.00992***     -0.00274   
+                                                                                                                        
+>         (0.00375)       (0.00362)   
+                                                                                                                        
+>           [0.008]         [0.449]   
+------------------------------------------------------------------------------------------------------------------------
+> ------------------------------------
+N                  325920          300600          325920          233640          325920          325920          23364
+> 0          325920          325920   
+N_clust              2716            2505            2716            1947            2716            2716            194
+> 7            2716            2716   
+------------------------------------------------------------------------------------------------------------------------
+> ------------------------------------
+
+. esttab M* E* A* using "$T5/tables/5_4_missingness.rtf", replace keep(PI Area) cells(b(fmt(5) star) se(fmt(5) par) p(fm
+> t(3) par("[" "]"))) ///
+>     star(* 0.10 ** 0.05 *** 0.01) stats(N N_clust, fmt(0 0))
+(file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/tables/5_4_missingness.rtf not found)
+(output written to /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/tables/5_4_mis
+> singness.rtf)
+
+. 
+. *------------------------------------------------ 5. county-year version
+. collapse (sum) nmon = obs (first) PI $cg in_PI_file urban county, by(id YEAR)
+
+. gen byte anyobs = nmon > 0
+
+. eststo clear
+
+. eststo Y1: reghdfe anyobs PI $cg,                  absorb(county YEAR)       cluster(county)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =     27,160
+Absorbing 2 HDFE groups                           F(   9,   2715) =       3.39
+Statistics robust to heteroskedasticity           Prob > F        =     0.0004
+                                                  R-squared       =     0.5411
+                                                  Adj R-squared   =     0.4898
+                                                  Within R-sq.    =     0.0015
+Number of clusters (county)  =      2,716         Root MSE        =     0.3545
+
+                             (Std. err. adjusted for 2,716 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+      anyobs | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   .0028525   .0014931     1.91   0.056    -.0000753    .0057803
+        Temp |   .0209359   .0076859     2.72   0.006     .0058652    .0360066
+        Wind |   .0827959   .0349246     2.37   0.018     .0143143    .1512774
+         Pop |   .0620894   .0407902     1.52   0.128    -.0178937    .1420724
+      Carbon |   .0185901   .0149432     1.24   0.214    -.0107111    .0478913
+       Water |   .2259306    .575487     0.39   0.695    -.9025063    1.354368
+       Green |   .5340159   .3861045     1.38   0.167    -.2230724    1.291104
+        Farm |   .2060069   .3023899     0.68   0.496    -.3869308    .7989446
+       Grass |   .6862408   .3524658     1.95   0.052    -.0048875    1.377369
+       _cons |  -.9466657   .3978735    -2.38   0.017    -1.726831   -.1665002
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2716        2716           0    *|
+        YEAR |        10           1           9     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo Y2: reghdfe anyobs PI $cg,                  absorb(county YEAR#urban) cluster(county)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =     27,160
+Absorbing 2 HDFE groups                           F(   9,   2715) =       3.29
+Statistics robust to heteroskedasticity           Prob > F        =     0.0005
+                                                  R-squared       =     0.5422
+                                                  Adj R-squared   =     0.4908
+                                                  Within R-sq.    =     0.0014
+Number of clusters (county)  =      2,716         Root MSE        =     0.3541
+
+                             (Std. err. adjusted for 2,716 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+      anyobs | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   .0027455   .0015643     1.76   0.079    -.0003219    .0058129
+        Temp |   .0199736   .0076784     2.60   0.009     .0049175    .0350296
+        Wind |   .0791859   .0349042     2.27   0.023     .0107444    .1476274
+         Pop |   .0609417   .0410766     1.48   0.138    -.0196029    .1414863
+      Carbon |    .016958   .0149466     1.13   0.257    -.0123499    .0462659
+       Water |   .3476465   .5868786     0.59   0.554    -.8031274     1.49842
+       Green |    .716503   .3861845     1.86   0.064    -.0407423    1.473748
+        Farm |   .3832385    .309283     1.24   0.215    -.2232154    .9896923
+       Grass |   .8469188   .3528391     2.40   0.016     .1550584    1.538779
+       _cons |  -1.048923   .3993096    -2.63   0.009    -1.831905   -.2659417
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2716        2716           0    *|
+   YEAR#urban |        20           1          19     |
+------------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo Y3: reghdfe anyobs PI $cg if in_PI_file==1, absorb(county YEAR)       cluster(county)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =     19,470
+Absorbing 2 HDFE groups                           F(   9,   1946) =       2.77
+Statistics robust to heteroskedasticity           Prob > F        =     0.0032
+                                                  R-squared       =     0.5287
+                                                  Adj R-squared   =     0.4758
+                                                  Within R-sq.    =     0.0017
+Number of clusters (county)  =      1,947         Root MSE        =     0.3549
+
+                             (Std. err. adjusted for 1,947 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+      anyobs | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   .0025998   .0015983     1.63   0.104    -.0005347    .0057343
+        Temp |    .019028   .0088785     2.14   0.032     .0016156    .0364403
+        Wind |   .0661525   .0420006     1.58   0.115    -.0162185    .1485235
+         Pop |   .0345845   .0679019     0.51   0.611    -.0985836    .1677527
+      Carbon |   .0126155   .0169191     0.75   0.456     -.020566     .045797
+       Water |   .1924839   .8526137     0.23   0.821    -1.479648    1.864616
+       Green |   1.291202    .480541     2.69   0.007     .3487728    2.233631
+        Farm |   .9367535   .4014986     2.33   0.020      .149341    1.724166
+       Grass |   1.404527   .4214228     3.33   0.001     .5780397    2.231015
+       _cons |  -1.351203   .5342919    -2.53   0.012    -2.399048   -.3033585
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1947        1947           0    *|
+        YEAR |        10           1           9     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo N1: reghdfe nmon   PI $cg,                  absorb(county YEAR)       cluster(county)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =     27,160
+Absorbing 2 HDFE groups                           F(   9,   2715) =       9.29
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.6827
+                                                  Adj R-squared   =     0.6472
+                                                  Within R-sq.    =     0.0200
+Number of clusters (county)  =      2,716         Root MSE        =     1.7787
+
+                             (Std. err. adjusted for 2,716 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+        nmon | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0659083   .0104833    -6.29   0.000    -.0864645   -.0453522
+        Temp |   .0052472   .0390278     0.13   0.893      -.07128    .0817744
+        Wind |   .2671093   .2057126     1.30   0.194    -.1362598    .6704784
+         Pop |   .3774285   .3203406     1.18   0.239    -.2507075    1.005564
+      Carbon |   .0837428     .11134     0.75   0.452    -.1345769    .3020624
+       Water |  -42.69649   11.21955    -3.81   0.000    -64.69622   -20.69676
+       Green |  -9.158014   3.992594    -2.29   0.022    -16.98685   -1.329183
+        Farm |  -4.668373   3.613484    -1.29   0.196    -11.75383    2.417083
+       Grass |  -.2457056     3.7306    -0.07   0.947    -7.560809    7.069398
+       _cons |   3.935044   3.985517     0.99   0.324     -3.87991       11.75
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2716        2716           0    *|
+        YEAR |        10           1           9     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo N2: reghdfe nmon   PI $cg,                  absorb(county YEAR#urban) cluster(county)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =     27,160
+Absorbing 2 HDFE groups                           F(   9,   2715) =       4.09
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.6972
+                                                  Adj R-squared   =     0.6632
+                                                  Within R-sq.    =     0.0102
+Number of clusters (county)  =      2,716         Root MSE        =     1.7379
+
+                             (Std. err. adjusted for 2,716 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+        nmon | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   .0009837   .0099591     0.10   0.921    -.0185444    .0205119
+        Temp |   .0519784    .037741     1.38   0.169    -.0220256    .1259824
+        Wind |   .0545192   .1973565     0.28   0.782     -.332465    .4415034
+         Pop |   .3433847   .3407899     1.01   0.314    -.3248492    1.011619
+      Carbon |   .0209969   .1106099     0.19   0.849    -.1958912    .2378851
+       Water |  -26.17452   10.16938    -2.57   0.010    -46.11502   -6.234025
+       Green |  -1.001586   3.731961    -0.27   0.788    -8.319356    6.316185
+        Farm |   5.518716   3.376938     1.63   0.102    -1.102913    12.14034
+       Grass |   8.089717   3.446706     2.35   0.019     1.331284    14.84815
+       _cons |  -3.400929   3.829347    -0.89   0.375    -10.90966    4.107801
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2716        2716           0    *|
+   YEAR#urban |        20           1          19     |
+------------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo N3: reghdfe nmon   PI $cg if in_PI_file==1, absorb(county YEAR)       cluster(county)
+(MWFE estimator converged in 2 iterations)
+
+HDFE Linear regression                            Number of obs   =     19,470
+Absorbing 2 HDFE groups                           F(   9,   1946) =       6.79
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.6441
+                                                  Adj R-squared   =     0.6042
+                                                  Within R-sq.    =     0.0222
+Number of clusters (county)  =      1,947         Root MSE        =     1.5806
+
+                             (Std. err. adjusted for 1,947 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+        nmon | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   .0026752   .0099509     0.27   0.788    -.0168404    .0221909
+        Temp |   .0358284   .0400733     0.89   0.371    -.0427627    .1144195
+        Wind |  -.0384668   .2114454    -0.18   0.856    -.4531501    .3762165
+         Pop |   .3915595   .8425346     0.46   0.642    -1.260806    2.043925
+      Carbon |   .1220574   .1144617     1.07   0.286    -.1024231    .3465379
+       Water |   -40.2828    11.8592    -3.40   0.001    -63.54087   -17.02473
+       Green |   10.27388   4.683021     2.19   0.028     1.089618    19.45815
+        Farm |   16.62373   4.310817     3.86   0.000     8.169424    25.07803
+       Grass |   17.93615   4.082181     4.39   0.000     9.930241    25.94206
+       _cons |  -14.55082   5.768862    -2.52   0.012    -25.86462    -3.23702
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1947        1947           0    *|
+        YEAR |        10           1           9     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo I1: reghdfe nmon   PI $cg if nmon>0,        absorb(county YEAR)       cluster(county)
+(dropped 271 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     11,644
+Absorbing 2 HDFE groups                           F(   9,   2233) =       9.28
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.7072
+                                                  Adj R-squared   =     0.6370
+                                                  Within R-sq.    =     0.0155
+Number of clusters (county)  =      2,234         Root MSE        =     2.0699
+
+                             (Std. err. adjusted for 2,234 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+        nmon | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.1051923   .0163335    -6.44   0.000    -.1372227   -.0731619
+        Temp |  -.2661363   .0701514    -3.79   0.000     -.403705   -.1285676
+        Wind |   1.072264   .3341415     3.21   0.001     .4170032    1.727524
+         Pop |   .2545872   .5993647     0.42   0.671    -.9207831    1.429957
+      Carbon |  -.2941406   .1778022    -1.65   0.098    -.6428155    .0545342
+       Water |  -24.16489   8.512004    -2.84   0.005    -40.85716   -7.472619
+       Green |  -9.657333   4.818236    -2.00   0.045    -19.10602   -.2086421
+        Farm |  -4.388949   3.881008    -1.13   0.258    -11.99971    3.221811
+       Grass |   .2477397   4.287878     0.06   0.954    -8.160904    8.656384
+       _cons |   14.21357   5.415728     2.62   0.009     3.593181    24.83396
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2234        2234           0    *|
+        YEAR |        10           1           9     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo I2: reghdfe nmon   PI $cg if nmon>0,        absorb(county YEAR#urban) cluster(county)
+(dropped 271 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     11,644
+Absorbing 2 HDFE groups                           F(   9,   2233) =       3.72
+Statistics robust to heteroskedasticity           Prob > F        =     0.0001
+                                                  R-squared       =     0.7161
+                                                  Adj R-squared   =     0.6477
+                                                  Within R-sq.    =     0.0059
+Number of clusters (county)  =      2,234         Root MSE        =     2.0390
+
+                             (Std. err. adjusted for 2,234 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+        nmon | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0321904   .0163351    -1.97   0.049     -.064224   -.0001567
+        Temp |  -.1879727   .0682426    -2.75   0.006    -.3217983    -.054147
+        Wind |   .9377456   .3259338     2.88   0.004     .2985807    1.576911
+         Pop |   .2746843   .6152281     0.45   0.655    -.9317945    1.481163
+      Carbon |  -.2754356   .1734993    -1.59   0.113    -.6156724    .0648013
+       Water |     -12.23   8.021592    -1.52   0.127    -27.96056    3.500554
+       Green |  -3.856911   4.580098    -0.84   0.400    -12.83861    5.124784
+        Farm |   4.012221   3.743452     1.07   0.284    -3.328789    11.35323
+       Grass |   5.944234   4.084068     1.46   0.146    -2.064733     13.9532
+       _cons |   6.802423   5.326943     1.28   0.202    -3.643855     17.2487
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2234        2234           0    *|
+   YEAR#urban |        20           1          19     |
+------------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. eststo I3: reghdfe nmon   PI $cg if nmon>0 & in_PI_file==1, absorb(county YEAR) cluster(county)
+(dropped 229 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =      7,588
+Absorbing 2 HDFE groups                           F(   9,   1551) =       4.53
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.6675
+                                                  Adj R-squared   =     0.5809
+                                                  Within R-sq.    =     0.0125
+Number of clusters (county)  =      1,552         Root MSE        =     1.9375
+
+                             (Std. err. adjusted for 1,552 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+        nmon | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0278764   .0167625    -1.66   0.097    -.0607559    .0050032
+        Temp |  -.2370792   .0784748    -3.02   0.003    -.3910071   -.0831512
+        Wind |   .6852002   .3830435     1.79   0.074    -.0661376    1.436538
+         Pop |  -.3965546    1.63007    -0.24   0.808    -3.593929     2.80082
+      Carbon |  -.2337278   .1738245    -1.34   0.179    -.5746837    .1072281
+       Water |  -25.53194   10.40459    -2.45   0.014    -45.94048   -5.123397
+       Green |   4.386407   5.899149     0.74   0.457    -7.184742    15.95756
+        Farm |   10.75706   5.198702     2.07   0.039     .5598349    20.95429
+       Grass |   13.71216    4.83522     2.84   0.005       4.2279    23.19642
+       _cons |   3.564932   9.104722     0.39   0.695    -14.29393    21.42379
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1552        1552           0    *|
+        YEAR |        10           1           9     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. esttab Y* N* I*, keep(PI) cells(b(fmt(4) star) se(fmt(4) par) p(fmt(3) par("[" "]"))) star(* 0.10 ** 0.05 *** 0.01) st
+> ats(N, fmt(0)) ///
+>     mtitles("any paper" "any urbY" "any realPSI" "months paper" "months urbY" "months realPSI" ///
+>             "months|>0 paper" "months|>0 urbY" "months|>0 realPSI") ///
+>     title("County-year: any month observed / number of months observed")
+
+County-year: any month observed / number of months observed
+------------------------------------------------------------------------------------------------------------------------
+> ------------------------------------
+                      (1)             (2)             (3)             (4)             (5)             (6)             (7
+> )             (8)             (9)   
+                any paper        any urbY     any realPSI    months paper     months urbY    months rea~I    months|>0 ~
+> r    months|>0 ~Y    months|>0 ~I   
+                   b/se/p          b/se/p          b/se/p          b/se/p          b/se/p          b/se/p          b/se/
+> p          b/se/p          b/se/p   
+------------------------------------------------------------------------------------------------------------------------
+> ------------------------------------
+PI                 0.0029*         0.0027*         0.0026         -0.0659***       0.0010          0.0027         -0.105
+> 2***      -0.0322**       -0.0279*  
+                 (0.0015)        (0.0016)        (0.0016)        (0.0105)        (0.0100)        (0.0100)        (0.0163
+> )        (0.0163)        (0.0168)   
+                  [0.056]         [0.079]         [0.104]         [0.000]         [0.921]         [0.788]         [0.000
+> ]         [0.049]         [0.097]   
+------------------------------------------------------------------------------------------------------------------------
+> ------------------------------------
+N                   27160           27160           19470           27160           27160           19470           1164
+> 4           11644            7588   
+------------------------------------------------------------------------------------------------------------------------
+> ------------------------------------
+
+. esttab Y* N* I* using "$T5/tables/5_4_missingness.rtf", append keep(PI) cells(b(fmt(4) star) se(fmt(4) par) p(fmt(3) p
+> ar("[" "]"))) ///
+>     star(* 0.10 ** 0.05 *** 0.01) stats(N, fmt(0))
+(output written to /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/tables/5_4_mis
+> singness.rtf)
+
+. 
+. * Expected (verified): obs on PSI, paper FE  -0.00549 (se 0.00087)
+. *                      urban x YM FE         +0.00008 (se 0.00083)
+. *                      real-PSI only         +0.00022 (se 0.00083)
+. 
+end of do-file
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/05_Followups_Nov13/logs/5_4_missingness
+> _test.log
+  log type:  text
+ closed on:  18 Nov 2026, 20:49:45
+------------------------------------------------------------------------------------------------------------------------

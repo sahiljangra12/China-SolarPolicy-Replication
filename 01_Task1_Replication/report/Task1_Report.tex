@@ -1,0 +1,358 @@
+\documentclass[11pt]{article}
+\input{style.tex}
+\lhead{\small Replication of Zhang et al.\ (2026) --- Task 1}
+\rhead{\small Sahil, Johns Hopkins University}
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries Task 1: Replicating ``China's solar expansion\\[2pt] policy reduces bird diversity''}\\[6pt]
+{\large Data, reproduction, causal estimands and identification}\\[8pt]
+Sahil \quad$\cdot$\quad Research Assistant, Johns Hopkins University\\
+{\small Prepared for Prof.\ Paul J.\ Ferraro \quad$\cdot$\quad November 2026 \quad$\cdot$\quad All analysis in Stata (StataNow/BE 19.5)}
+\end{center}
+
+\begin{summarybox}
+\small
+\begin{itemize}[leftmargin=12pt]
+\item \textbf{Reproduction.} The authors' code and data reproduce the paper exactly. All 12 headline numbers checked (Tables 1, 2, S7, S11, S12) match to four decimals. The main estimate is $\hat\beta=-0.0125$ (SE 0.0037, $N=46{,}371$, 2,344 counties).
+\item \textbf{Data.} The panel contains only county-months in which someone recorded birds. PSI is an annual \emph{flow} of newly issued policies, so it is zero in most observations. \textbf{PSI is missing for 724 counties, almost all urban districts, and the code sets it to zero.}
+\item \textbf{Estimand.} $\beta$ is a variance-weighted average response of monthly bird diversity to one more unit of newly issued solar policy. It is not an ATT and not the effect of solar panels.
+\item \textbf{TWFE identification.} With separate urban and rural year-month effects, the estimate falls to $-0.0027$ ($p=0.47$). The properly weighted matching estimates are also null.
+\item \textbf{IV exclusion.} Where PSI cannot change, the instrument still lowers bird diversity ($p<0.05$). It also predicts observer effort and another environmental policy.
+\end{itemize}
+\end{summarybox}
+
+\tableofcontents
+
+%==========================================================================
+\section{What Task 1 asks}
+Prof.\ Ferraro asked for six things:
+\begin{enumerate}
+\item Obtain and understand the authors' original data and Stata code.
+\item Understand the structure of the dataset and how the variables are constructed.
+\item Reproduce the original results using the authors' code and data.
+\item Understand the causal estimands, i.e.\ what treatment effect the authors are trying to estimate.
+\item Understand the identification strategies: two-way fixed effects (TWFE), instrumental variables (IV) and others.
+\item Understand the logic of the IV exclusion restriction and identify possible violations.
+\end{enumerate}
+Sections 3--8 answer these in order. Section 2 explains the concepts used throughout.
+
+%==========================================================================
+\section{Concepts used in this report}
+
+\begin{conceptbox}{The fundamental problem}
+We want the \emph{causal} effect of solar policy on birds: the difference between a county's bird diversity with the policy and without it. We never see both. Solar policy is also not assigned at random; governments target sunny, open, cheap land. So a raw comparison of high- and low-policy counties mixes the policy effect with pre-existing differences between them. Every design below tries to remove those differences.
+\end{conceptbox}
+
+\begin{conceptbox}{Two-way fixed effects (TWFE)}
+The regression includes a dummy for every county (\emph{county fixed effects}) and for every month (\emph{year-month fixed effects}). County effects remove anything constant within a county, such as latitude or habitat. Month effects remove anything common to all counties in a month, such as seasons or national growth in birdwatching. What is left is variation of the form: \emph{did this county's diversity change more than usual in the months its policy rose more than usual?} The key assumption is \textbf{parallel trends}: without the policy, high- and low-policy counties would have followed the same path.
+\end{conceptbox}
+
+\begin{conceptbox}{Instrumental variable (IV)}
+An instrument $Z$ is a variable that (i) shifts the treatment (\emph{relevance}) and (ii) affects the outcome \emph{only} through the treatment (\emph{exclusion restriction}). It must also be as good as randomly assigned. The IV estimate is then the effect of $Z$ on the outcome divided by the effect of $Z$ on the treatment. Relevance can be tested; exclusion can only be argued, or probed indirectly as in Section~8.
+\end{conceptbox}
+
+\begin{conceptbox}{Causal estimand}
+The estimand is the precise quantity a study targets, for example ``the average effect of adopting a policy on the counties that adopted it'' (ATT). A regression coefficient is only an estimate of a well-defined estimand under assumptions. With a continuous treatment and effects that differ across counties, a TWFE coefficient is a \emph{weighted average} of many county- and period-specific effects, and the weights are not chosen by the researcher.
+\end{conceptbox}
+
+\begin{conceptbox}{Propensity score matching (PSM)}
+PSM estimates each unit's probability of being treated from observed covariates (the propensity score). It then compares treated units with untreated units that have similar scores. It removes \emph{observed} differences only, and its result depends on actually using the matching weights.
+\end{conceptbox}
+
+%==========================================================================
+\section{Item 1 --- The authors' data and code}
+
+\subsection{What the package contains}
+\begin{itemize}
+\item \file{authors\_CODE.do}: one Stata do-file (975 lines) that merges the data, builds variables, and produces every table and figure.
+\item \textbf{46 \file{.dta} files}:
+  \begin{itemize}
+  \item core: bird diversity \file{Bird}, observer effort \file{BTN}, PSI \file{PI}, controls \file{Climate}, \file{PD}, \file{air}, \file{TD};
+  \item robustness: alternative PSI scores \file{PI1}--\file{PI6}, PV capacity \file{IC}, concurrent policies \file{enin}, \file{Coal}, \file{Windexp}, effort-trimmed outcomes \file{BirdDrop*};
+  \item IV inputs: \file{sunshine}, \file{CCPU};
+  \item heterogeneity and mechanisms: species-group diversity, NDVI, LAI, nightlight.
+  \end{itemize}
+\item \file{authors\_README.md}: package documentation. It refers to \file{code.txt} and \file{robust\_exclude.rtf}, but the actual names are \file{CODE.do} and \file{robust\_other2.rtf}.
+\end{itemize}
+Required packages are \file{reghdfe} (with \file{ftools} and \file{require}), \file{ivreghdfe} (with \file{ivreg2} and \file{ranktest}), \file{psmatch2}, \file{winsor2}, \file{estout} and \file{binscatter}. \file{00\_config.do} installs any that are missing.
+
+\subsection{What had to change to run it}
+Only file paths. The authors' code pointed to the authors' own OneDrive folders, and its last section overwrote \file{DATA/baseline.dta}. Our copy, \file{1\_1a\_authors\_code\_localpaths.do}, changes six lines, each marked \texttt{[PATH]}, and leaves every analysis line untouched.
+
+%==========================================================================
+\section{Item 2 --- Structure of the data and construction of variables}
+All facts in this section are computed in \file{1\_3\_data\_structure.do} and saved to \file{tables/1\_3\_data\_structure\_facts.csv}.
+
+\subsection{Unit of observation}
+\begin{itemize}
+\item \textbf{One row = one county in one month in which bird records exist.} \file{Bird.dta} has 48,900 county-months for 2,561 counties, 2014--2023. A county-month with no birdwatching simply does not exist in the data, so \textbf{the panel is unbalanced}: the median county appears in 11 of 120 months (range 1--115).
+\item \textbf{Birdwatching grows enormously.} County-months with records rise from 563 in 2014 to 13,734 in 2023, a 24-fold increase. The year-month effects absorb the average growth, but not growth that differs between types of places.
+\item \textbf{Merges.} PSI and all controls are annual and are merged \emph{many-to-one on county-year}, so each annual value is repeated across that year's months.
+\item \textbf{Cleaning.} Missing PSI is set to 0. Rows with a missing control are dropped (46,528 rows, 2,501 counties remain). All continuous variables, \emph{including PSI} and the two ingredients of the instrument (sunshine and CPU), are winsorized at the 1st/99th percentiles. The instrument itself is built from them afterwards.
+\item \textbf{Singletons.} 157 counties appear in only one month. \file{reghdfe} drops them because a county effect fitted to one observation explains it perfectly. This leaves the paper's $N=46{,}371$ and 2,344 counties.
+\end{itemize}
+
+\subsection{Key variables}
+\begin{table}[H]\centering\small
+\caption{Variables as constructed in the authors' code}
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash}X l}
+\toprule
+Variable & Construction & Level \\
+\midrule
+ShannonBD & Shannon index $-\sum_s p_s\ln p_s$, over species recorded in the county-month & county-month\\
+SimpsonBD & Simpson index $1-\sum_s p_s^2$ & county-month\\
+PSI (\texttt{PI}) & Weighted sum of solar policies issued that year at province, city and county level (mean 2.66, SD 4.12, max 15.5) & county-year\\
+Duration & $\ln(\text{birding time}/\text{number of birders}+1)$: observer effort & county-month\\
+Temp, Wind & Annual mean temperature, wind speed & county-year\\
+Pop, Carbon & $\ln$ population density; $\ln$ CO$_2$ emissions & county-year\\
+Water, Green, Farm, Grass & Land-cover shares & county-year\\
+Sun\_ccpu ($Z$) & $\ln(\text{mean sunshine }1984\text{--}2013)\,/\,\text{city climate-policy uncertainty}_y$ & county, city-year\\
+Area & PV capacity converted to km$^2$ & county-year\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Properties of the treatment, PSI}
+\begin{itemize}
+\item \textbf{A flow, not a stock.} PSI falls from one year to the next in 12.6\% of county-years, which a cumulative policy stock cannot do. \file{PI.dta} also contains stock (\texttt{PI\_stock}) and cumulative (\texttt{PI\_total}) versions that the authors do not use.
+\item \textbf{Mostly zero, mostly constant.} PSI is zero in 59\% of county-months, its median is zero in every year, and 1,234 of 2,501 counties never change PSI in the sample. Those counties contribute nothing to the within-county comparison except as controls.
+\item \textbf{Weakly tied to installations.} In the analysis sample, the correlation between PSI and installed PV area is 0.07. The paper's Table S6 reports 0.03--0.05. PSI measures policy documents, not land converted to solar.
+\end{itemize}
+
+\subsection{Missing PSI is coded as zero, and it is almost all urban}
+\file{PI.dta} covers 1,953 counties. \textbf{724 analysis counties (43.8\% of observations) are absent and get PSI\,$=0$ in every year.} None of them appears in \file{PI.dta} under its name either, so this is a coverage gap, not a failed merge. Splitting units by their administrative code (last two digits 01--20 = urban district) shows where the gap is. The code rule is confirmed by names: 90.1\% of urban-coded units are named ``\ldots\emph{qu}'' (\emph{qu} = district), against 0.6\% of the others, and 99.0\% of the 724 missing units are districts.
+
+\begin{table}[H]\centering\small
+\caption{Share of observations whose PSI is actually measured}\label{tab:coverage}
+\begin{tabular}{lrrr}
+\toprule
+& Observations & PSI measured & PSI missing, set to 0\\
+\midrule
+Rural counties & 22,289 & 98.8\% & 1.2\%\\
+Urban districts & 24,239 & 17.0\% & \textbf{83.0\%}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%==========================================================================
+\section{Item 3 --- Reproduction of the original results}
+\file{1\_1\_reproduce\_authors\_results.do} runs the authors' complete code, writing every table to \file{tables/authors\_tables/} and Figs S2--S3 to \file{figures/authors\_figures/}. \file{1\_4\_reproduction\_check.do} then re-estimates the headline numbers and compares them with the published values.
+
+\begin{table}[H]\centering\small
+\caption{Published versus reproduced estimates (\file{tables/1\_4\_reproduction\_check.csv})}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{lcccr}
+\toprule
+Result & Paper & Our run & SE (ours) & $N$\\
+\midrule
+Table 1 col.\ 1 --- PSI, no controls & $-0.0157$ & $-0.0157$ & 0.0037 & 46,371\\
+Table 1 col.\ 2 --- PSI, 5 controls & $-0.0127$ & $-0.0127$ & 0.0036 & 46,371\\
+\textbf{Table 1 col.\ 3 --- PSI, 9 controls (main)} & $\mathbf{-0.0125}$ & $\mathbf{-0.0125}$ & 0.0037 & 46,371\\
+Table S7 --- IV first stage ($Z$) & $0.0252$ & $0.0252$ & 0.0046 & 37,503\\
+Table S7 --- IV second stage (PSI) & $-0.1264$ & $-0.1264$ & 0.0347 & 37,503\\
+Table S11 --- 1:1 / 1:2 / kernel matching & $-0.0072$ / $-0.0083$ / $-0.0125$ & identical & --- & ---\\
+Table S12 col.\ 8 --- Simpson index & $-0.0014$ & $-0.0014$ & 0.0008 & 46,371\\
+Table 2 --- NDVI / nightlight / LAI & $-0.0609$ / $-0.2220$ / $0.0039$ & identical & --- & 46,371 / 46,371 / 46,338\\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\par\smallskip\footnotesize All 12 checked numbers match to four decimals (coefficients and SEs). Kleibergen--Paap $F=30.18$, as published.
+\end{table}
+
+\noindent Apparent discrepancies are explained by the code:
+\begin{enumerate}
+\item \textbf{46,528 vs.\ 46,371 observations}: the 157 singletons (Section 4.1). The IV models keep them (\texttt{keepsingleton}).
+\item \textbf{First stage 0.0252 vs.\ 0.0401 in Fig.\ S3.} The figure's slope comes from a pooled regression on 9,439 county-year averages \emph{without} fixed effects, a different quantity.
+\item \textbf{Nightlight} covers 2014--2023 with values up to 63 (the DMSP scale), although Table S2 cites a 1992--2019 source.
+\item \textbf{Simpson index}: the text calls it a ``significant negative effect''. Our $p=0.096$ agrees with the paper's own $p<0.10$, so it is significant only at the 10\% level, which is weaker than the Shannon result.
+\end{enumerate}
+
+%==========================================================================
+\section{Item 4 --- The causal estimands}
+
+\subsection{What the paper claims}
+That stricter solar-expansion policy \emph{causes} lower bird diversity: one more unit of PSI lowers the Shannon index by 0.0125.
+
+\subsection{What the main regression actually estimates}
+\begin{equation}
+\text{ShannonBD}_{it}=\beta\,\PSI_{i,y(t)}+X_{i,y(t)}'\gamma+\alpha_i+\delta_t+\varepsilon_{it},
+\end{equation}
+with $i$ a county, $t$ a year-month, $y(t)$ its year, $\alpha_i$ county effects and $\delta_t$ year-month effects. Three features pin down what $\beta$ means:
+\begin{enumerate}
+\item \textbf{A continuous dose.} The natural causal target is an \emph{average causal response}: the effect of one more unit of PSI. If effects differ across counties or over time, the TWFE $\beta$ is a weighted average of such responses. The weights depend on how much each county's PSI varies after the fixed effects are removed. They can be negative, and they include comparisons against already-treated counties (Baker et al.\ 2025, App.\ A.2). $\beta$ equals a clean average response only under parallel trends for every dose path \emph{and} homogeneous effects.
+\item \textbf{A same-year flow.} PSI counts \emph{new} policies in year $y$, so $\beta$ links this year's issuance to this year's birds. A county with active policies issued last year but none this year has PSI\,$=0$. Ecological effects of solar development are plausibly cumulative and lagged.
+\item \textbf{Documents, not land use.} Because PSI barely tracks installed PV area, $\beta$ is at most an intention-to-treat effect of issuing policy, not the effect of panels on habitat.
+\end{enumerate}
+\textbf{In one sentence:} $\beta$ is a variance-weighted average, over counties whose PSI changes, of the same-year change in the \emph{recorded} Shannon diversity per extra unit of newly issued solar policy. Its size is $-0.0125$ per unit, or $-0.05$ per SD of PSI, about 5\% of an SD of ShannonBD.
+
+\subsection{What the IV estimates}
+With a continuous treatment and heterogeneous effects, 2SLS identifies a weighted average of causal responses \emph{for counties whose PSI responds to the instrument} (Angrist, Graddy and Imbens 2000). This requires exclusion and monotonicity. The IV estimate ($-0.126$) is ten times the TWFE estimate. That can reflect different complier counties, attenuation from mismeasured PSI, or a violation of exclusion; Section~8 finds evidence of the last.
+
+\subsection{Other estimands in the paper}
+\begin{itemize}
+\item \textbf{PSM (Table S11)} is described in the text as estimating an ATT of $\mathbb{1}[\PSI>0]$. However, the outcome model is still TWFE on continuous PSI, so it is not an ATT.
+\item \textbf{Heterogeneity (S17--S18)} gives subgroup versions of $\beta$.
+\item \textbf{Mechanisms (Table 2)} give effects of PSI on NDVI, LAI and nightlight.
+\item \textbf{Table S19} covers richness, evenness and next-year crop yield.
+\end{itemize}
+
+%==========================================================================
+\section{Item 5 --- Identification strategies}
+
+\subsection{TWFE (main strategy)}
+\textbf{Assumption.} After county and year-month effects and the nine controls, within-county changes in PSI are unrelated to within-county deviations in diversity trends.
+
+\textbf{Why it may fail here.} Table~\ref{tab:coverage} shows that the counties coded PSI\,$=0$ are mostly urban districts, so they form much of the comparison group. Urban and rural birding grew differently over 2014--2023. If their diversity trends differed, TWFE attributes the difference to PSI. \file{1\_5\_twfe\_diagnostics.do} tests this directly.
+
+\begin{table}[H]\centering\small
+\caption{TWFE PSI coefficient under alternative specifications (\file{tables/1\_5\_twfe\_diagnostics.rtf})}\label{tab:twfe}
+\begin{tabular}{lcccrr}
+\toprule
+Specification & PSI coef. & SE & $p$ & $N$ & Counties\\
+\midrule
+\multicolumn{6}{l}{\emph{Panel A: who drives the estimate?}}\\
+Baseline (Table 1 col.\ 3) & $-0.0125$ & 0.0037 & 0.001 & 46,371 & 2,344\\
+Only counties with measured PSI & $-0.0027$ & 0.0038 & 0.49 & 26,007 & 1,641\\
+Rural counties only & $-0.0056$ & 0.0042 & 0.19 & 22,164 & 1,497\\
+Urban districts only & $+0.0056$ & 0.0079 & 0.48 & 24,207 & 847\\
+\textbf{Urban $\times$ year-month FE} & $\mathbf{-0.0027}$ & 0.0037 & \textbf{0.47} & 46,371 & 2,344\\
+Province $\times$ year-month FE & $-0.0146$ & 0.0047 & 0.002 & 46,076 & 2,343\\
+\midrule
+\multicolumn{6}{l}{\emph{Panel B: other treatment definitions}}\\
+PSI stock (measured-PSI counties) & $-0.0012$ & 0.0022 & 0.58 & 24,695 & 1,633\\
+Any PSI$>$0, full sample & $-0.0344$ & 0.0278 & 0.22 & 46,371 & 2,344\\
+Any PSI$>$0, measured-PSI counties & $+0.0180$ & 0.0280 & 0.52 & 26,007 & 1,641\\
+\midrule
+\multicolumn{6}{l}{\emph{Panel C: observer effort}}\\
+Without Duration as a control & $-0.0154$ & 0.0037 & $<$0.001 & 46,371 & 2,344\\
+Outcome = Duration & $-0.0177$ & 0.0042 & $<$0.001 & 46,371 & 2,344\\
+\bottomrule
+\end{tabular}
+\par\smallskip\footnotesize ShannonBD on PSI and the nine controls, county and year-month FE unless stated; SEs clustered by county.
+\end{table}
+
+\begin{whybox}\small
+\textbf{Reading Table~\ref{tab:twfe}.} Giving urban and rural units their own month-by-month time effects removes about 80\% of the estimate. The standard error does not change, so this is not lost precision. The estimate itself goes away. Within rural counties alone, or within urban districts alone, there is no significant effect. Province $\times$ month effects do \emph{not} remove it, so the confounder is the urban--rural divide, not region. None of the paper's robustness checks (Tables S12--S16) addresses this, because all of them keep the zero-coded districts as controls. Finally, PSI predicts observer effort (Duration). That makes Duration a possible ``bad control'', but dropping it makes the estimate slightly \emph{larger}, so this concern works in the paper's favour.
+\end{whybox}
+
+\subsection{Shift-share instrumental variable}
+The instrument is $Z_{it}=\ln(\text{Sunshine}_{i,1984\text{--}2013})/\text{CPU}_{c(i),y}$: a fixed county ``share'' (historical solar resource) divided by a city-level, time-varying ``shift'' (climate-policy uncertainty from Ma et al.). CPU covers 287 cities, so the IV sample has 37,503 observations in 2,077 counties.
+\begin{itemize}
+\item \textbf{Relevance.} Sunnier places have more solar potential, and lower policy uncertainty makes governments more willing to issue solar policy. The first stage is 0.0252 (SE 0.0046), with Kleibergen--Paap $F=30.2$.
+\item \textbf{Where the variation comes from.} County effects absorb the sunshine level. The remaining variation is each city's CPU \emph{change over time}, scaled by county sunshine. With a single scalar share, identification rests mainly on the exogeneity of the CPU shifts.
+\item \textbf{Authors' diagnostics (Tables S8--S10).} CPU is not predicted by covariates within city, and results hold excluding extreme-sunshine counties and adding sunshine $\times$ month effects. Their over-identification test, however, uses three tercile interactions of the \emph{same} instrument, so it has little power against a shared violation.
+\end{itemize}
+
+\subsection{Other strategies}
+\begin{itemize}
+\item \textbf{PSM (Table S11).} The code runs \file{psmatch2} and then regresses on the matched sample \emph{without the matching weights}. This only trims to common support. Kernel weights range from 0.01 to 4.5, so using them matters. Applied properly, all three columns become insignificant: $-0.0051$ (SE 0.0046), $-0.0052$ (0.0043) and $-0.0054$ (0.0040).
+\item \textbf{Robustness (S12--S16):}
+  \begin{itemize}
+  \item alternative PSI scorings and PV area;
+  \item trimming extreme counties, capitals and low-effort observations (the estimate shrinks to about $-0.008$ when low-effort county-months are dropped);
+  \item concurrent policies;
+  \item PM$_{2.5}$, excluding neighbours, and breeding season only.
+  \end{itemize}
+\item \textbf{Heterogeneity (S17--S18).} The effect appears in non-poor, non-Three-North and non-desert counties. Point estimates in the other groups are positive and insignificant.
+\item \textbf{Mechanisms (Table 2).} PSI lowers NDVI and nightlight and raises LAI (``inferior greening''). These annual satellite measures are regressed on the \emph{monthly birding} sample, which weights county-years by birding activity.
+\end{itemize}
+
+%==========================================================================
+\section{Item 6 --- The IV exclusion restriction}
+
+\subsection{Logic}
+Conditional on county and year-month effects and the controls, $Z$ must affect recorded bird diversity \emph{only through PSI}. In words: when a city's climate-policy uncertainty falls, sunnier counties in that city must gain bird diversity \emph{only} because they issue more solar policy. Nothing else about that change may reach the birds or the birdwatchers.
+
+\subsection{Possible violations}
+\begin{enumerate}
+\item \textbf{Other climate and environmental policy.} CPU measures uncertainty about \emph{all} climate policy. Afforestation, ecological red lines, environmental inspections, coal closures and wind build-out move with it, and all can affect birds.
+\item \textbf{Observer behaviour.} Recorded diversity depends on effort. If $Z$ shifts how or where people bird, it affects ShannonBD directly.
+\item \textbf{Economic and urban change.} CPU co-moves with local economic conditions, construction and lighting.
+\item \textbf{Sunshine-specific trends.} If sunnier counties' bird communities trended differently for climatic reasons, $Z$ picks this up.
+\item \textbf{Solar policy without solar land.} Because PSI barely tracks PV area, the channel ``through PSI'' is hard to separate from a general climate-policy channel.
+\end{enumerate}
+
+\subsection{Empirical tests (\file{1\_6\_iv\_exclusion\_tests.do})}
+\textbf{Zero-first-stage test.} In counties where PSI \emph{cannot} change, the instrument cannot move PSI. If exclusion holds, it should therefore have no effect on the outcome there (van Kippersluis and Rietveld 2018).
+
+\begin{table}[H]\centering\small
+\caption{Reduced form and instrument-validity tests}\label{tab:excl}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{llcccr}
+\toprule
+Outcome & Sample & $Z$ coef. & SE & $p$ & $N$\\
+\midrule
+ShannonBD & Full IV sample (reduced form) & $-0.0032$ & 0.0007 & $<$0.01 & 37,362\\
+ShannonBD & \textbf{PSI missing (first stage $\equiv0$)} & $\mathbf{-0.0021}$ & 0.0011 & \textbf{$<$0.05} & 17,497\\
+ShannonBD & PSI constant within county & $-0.0024$ & 0.0010 & $<$0.05 & 20,703\\
+ShannonBD & PSI varies within county & $-0.0038$ & 0.0010 & $<$0.01 & 16,659\\
+\midrule
+Duration (observer effort) & Full & $-0.0020$ & 0.0008 & $<$0.01 & 37,362\\
+CEI (environmental inspection) & Full & $+0.0021$ & 0.0008 & $<$0.01 & 37,362\\
+Coal closure / Wind / Green finance & Full & small & --- & $>$0.05 & 37,362\\
+NDVI / Nightlight & Full & $-0.0085$ / $-0.0241$ & 0.0026 / 0.0051 & $<$0.01 & 37,362\\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{whybox}\small
+\textbf{Reading Table~\ref{tab:excl}.} Where the instrument has no possible route through PSI, it still lowers Shannon diversity, by about two-thirds as much as in the full sample ($-0.0021$ vs.\ $-0.0032$). If exclusion held, this effect would be zero, so this is direct evidence of a violation. As a rough illustration only: if a direct effect of $-0.0021$ applied everywhere, the IV estimate would fall from $-0.126$ to about $(-0.0032+0.0021)/0.0252\approx-0.04$. The instrument also predicts observer effort and the CEI inspection policy, two of the channels listed above. The $p$-value of 0.048 is close to 0.05, so this is strong evidence against the instrument, not proof.
+\end{whybox}
+
+\begin{table}[H]\centering\small
+\caption{IV estimate under alternative inference and specifications}
+\begin{tabular}{lccccr}
+\toprule
+Specification & PSI coef. & SE & KP $F$ & Clusters & $N$\\
+\midrule
+Paper (cluster by county) & $-0.126$ & 0.035 & 30.2 & 2,077 & 37,503\\
+\textbf{Cluster by city (level of the shift)} & $-0.107$ & \textbf{0.047} & \textbf{10.8} & 287 & 37,372\\
+Urban $\times$ year-month FE & $-0.148$ & 0.047 & 22.3 & 2,077 & 37,503\\
+Measured-PSI counties only & $-0.117$ & 0.040 & 20.9 & 1,411 & 19,985\\
+Without Duration & $-0.138$ & 0.036 & 30.3 & 2,077 & 37,503\\
+\bottomrule
+\end{tabular}
+\end{table}
+\noindent The instrument varies at the city-year level, so city clustering is the appropriate choice. It raises the SE by a third and lowers the first-stage $F$ to 10.8, close to weak-instrument territory. Unlike TWFE, the IV survives urban $\times$ month effects, so its credibility rests almost entirely on the exclusion restriction, which the tests above call into question.
+
+%==========================================================================
+\section{Workflow and how to reproduce}
+\begin{table}[H]\centering\small
+\caption{Task 1 steps (folder \file{01\_Task1\_Replication/})}
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X}
+\toprule
+Do-file & What it does and why & Output\\
+\midrule
+\file{1\_1\_reproduce\_authors\_results} & Runs the authors' full code (paths only changed), to check reproducibility & \file{tables/authors\_tables/}, \file{figures/authors\_figures/}\\
+\file{1\_2\_build\_analysis\_sample} & Authors' data preparation verbatim, plus flags (PSI measured?, urban, PSI stock), so every later step uses the same sample & \file{data/analysis\_sample.dta}\\
+\file{1\_3\_data\_structure} & Every structural fact in Section 4 & \file{tables/1\_3\_data\_structure\_facts.csv}\\
+\file{1\_4\_reproduction\_check} & Paper versus our estimates & \file{tables/1\_4\_reproduction\_check.csv}\\
+\file{1\_5\_twfe\_diagnostics} & Urban/rural, missing PSI, treatment definitions, effort, weighted PSM & \file{tables/1\_5\_twfe\_diagnostics.rtf}\\
+\file{1\_6\_iv\_exclusion\_tests} & Zero-first-stage test, other channels, IV inference & \file{tables/1\_6\_iv\_exclusion\_tests.rtf}\\
+\bottomrule
+\end{tabularx}
+\end{table}
+\noindent\textbf{To rerun:} in Stata, type
+\begin{quote}\small\texttt{do ".../01\_Task1\_Replication/code/1\_0\_run\_task1.do"}\end{quote} This runs all six steps, with one log per step in \file{logs/}. \file{run\_all.do} at the project root runs Tasks 1--3.
+
+\section{Questions for the authors}
+\begin{enumerate}
+\item How was \file{PI.dta} assembled, and why are most urban districts absent? Were they verified to have no solar policy?
+\item Is PSI intended as a flow of new policies or as policy in force?
+\end{enumerate}
+
+%==========================================================================
+\section*{References}
+{\small
+\begin{itemize}[leftmargin=12pt,label={}]
+\item Angrist, J.\ D., Graddy, K.\ and Imbens, G.\ W.\ (2000). The interpretation of instrumental variables estimators in simultaneous equations models. \textit{Review of Economic Studies}, 67(3), 499--527.
+\item Baker, A., Callaway, B., Cunningham, S., Goodman-Bacon, A.\ and Sant'Anna, P.\ H.\ C.\ (2025). Difference-in-differences designs: a practitioner's guide. \textit{Journal of Economic Literature}, 64(2), 498--557 (preprint arXiv:2503.13323).
+\item Correia, S. \file{reghdfe}: Stata module for linear and instrumental-variable regressions absorbing multiple levels of fixed effects. Statistical Software Components, Boston College.
+\item van Kippersluis, H.\ and Rietveld, C.\ A.\ (2018). Beyond plausibly exogenous. \textit{Econometrics Journal}, 21(3), 316--331.
+\item Zhang, H.\ et al.\ (2026). China's solar expansion policy reduces bird diversity. \textit{Science}, 393, 831.
+\end{itemize}}
+
+\end{document}

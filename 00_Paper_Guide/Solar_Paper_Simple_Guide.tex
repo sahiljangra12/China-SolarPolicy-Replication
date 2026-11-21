@@ -1,0 +1,372 @@
+\documentclass[11pt]{article}
+\input{style.tex}
+\lhead{\small Simple guide to Zhang et al.\ (2026)}
+\rhead{\small Sahil, Johns Hopkins University}
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries ``China's solar expansion policy reduces bird diversity''}\\[6pt]
+{\large A simple, complete guide to the paper}\\[8pt]
+{\small Zhang, Zhang, Wu, Cai, Li, Wang, Qiu, Huang and Phan \quad$\cdot$\quad \textit{Science} 393, 831 \quad$\cdot$\quad 20 August 2026}\\[2pt]
+{\small Guide prepared by Sahil, Research Assistant, Johns Hopkins University}
+\end{center}
+
+\begin{summarybox}
+\small
+\textbf{The paper in five sentences.}
+China is building solar farms very fast to fight climate change, but solar farms take up land that birds may need. The authors ask whether counties with \emph{stronger solar policies} end up with \emph{less bird diversity}. They combine citizen-science bird records, a new ``policy strength'' score built from government documents, and many environmental variables for 2,344 counties over 2014--2023. Their main regression says that stronger solar policy goes with lower bird diversity: one extra point of policy strength lowers the Shannon diversity index by 0.0125, about 2.1\% per standard deviation. They argue the cause is land conversion that replaces varied natural vegetation with dense but uniform plants, which they call \textbf{``inferior greening''}.
+\end{summarybox}
+
+\noindent\textbf{Important status note.} On 1 October 2026 \textit{Science} posted an \textbf{Editor's Note}: the editors received several letters raising technical concerns and are evaluating them. The paper has not been retracted, but its findings are formally under review.
+
+\tableofcontents
+
+%==========================================================================
+\section{The big picture: why this paper exists}
+
+\subsection{The problem in plain words}
+\begin{itemize}
+\item To slow climate change, countries are switching to renewable energy, especially \textbf{solar panels} (photovoltaics, ``PV'').
+\item \textbf{China} is the biggest example. Solar is projected to supply nearly \textbf{45\% of China's energy by 2060}.
+\item Solar farms need a lot of land. China's solar footprint reached about \textbf{4,520 km\textsuperscript{2} in 2024}, roughly the size of the US state of Rhode Island.
+\item Land used for panels is land that birds and other wildlife might have used.
+\end{itemize}
+So there is a possible conflict: a policy that is good for the climate might be bad for nature. The paper calls this a \textbf{``green dilemma''}.
+
+\subsection{What scientists already believed (the evidence was split)}
+\begin{table}[H]\centering\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Why solar might HURT birds} & \textbf{Why solar might HELP birds}\\
+\midrule
+Changes and breaks up landscapes (fragmentation) & Shade under panels is cooler and more humid, so plants can grow better\\
+Visual and heat disturbance & More plants can mean more insects and food\\
+Direct loss of habitat & Panel structures can act as ``habitat islands'' in degraded land\\
+``Lake effect'': birds mistake shiny panels for water and crash & Replaces fossil fuels, which harm nature through climate change and pollution\\
+\bottomrule
+\end{tabularx}
+\end{table}
+Because both stories are plausible, the authors say the true effect depends on context.
+
+\subsection{Why China is a special case}
+In China, \emph{where} solar is built is driven by \textbf{government policy}, not just by sunshine or free land:
+\begin{itemize}
+\item \textbf{Five-Year Plans} moved the focus from building panels in factories to installing them across the country.
+\item The \textbf{Photovoltaic Poverty Alleviation Project} (launched 2014, scaled up 2016) linked solar to anti-poverty aid in \textbf{471 counties and about 35,000 villages}.
+\item \textbf{Low-carbon pilot cities} added another layer of policy.
+\item The \textbf{Three-North region} (northwest, north and northeast China) is dry and very sunny, so it naturally attracts solar.
+\end{itemize}
+Because policy strength differs from county to county, the authors describe China as a ``quasi-experimental landscape''. In other words, they treat this variation \emph{as if} it were a natural experiment.
+
+%==========================================================================
+\section{The research question and hypotheses}
+
+\textbf{Question:} Do counties with \emph{stronger photovoltaic policies} have \emph{lower bird diversity}?
+
+The authors set up two competing hypotheses:
+\begin{itemize}
+\item \textbf{H1 (positive):} stronger PV policy \emph{increases} bird diversity, because it cuts fossil fuels, replaces intensive farmland with better habitat, and can require good land management.
+\item \textbf{H2 (negative):} stronger PV policy \emph{decreases} bird diversity, because solar needs a lot of land and causes habitat loss, fragmentation, collisions and disturbance.
+\end{itemize}
+Their results support \textbf{H2}.
+
+\subsection{What the authors say is new (three ``contributions'')}
+\begin{enumerate}
+\item \textbf{Policy, not panels.} Earlier studies linked birds to \emph{installed} solar capacity. This paper looks one step earlier, at the \emph{policies} that drive where and how much solar is built.
+\item \textbf{Different places, different effects.} It compares poor vs non-poor counties, and desert/dry regions vs non-desert regions.
+\item \textbf{A new mechanism.} ``Inferior greening'': satellite greenness (leaf area) goes \emph{up} while bird diversity goes \emph{down}, because varied natural vegetation is replaced by dense but uniform plants under the panels.
+\end{enumerate}
+
+%==========================================================================
+\section{The data: what was collected and from where}
+
+\subsection{Unit of observation}
+One row of data = \textbf{one county in one month}. The data cover \textbf{2,344 counties} from \textbf{2014 to 2023}, giving \textbf{46,528 county-month observations}. (The regressions use 46,371, because 157 counties with only one month of data drop out automatically.)
+
+\subsection{Every data source}
+\begin{table}[H]\centering\footnotesize\renewcommand{\arraystretch}{0.95}
+\caption{Variables and sources (paper's Tables S1--S2)}
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X}
+\toprule
+\textbf{What} & \textbf{Measured as} & \textbf{Source}\\
+\midrule
+\multicolumn{3}{l}{\emph{Outcome: birds}}\\
+Bird diversity & Shannon index per county-month (Section 4.1) & China Birdreport Online Database (China Birdwatching Record Center, \texttt{birdreport.cn}); citizen-science records with location, time, species and counts\\
+Alternative diversity & Simpson index & Same\\
+Protection status & Whether a species is state-protected & 2021 List of State Key Protected Wild Animals\\
+Richness, evenness & Number of species; Shannon $\div\ln$(richness) & Same bird database\\
+\midrule
+\multicolumn{3}{l}{\emph{Treatment: solar policy}}\\
+PSI & Policy Stringency Index (Section 4.2) & Web-scraped solar policy documents from provincial, city and county government websites\\
+PV area & Area of large solar power stations (km\textsuperscript{2}) & National Energy Administration licence data\\
+\midrule
+\multicolumn{3}{l}{\emph{Control variables}}\\
+Temp, Wind & Annual average temperature and wind speed & ERA5-Land climate reanalysis\\
+Pop & Log of population density & National Bureau of Statistics\\
+Duration & Log of birdwatching time per birdwatcher (observer effort) & China Birdreport Online Database\\
+Carbon & Log of carbon emissions & EDGAR emissions database\\
+Water, Green, Farm, Grass & Share of county area that is water; forest + shrub; farmland; grassland & 30-m China land-cover dataset\\
+\midrule
+\multicolumn{3}{l}{\emph{Instrument (Section 6.1)}}\\
+Sunshine & Average sunshine hours 1984--2013 & China Meteorological Data Service\\
+City CPU & Climate Policy Uncertainty index, from news articles & Ma et al.\ (2023)\\
+\midrule
+\multicolumn{3}{l}{\emph{Other policies (robustness)}}\\
+CEI & Central Environmental Inspection campaign & Ministry of Ecology and Environment\\
+Coal, Wind expansion & Coal plant closures; new wind farms & Global Wind Power Tracker and related data\\
+Green finance & Green Finance Reform pilot zones & Central University of Finance and Economics\\
+PM\textsubscript{2.5} & Air pollution & Satellite-derived PM\textsubscript{2.5}\\
+\midrule
+\multicolumn{3}{l}{\emph{Mechanisms}}\\
+NDVI & Vegetation greenness & NASA MODIS (MOD13A3)\\
+LAI & Leaf area index: how much leaf covers the ground & NASA MODIS (MOD15A2H)\\
+Nightlight & Night-time light (human activity) & Harmonised DMSP/VIIRS dataset\\
+\midrule
+\multicolumn{3}{l}{\emph{Heterogeneity and extra outcomes}}\\
+Poverty county & National poverty-county list & Government list\\
+Three-North; desert & Region indicator; sandy/gravel desert (Gobi) & Land-use remote-sensing data (CNLUCC)\\
+Crop yield & Log of county crop output & CSMAR China County Economy database\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Typical values (paper's Table S4)}
+\begin{itemize}
+\item \textbf{Shannon index:} average 2.446, standard deviation 0.981, range 0 to 4.34.
+\item \textbf{PSI:} average 2.662, standard deviation 4.116, range 0 to 15.5.
+\item \textbf{Climate:} average temperature 14.83\,°C, wind 2.24 m/s.
+\item \textbf{Land:} farmland 36.3\%, forest and shrub 33.2\%, grassland 8.9\%, water 3.6\% of county area.
+\end{itemize}
+
+%==========================================================================
+\section{The two key measures, explained simply}
+
+\subsection{Shannon diversity index (the outcome)}
+For each county-month, take every bird species seen and its share $x_i$ of all birds counted. Then
+\[
+\text{Shannon} = -\sum_i x_i \ln x_i .
+\]
+\begin{itemize}
+\item It is \textbf{higher} when there are \textbf{many species} (richness) \textbf{and} their numbers are \textbf{balanced} (evenness).
+\item Example: 10 species seen equally often scores higher than 10 species where one species dominates.
+\item The authors read a higher value as a ``healthier, more complex'' bird community.
+\item \textbf{Simpson index} ($1-\sum n_i^2/N^2$) is a second measure that gives more weight to the most common species. It is used as a check.
+\end{itemize}
+
+\subsection{Policy Stringency Index, PSI (the treatment)}
+This is the paper's new variable. It was built in three steps:
+\begin{enumerate}
+\item \textbf{Collect.} Download every official solar-promotion document from county, city and national government websites (web scraping).
+\item \textbf{Score each document from 1 to 9} by how binding it is:
+\begin{table}[H]\centering\small
+\begin{tabular}{clcl}
+\toprule
+Score & Document type & Score & Document type\\
+\midrule
+1 & Policy outline (broad principles) & 6 & Official notice (clear orders)\\
+2 & Strategic plan (long-term vision) & 7 & Administrative measures (strict procedures)\\
+3 & Key work priorities & 8 & Regulation (legally enforceable)\\
+4 & Guiding opinion (advice) & 9 & Ordinance (law-like, strongest)\\
+5 & Implementation scheme (concrete steps) & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+\item \textbf{Weight by government level and add up.} \emph{Provincial} documents get the highest weight, \emph{city} documents a medium weight and \emph{county} documents the lowest. The authors justify this by China's top-down ``pressure-based'' system. Adding the weighted scores for a county gives its PSI for that year.
+\end{enumerate}
+\textbf{Check that PSI means something real:} PSI is positively related to the actual area of solar farms ($\beta=0.0222$), most strongly with a \textbf{2-year lag}, the time from policy to finished project. The direct correlation is small, though (Pearson $r=0.041$).
+
+%==========================================================================
+\section{The main method and the main result}
+
+\subsection{The model in words}
+\[
+\text{Shannon}_{\,\text{county, month}} = \beta \times \text{PSI} + \text{controls} + \underbrace{\text{county effect}}_{\text{fixed traits}} + \underbrace{\text{month effect}}_{\text{shared shocks}} + \text{error}
+\]
+\begin{itemize}
+\item \textbf{Two-way fixed effects (TWFE)} regression, the paper's main method.
+\item \textbf{County fixed effects} remove anything about a county that never changes (geography, latitude, basic habitat).
+\item \textbf{Year-month fixed effects} remove anything that hits all counties in the same month (seasons, national trends, COVID).
+\item \textbf{Controls} remove the influence of temperature, wind, population, birdwatching effort, carbon and land cover.
+\item \textbf{Standard errors clustered by county} allow for errors within a county being related over time.
+\item What is left, $\beta$, compares changes in policy with changes in bird diversity \emph{within the same county} over time.
+\end{itemize}
+
+\subsection{Main result (Table 1)}
+\begin{table}[H]\centering\small
+\begin{tabular}{lccc}
+\toprule
+& No controls & 5 controls & All 9 controls (main)\\
+\midrule
+PSI coefficient & $-0.0157$ & $-0.0127$ & $\mathbf{-0.0125}$\\
+Standard error & (0.0037) & (0.0036) & (0.0037)\\
+Observations & 46,371 & 46,371 & 46,371\\
+\bottomrule
+\end{tabular}
+\end{table}
+\textbf{How to read it:} one extra point of PSI goes with a 0.0125 lower Shannon index. Scaled up, a one-standard-deviation increase in PSI (4.1 points) is linked to a \textbf{2.10\% drop} in bird diversity. It is statistically significant ($p<0.01$). Among the controls, \textbf{birdwatching effort (Duration)} is by far the strongest.
+
+%==========================================================================
+\section{How the authors defend the result (robustness checks)}
+The authors list seven groups of checks. All of them give negative coefficients.
+
+\subsection{Instrumental variable (IV)}
+\textbf{Worry:} something hidden (local environmental attitudes, conservation activism) could drive both policy and birds; or governments could put solar where birds are already few (reverse causality).
+
+\textbf{Fix:} find a variable that pushes policy but has no other link to birds. Their instrument is
+\[
+\text{IV} = \frac{\ln(\text{average sunshine 1984--2013})}{\text{city climate-policy uncertainty}}.
+\]
+\begin{itemize}
+\item \textbf{Logic:} sunnier places suit solar better; when climate policy is \emph{less uncertain}, governments commit more. Both push PSI up.
+\item \textbf{Claimed exclusion:} old weather and city-level policy news should affect today's birds \emph{only} through solar policy.
+\item It is a \textbf{shift-share (Bartik)} design: sunshine is the fixed ``share'', and 1/uncertainty is the time-varying ``shift''.
+\item \textbf{First stage:} $0.0252$ (SE 0.0046); instrument strength F = 30.2, well above the usual threshold of 10.
+\item \textbf{IV estimate: $-0.1264$} (SE 0.0347), ten times larger than the main estimate.
+\item \textbf{Extra checks (Tables S8--S10):} covariates do not predict the uncertainty index within cities; the over-identification test passes; results hold without extreme-sunshine counties, with sunshine $\times$ month effects, and with 1/uncertainty alone.
+\item Fig.\ S3 shows a binned scatter of instrument vs PSI (slope 0.0401, from a simpler regression without fixed effects).
+\end{itemize}
+
+\subsection{Propensity score matching (PSM)}
+Compare counties with policy (PSI $>$ 0) against similar-looking counties without policy, matched on the controls and month:
+\begin{itemize}
+\item 1:1 nearest neighbour: $-0.0072$ ($p<0.10$); 1:2 nearest neighbour: $-0.0083$ ($p<0.05$); kernel: $-0.0125$ ($p<0.01$).
+\item The authors describe these as average effects on the treated (ATT).
+\end{itemize}
+
+\subsection{Different ways of measuring}
+\begin{itemize}
+\item \textbf{Solar farm area instead of PSI:} $-0.0387$ (significant).
+\item \textbf{Re-scored PSI:} the nine document types grouped into three classes (planning / guidance / regulation), scored 1-2-3, 1-2-4 or 2-4-8, with and without the government-level weights: all negative, $-0.0325$ to $-0.0061$.
+\item \textbf{Simpson index instead of Shannon:} $-0.0014$ ($p<0.10$, weaker).
+\end{itemize}
+
+\subsection{Different samples}
+\begin{itemize}
+\item Drop top/bottom 5\% of counties by bird diversity: $-0.0152$.
+\item Drop the top 5\% by PSI: $-0.0123$.
+\item Drop provincial capitals and the four big municipalities: $-0.0099$.
+\end{itemize}
+
+\subsection{Low birdwatching effort}
+Drop county-months with very few bird records (bottom 20\%, 10\%, 5\%, 3\%): about $-0.008$ each time, still negative but smaller.
+
+\subsection{Other environmental policies at the same time}
+Add controls for the Central Environmental Inspection campaign, coal plant closures, wind expansion and green finance zones, one at a time and all together: still about $-0.0125$.
+
+\subsection{Other checks}
+\begin{itemize}
+\item Add air pollution (PM\textsubscript{2.5}): $-0.0125$.
+\item Drop counties next to high-PSI counties (spillovers): $-0.0132$.
+\item Breeding season only (May--July): $-0.0148$.
+\end{itemize}
+
+%==========================================================================
+\section{Who is affected most (heterogeneity)}
+
+\subsection{By place}
+\begin{itemize}
+\item \textbf{Non-poverty counties:} $-0.0132$ (significant); poverty counties: no effect.
+\item \textbf{Outside the Three-North region:} $-0.0196$ (significant); inside: no effect.
+\item \textbf{Non-desert areas:} $-0.0165$ (significant); sandy/gravel desert: no effect.
+\end{itemize}
+\textbf{Authors' explanation:} desert and dry-region birds are used to open, sparse land, so panels change little for them. Richer, greener regions have more complex habitats to lose.
+
+\subsection{By type of bird}
+\begin{itemize}
+\item \textbf{Non-endemic species:} $-0.0127$; endemic species (found only in China, often in mountain forests): no effect.
+\item \textbf{Migratory:} $-0.0116$; \textbf{resident:} $-0.0128$. Both decline; migrants lose stopover sites, and strong-policy regions overlap migration routes.
+\item \textbf{State-protected:} $-0.0139$; \textbf{not protected:} $-0.0138$.
+\end{itemize}
+
+\subsection{By bird traits}
+\begin{itemize}
+\item \textbf{Nesting:} vegetation nesters $-0.0118$; ground/water nesters $-0.0124$.
+\item \textbf{Diet:} carnivores and omnivores $-0.0130$; \textbf{herbivores: no effect}.
+\item \textbf{Flocking:} small flocks $-0.0127$; large flocks $-0.0103$.
+\end{itemize}
+
+%==========================================================================
+\section{Why it happens (mechanisms)}
+The authors regress three satellite measures on PSI (Table 2):
+\begin{table}[H]\centering\small
+\begin{tabular}{lccl}
+\toprule
+Measure & Effect of PSI & SE & Their interpretation\\
+\midrule
+NDVI (greenness) & $-0.0609$ & 0.0138 & Native vegetation is cleared\\
+LAI (leaf area) & $+0.0039$ & 0.0007 & Dense uniform plants grow under panels\\
+Nightlight & $-0.2220$ & 0.0256 & Solar sites are remote, so light pollution is \emph{not} the cause\\
+\bottomrule
+\end{tabular}
+\end{table}
+\begin{itemize}
+\item \textbf{``Inferior greening'':} varied native plants (lower NDVI) are replaced by dense but uniform cover (higher LAI). The land looks ``green'' to satellites but offers poorer habitat.
+\item \textbf{This fits their bird results:} vegetation nesters need complex plants for cover, and carnivores and omnivores need the insects that native plants support. Herbivores can live on the dense ground cover, which is why they show no decline.
+\item \textbf{Other harms they mention:} habitat fragmentation; the ``lake effect'' (collisions); and for protected species, open-habitat loss and ``grounding'' (large waterbirds that land on panels cannot take off again).
+\item The abstract adds that cropland and grassland were turned into developed land.
+\end{itemize}
+
+%==========================================================================
+\section{Wider consequences (Table S19 / Fig.\ 3)}
+\begin{itemize}
+\item \textbf{New policy vs old policy:} this year's policy (``flow'') lowers diversity ($-0.0105$, $p<0.05$); last year's policy has no significant effect. The authors conclude that the \emph{first wave} of land clearing does the damage.
+\item \textbf{Species richness:} about \textbf{1 fewer species} per extra PSI point ($-0.975$).
+\item \textbf{Evenness:} slightly \emph{higher} ($+0.0018$): fewer species remain, but the survivors (generalists) are more evenly balanced. They call this ``environmental filtering''.
+\item \textbf{Crop yield:} next year's crop output falls \textbf{2.88\%} per PSI point ($-0.0288$). They say this is separate from the bird effect, showing that solar competes with farming for land.
+\end{itemize}
+
+%==========================================================================
+\section{What the authors recommend}
+\begin{enumerate}
+\item \textbf{Put big solar farms in deserts and dry areas} (especially the Gobi in northern China), where habitat is simple. In richer, greener regions, prefer rooftop solar and \emph{agrivoltaics} (panels combined with farming).
+\item \textbf{Roll out policies gradually,} with \textbf{mandatory biodiversity assessments} and buffer zones built in from the start.
+\item \textbf{Better monitoring:} do not trust greenness (LAI) alone. Require diverse \emph{native} plants under and around panels, and reward developers for bird-friendly management.
+\end{enumerate}
+
+\subsection{Data and code}
+Data and Stata code are public on GitHub (\texttt{jianke22/China-s-solar-expansion-policy-reduces-bird-diversity}). Funding came from the National Social Science Fund of China.
+
+%==========================================================================
+\section{Words to know (glossary)}
+\begin{table}[H]\centering\small
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash}X}
+\toprule
+Photovoltaic (PV) & Solar panels that turn sunlight into electricity\\
+Citizen science & Data collected by the public (here, birdwatchers uploading sightings)\\
+Shannon index & Bird diversity score that rises with more species and more balanced numbers\\
+PSI & The authors' score of how strongly a county's governments push solar\\
+Fixed effects & Dummies that remove everything constant within a county, or common to a month\\
+Control variable & A factor held constant so it cannot explain the result\\
+Endogeneity & When the treatment is linked to hidden factors, so a simple regression is biased\\
+Instrumental variable & A factor that changes the treatment but should affect the outcome only through it\\
+Shift-share (Bartik) & An instrument built from a fixed ``share'' times a changing ``shift''\\
+First stage & Regression of the treatment on the instrument (is the instrument strong?)\\
+Propensity score matching & Comparing treated units with similar-looking untreated units\\
+ATT & Average effect on the units that actually received the treatment\\
+Heterogeneity & Whether the effect differs across groups\\
+Mechanism (mediator) & The pathway through which the treatment affects the outcome\\
+NDVI / LAI & Satellite measures of greenness / leaf cover\\
+Endemic species & Species found only in one country or region\\
+Three-North region & Dry, sunny northern belt of China\\
+Inferior greening & The authors' term: greener-looking but less diverse vegetation\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%==========================================================================
+\section{What our replication adds (keep in mind)}
+\begin{whybox}\small
+\begin{itemize}[leftmargin=12pt]
+\item \textbf{Reproducible:} every published number checked reproduces exactly from the authors' code and data.
+\item \textbf{But PSI is missing for 724 counties, mostly city districts, and the code sets it to 0}, so the ``no policy'' group is mostly cities. Comparing within urban and within rural areas gives $-0.0027$ (not significant).
+\item \textbf{PSI is a yearly ``flow''} that is barely linked to actual solar land ($r\approx0.04$--$0.07$). It measures documents, not panels.
+\item \textbf{The instrument fails a key test:} it predicts bird diversity even where PSI cannot change.
+\item \textbf{Matching:} the code never applies the matching weights; when they are applied, the estimates are not significant.
+\item \textbf{Sensitivity:} a hidden factor explaining about 2\% of the leftover variation could erase the result, and the urban--rural trend is far stronger than that.
+\item \textbf{Staggered DiD:} counties that started issuing solar policy show no drop in bird diversity.
+\end{itemize}
+Details: Task 1--3 reports in \texttt{Solar\_Birds\_Replication/}.
+\end{whybox}
+
+\end{document}

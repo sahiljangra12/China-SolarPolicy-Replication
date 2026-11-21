@@ -1,0 +1,62 @@
+<!--title:Paper check-->
+<section id="how" data-nav="How references work">
+  <div class="kicker">Paper check</div>
+  <h2>Every claim, tied to its page</h2>
+  <p class="lead">Click a blue chip anywhere on this site. A panel opens with the exact location, what the paper reports there, what we find, and the Stata output behind it.</p>
+  <div class="box"><b class="h">Open the exact page in your own copy</b>
+  The article and its Supplementary Materials are under copyright (exclusive licensee AAAS), so they cannot be posted here. Instead, choose your own PDFs once. They stay in this browser, nothing is uploaded, and every reference then opens at the exact page inside this site.
+  <p style="margin-bottom:0"><button class="btn sm" onclick="SB.pdf('main',831)">Load my copy of the article</button> <button class="btn sm" onclick="SB.pdf('sm',1)">Load my copy of the Supplementary Materials</button> <a class="btn sm alt" target="_blank" rel="noopener" href="https://doi.org/10.1126/science.aee0747">Publisher's page</a></p></div>
+</section>
+
+<section id="claims" data-nav="Claims, checked">
+  <h2>Paper claims, checked</h2>
+  <div class="tablewrap"><table>
+    <tr><th>The paper says</th><th>Where</th><th>What we find</th></tr>
+    <tr><td>One more PSI point lowers Shannon by 0.0125 (N = 46,371)</td><td><a class="ref" data-s="t1">Table 1, p. 832</a></td><td>Reproduces exactly. Falls to &minus;0.0027 (p = 0.47) in fair comparisons. <a href="evidence.html#main">&rarr;</a></td></tr>
+    <tr><td>Bird data come from a citizen-science platform, China Birdreport</td><td><a class="ref" data-s="sm2">SM p. 2</a></td><td>Records are opportunistic and their volume is related to PSI. <a href="evidence.html#effort">&rarr;</a></td></tr>
+    <tr><td>Observer effort is handled by the control <i>Duration</i></td><td><a class="ref" data-s="s1">Table S1, SM p. 24</a></td><td>&ldquo;Number of birdwatchers&rdquo; is a count of records, not people. Effort is never an outcome. <a href="evidence.html#effort">&rarr;</a></td></tr>
+    <tr><td>Results hold after dropping the bottom 20/10/5/3% of county-months by record count</td><td><a class="ref" data-s="s14">Table S14, SM p. 44</a></td><td>The table keeps 7,954 to 26,918 rows: 17&ndash;58% of the sample, not 80&ndash;97%.</td></tr>
+    <tr><td>PSI correlates positively with solar-plant area (r = 0.041)</td><td><a class="ref" data-s="r041">SM p. 12</a></td><td>That is across counties. Within a county over time the relation is negative. <a href="evidence.html#area">&rarr;</a></td></tr>
+    <tr><td>Instrument: ln(sunshine, 1984&ndash;2013) &divide; city climate-policy uncertainty</td><td><a class="ref" data-s="ivdef">SM p. 8</a></td><td>The data label says 1994&ndash;2023. The instrument also has a direct effect. <a href="evidence.html#iv">&rarr;</a></td></tr>
+    <tr><td>IV estimate &minus;0.1264</td><td><a class="ref" data-s="s7">Table S7, SM p. 33</a></td><td>Reproduces. Becomes &minus;0.042, not significant, once the direct effect is allowed. <a href="lab.html#lab-iv">&rarr;</a></td></tr>
+    <tr><td>Instrument validity tests</td><td><a class="ref" data-s="s10">Table S10, SM p. 38</a></td><td>The reported F of about 8 is the joint F of all regressors. The instrument's own F there is 49.</td></tr>
+    <tr><td>Propensity-score matching confirms the result</td><td><a class="ref" data-s="s11">Table S11, SM p. 40</a></td><td>The matching weights are not applied. With them: &minus;0.005, not significant.</td></tr>
+    <tr><td>Solar-plant area also lowers Shannon</td><td><a class="ref" data-s="s12">Table S12, SM p. 41</a></td><td>&minus;0.0387 reproduces. It vanishes holding birdwatcher records fixed. <a href="evidence.html#area">&rarr;</a></td></tr>
+    <tr><td>Data sources, including plant capacity</td><td><a class="ref" data-s="s2">Table S2, SM p. 26</a></td><td>Area is missing for 1,184 counties and set to 0; only 473 of them also lack PSI.</td></tr>
+  </table></div>
+  <p class="small">Page numbers were checked against the published PDFs: journal pages for the article, PDF pages for the Supplementary Materials. The paper has no line numbers, so page plus table or paragraph is the most precise location available.</p>
+</section>
+
+<section id="repro" data-nav="Reproduction check">
+  <h2>Reproduction check: 12 of 12 numbers match</h2>
+  <p class="lead">The authors' code, run with only file paths changed, against the published values.</p>
+  <div class="tablewrap"><table id="t_repro"></table></div>
+  <div class="two">
+    <figure><img src="shots/c_s0.jpg" alt="Stata output: reproduction check" loading="lazy"><figcaption>Stata: the 12-number check.</figcaption></figure>
+    <figure><img src="shots/c_s1.jpg" alt="Stata output: main regression" loading="lazy"><figcaption>Stata: the paper's main regression.</figcaption></figure>
+  </div>
+  <div class="sources">Sources: <a class="src" data-file="files/01_Task1_Replication/tables/1_4_reproduction_check.csv">check table</a> <a class="src" data-file="files/01_Task1_Replication/logs/1_4_reproduction_check.log" data-find="PI |  -.0125283">log</a> <a class="src" data-file="files/01_Task1_Replication/code/1_4_reproduction_check.do">code</a> <a class="src" data-file="files/01_Task1_Replication/tables/authors_tables/baseline.rtf.txt">Table 1 as reproduced</a></div>
+</section>
+
+<section id="map" data-nav="Where things are">
+  <h2>Where things are in the paper</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Item</th><th>Location</th><th>Open</th></tr>
+    <tr><td>Main result (Table 1)</td><td>Article, p. 832</td><td><a class="ref" data-s="t1">Table 1</a></td></tr>
+    <tr><td>PSI&ndash;Area link and the instrument, in the text</td><td>Article, p. 833</td><td><a class="ref" data-s="p833">p. 833</a></td></tr>
+    <tr><td>Bird data source</td><td>SM p. 2</td><td><a class="ref" data-s="sm2">SM p. 2</a></td></tr>
+    <tr><td>Identification strategy and instrument</td><td>SM pp. 8&ndash;9</td><td><a class="ref" data-s="ivdef">SM p. 8</a></td></tr>
+    <tr><td>Area as treatment; PSI&ndash;Area correlation</td><td>SM pp. 12&ndash;13</td><td><a class="ref" data-s="r041">SM p. 12</a></td></tr>
+    <tr><td>Low-effort exclusions, in the text</td><td>SM p. 15</td><td><a class="ref" data-s="s14">SM p. 15 / Table S14</a></td></tr>
+    <tr><td>Fig. S2: PSI against solar area</td><td>SM p. 21</td><td><a class="ref" data-s="figs2">Fig. S2</a></td></tr>
+    <tr><td>Table S1: variable definitions</td><td>SM p. 24</td><td><a class="ref" data-s="s1">Table S1</a></td></tr>
+    <tr><td>Table S2: data sources</td><td>SM p. 26</td><td><a class="ref" data-s="s2">Table S2</a></td></tr>
+    <tr><td>Table S4: summary statistics</td><td>SM p. 29</td><td><a class="ref" data-s="s4">Table S4</a></td></tr>
+    <tr><td>Table S7: IV estimates</td><td>SM p. 33</td><td><a class="ref" data-s="s7">Table S7</a></td></tr>
+    <tr><td>Table S10: instrument tests</td><td>SM p. 38</td><td><a class="ref" data-s="s10">Table S10</a></td></tr>
+    <tr><td>Table S11: matching</td><td>SM p. 40</td><td><a class="ref" data-s="s11">Table S11</a></td></tr>
+    <tr><td>Table S12: alternative measures, including Area</td><td>SM p. 41</td><td><a class="ref" data-s="s12">Table S12</a></td></tr>
+    <tr><td>Table S14: low-effort exclusions</td><td>SM p. 44</td><td><a class="ref" data-s="s14">Table S14</a></td></tr>
+  </table></div>
+  <p class="small">Every table the authors' code produces is also in the <a href="library.html#tables">Library</a>, as reproduced by our Stata run.</p>
+</section>
