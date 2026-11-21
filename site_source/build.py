@@ -14,7 +14,7 @@ PORTABLE = 'YOUR_PATH/China-SolarPolicy-Replication'
 
 # Not published: rehearsal scripts and notes that recount private meetings
 HELD = ['04_Meeting_Script', '04_Synthesis_Report/Knowledge_Base', '04_Synthesis_Report/Presentation_Speech',
-        '04_Synthesis_Report/Talking_Points']
+        '04_Synthesis_Report/Talking_Points', '08_Reference_Documents/Meeting_Prep', '08_Reference_Documents/Knowledge_Base']
 def held(rel): return any(rel.startswith(h) for h in HELD)
 
 if OUT.exists(): shutil.rmtree(OUT)
@@ -91,6 +91,9 @@ REPORTS = [  # (source, title, description, when)
  ('04_Framework_Comparison/FH_Framework_Comparison.pdf', 'Ferraro and Hanauer framework: the design', 'What the framework recommends, what the paper did, and how to close each gap.', 'Nov 2026'),
  ('04_Framework_Comparison/FH_Results_Comparison.pdf', 'Ferraro and Hanauer framework: the results', 'The paper\'s results, our Stata results and a verdict for each check.', 'Nov 2026'),
  ('00_Paper_Guide/Solar_Paper_Simple_Guide.pdf', 'Plain guide to the paper', 'What the paper does, section by section, in simple language.', 'Nov 2026'),
+ ('08_Reference_Documents/Code_Guide.pdf', 'Line-by-line guide to the Stata code', 'How to read Stata code, then the authors\' code and our Task 1 to 3 code explained line by line.', '13 Nov 2026'),
+ ('08_Reference_Documents/Data_Dictionary.pdf', 'Data dictionary', 'All 75 variables of the authors\' analysis dataset: meaning, unit, level of variation, source and summary statistics.', '13 Nov 2026'),
+ ('08_Reference_Documents/Final_Replication_Report.pdf', 'Earlier report on Tasks 1-3', 'The 12 November report on the first three tasks, with figures. Superseded by the Final report.', '12 Nov 2026'),
 ]
 reports = []
 for src, title, desc, when in REPORTS:
@@ -102,7 +105,7 @@ for src, title, desc, when in REPORTS:
 # ---------------------------------------------------------------- library lists
 GROUPS = {'00_Original_Package': 'Authors\' package', '01_Task1_Replication': 'Task 1: Replication', '02_Task2_Sensitivity': 'Task 2: Sensitivity',
           '03_Task3_Staggered_DiD': 'Task 3: Staggered DiD', '04_Synthesis_Report': 'Synthesis helpers', '05_Followups_Nov13': 'Follow-ups, 13 Nov',
-          '06_Followups_Nov19': 'Follow-ups, 19 Nov', '07_Interactive': 'Live tools', '': 'Run everything'}
+          '06_Followups_Nov19': 'Follow-ups, 19 Nov', '07_Interactive': 'Live tools', '08_Reference_Documents': 'Reference documents', '': 'Run everything'}
 def group(rel): return GROUPS.get(rel.split('/')[0] if '/' in rel else '', 'Other')
 def purpose(path):
     t = path.read_text(encoding='utf-8', errors='replace')

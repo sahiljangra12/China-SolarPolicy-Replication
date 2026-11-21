@@ -1,0 +1,283 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.75in]{geometry}
+\usepackage{fontspec}
+\setmainfont{Latin Modern Roman}
+\setmonofont{Latin Modern Mono}
+\newfontfamily\cjk{Noto Sans CJK SC}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,tabularx,array,longtable}
+\usepackage{pdflscape}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{float}
+\usepackage[most]{tcolorbox}
+\definecolor{jhublue}{RGB}{0,45,114}
+\definecolor{boxgray}{RGB}{244,246,250}
+\titleformat{\section}{\large\bfseries\color{jhublue}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.6em}{}
+\setlist{itemsep=2pt,topsep=3pt}
+\pagestyle{fancy}\fancyhf{}
+\lhead{\small Solar Policy and Bird Diversity in China: Data Dictionary}
+\rhead{\small Zhang et al.\ (2026) replication}
+\cfoot{\small\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+\newtcolorbox{keybox}[1][]{colback=boxgray,colframe=jhublue,boxrule=0.6pt,arc=2pt,left=6pt,right=6pt,top=4pt,bottom=4pt,fonttitle=\bfseries,title={#1}}
+\newtcolorbox{warnbox}[1][]{colback=white,colframe=red!60!black,boxrule=0.6pt,arc=2pt,left=6pt,right=6pt,top=4pt,bottom=4pt,fonttitle=\bfseries,title={#1}}
+\emergencystretch=3em
+\sloppy
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries Data Dictionary}\\[4pt]
+{\large Analysis dataset of Zhang et al.\ (2026), ``China's solar expansion policy reduces bird diversity'', \textit{Science} 393, 831}\\[4pt]
+{\small All 75 variables: meaning, unit, level of variation, source and summary statistics}
+\end{center}
+
+\begin{keybox}[{The dataset in brief}]
+\small
+\begin{itemize}[leftmargin=12pt]
+\item \textbf{File:} the authors' analysis dataset, built by their \texttt{CODE.do} from 46 source files (\texttt{analysis\_sample.dta}).
+\item \textbf{Size:} 46,528 rows $\times$ 75 variables.
+\item \textbf{One row} = one county in one calendar month in which at least one bird record exists.
+\item \textbf{Coverage:} 2,501 counties (2,344 used in regressions after 157 single-month counties drop out), 337 prefecture cities, 31 provinces, January 2014 -- December 2023 (120 year-months).
+\item \textbf{Panel type:} highly \emph{unbalanced}. A county appears only in months when someone submitted bird records: median 11 months per county (mean 18.6, max 115 of 120).
+\item \textbf{Different frequencies in one file:} bird variables change every month; policy, climate, land cover, satellite and economic variables are \emph{annual} and are copied to every month of that year; sunshine and the desert flag never change.
+\item \textbf{Cleaning:} rows missing any of the 9 controls are dropped; most continuous variables are \emph{winsorized} at the 1st and 99th percentiles (extremes replaced by those percentile values); missing PSI is set to 0.
+\end{itemize}
+\end{keybox}
+
+\section{How the Data Are Built}
+The authors' code starts from the bird file and attaches every other source by county code (\texttt{id}) and year (or by name for city- and province-level data):
+\begin{enumerate}[leftmargin=16pt]
+\item \textbf{Bird records} (China Birdreport Online Database, \texttt{birdreport.cn}): citizen birdwatchers upload sightings with place, time, species and counts. These are aggregated to county-months to compute Shannon, Simpson, richness, evenness, the group-specific Shannon indices and observer effort.
+\item \textbf{Solar policy (PSI)}: solar-promotion documents scraped from province, city and county government websites, scored 1--9 by binding force and weighted by government level. One value per county-year.
+\item \textbf{Controls}: climate (ERA5-Land), population (National Bureau of Statistics), CO$_2$ (EDGAR), land cover (30 m China land-cover dataset).
+\item \textbf{Instrument}: long-run sunshine (China Meteorological Data Service) and the city Climate Policy Uncertainty index (Ma et al.\ 2023).
+\item \textbf{Robustness, heterogeneity and mechanism variables}: other environmental policies, PV capacity, PM$_{2.5}$, poverty-county and region lists, desert map, MODIS greenness and leaf area, night lights, crop output.
+\item \textbf{Cleaning}: drop rows missing any control; compute logs and ratios; winsorize; build the instrument; number the counties.
+\end{enumerate}
+
+\subsection*{How the sample grows over time}
+\begin{table}[H]\centering\small
+\begin{tabular}{lrrrrrr}
+\toprule
+Year & Rows (county-months) & Counties & Mean Shannon & Mean PSI & Rows with PSI $=0$ & Median birdwatchers\\
+\midrule
+2014 & 535 & 323 & 1.91 & 0.91 & 73\% & 1\\
+2015 & 2,023 & 766 & 2.31 & 1.32 & 69\% & 1\\
+2016 & 1,825 & 696 & 2.26 & 1.38 & 70\% & 1\\
+2017 & 1,856 & 725 & 2.29 & 1.52 & 66\% & 1\\
+2018 & 2,932 & 999 & 2.35 & 1.46 & 71\% & 1\\
+2019 & 2,664 & 924 & 2.42 & 1.60 & 67\% & 2\\
+2020 & 4,757 & 1,376 & 2.39 & 2.05 & 64\% & 2\\
+2021 & 7,642 & 1,764 & 2.45 & 2.49 & 59\% & 2\\
+2022 & 9,060 & 1,926 & 2.56 & 2.95 & 56\% & 3\\
+2023 & 13,234 & 2,324 & 2.50 & 3.88 & 51\% & 3\\
+\bottomrule
+\end{tabular}
+\end{table}
+\noindent Records grow almost 25-fold from 2014 to 2023, mainly because birdwatching on the platform expanded. Mean PSI rises over time but its median is 0 in every year.
+
+\section{Units and Notation Used in the Dictionary}
+\begin{table}[H]\centering\small
+\begin{tabularx}{\linewidth}{>{\bfseries}l>{\raggedright\arraybackslash}X}
+\toprule
+index (nats) & Shannon-type diversity, computed with natural logs. 0 = only one species; larger = more and more even species. Maximum possible is ln(number of species).\\
+index points & PSI scale: sum of document scores (1--9) times level weights. No physical unit.\\
+fraction 0--1 & Share of county land area (multiply by 100 for percent).\\
+log & Natural logarithm of the raw variable named in the description. A 0.01 change $\approx$ 1\% change in the raw variable.\\
+0/1 & Dummy (indicator) variable: 1 = yes, 0 = no. Its mean is the share of rows equal to 1.\\
+Level & The unit at which the variable actually changes: county-month, county-year, city-year, province-year or county (fixed).\\
+N & Number of non-missing rows (out of 46,528).\\
+Range & Minimum -- maximum in this file (after winsorizing where applied).\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%==========================================================================
+\begin{landscape}
+\section{The Data Dictionary: All 75 Variables}
+{\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{longtable}{>{\raggedright\arraybackslash}p{2.9cm}>{\raggedright\arraybackslash}p{8.0cm}>{\raggedright\arraybackslash}p{1.9cm}>{\raggedright\arraybackslash}p{1.7cm}>{\raggedright\arraybackslash}p{2.0cm}rrrr}
+\toprule
+\textbf{Variable} & \textbf{Description} & \textbf{Unit} & \textbf{Level} & \textbf{Source} & \textbf{N} & \textbf{Mean} & \textbf{SD} & \textbf{Range}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Variable} & \textbf{Description} & \textbf{Unit} & \textbf{Level} & \textbf{Source} & \textbf{N} & \textbf{Mean} & \textbf{SD} & \textbf{Range}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\multicolumn{9}{l}{\rule{0pt}{12pt}\textbf{\color{jhublue}A. Identifiers and time}}\\\midrule
+\texttt{{\cjk 省} (sheng)} & Province name (Chinese). & text & county & Admin. division & 46,528 & & &\\
+\texttt{{\cjk 市} (shi)} & Prefecture-level city name (Chinese). & text & county & Admin. division & 46,528 & & &\\
+\texttt{{\cjk 县} (xian)} & County / district name (Chinese). 2,538 names for 2,501 codes (some name variants). & text & county & Admin. division & 46,528 & & &\\
+\texttt{id} & 6-digit county administrative code. Last two digits 01--20 = urban district. & code & county & Admin. division & 46,528 & & &\\
+\texttt{county} & Sequential county number (1--2,501) made from id; used for fixed effects and clustering. & code & county & Generated & 46,528 & & &\\
+\texttt{YEAR} & Calendar year, 2014--2023. & year & year & -- & 46,528 & & &\\
+\texttt{month} & Calendar month, 1--12. & month & month & -- & 46,528 & & &\\
+\texttt{year} & Year-month date (120 values). Despite its name this is the \emph{year-month}; it is the time fixed effect. & date & month & Generated & 46,528 & & &\\
+\texttt{{\cjk 标准年月}} & Year-month as text, e.g.\ ``2014-01. & text & month & Generated & 46,528 & & &\\
+\midrule
+\multicolumn{9}{l}{\rule{0pt}{12pt}\textbf{\color{jhublue}B. Outcome: bird diversity (China Birdreport citizen-science records)}}\\\midrule
+\texttt{ShannonBD} & \textbf{Main outcome.} Shannon index $-\sum p_i\ln p_i$ over species counted in the county-month. Rises with more species and more even counts. Winsorized 1/99\%. & index (nats) & county-month & birdreport.cn & 46,528 & 2.45 & 0.981 & 0.000--4.34\\
+\texttt{SimpsonBD} & Simpson index $1-\sum p_i^2$: probability that two random birds are different species. Robustness outcome. & 0--1 & county-month & birdreport.cn & 46,528 & 0.807 & 0.220 & 0.000--0.983\\
+\texttt{Richness} & Number of distinct species recorded. & species & county-month & birdreport.cn & 45,762 & 35.40 & 32.57 & 1.00--162.0\\
+\texttt{Evenness} & Pielou evenness = ShannonBD / ln(Richness); 1 = perfectly even. Missing when Richness = 1. & 0--1 & county-month & birdreport.cn & 44,135 & 0.804 & 0.162 & 0.252--1.00\\
+\texttt{BT} & Total birdwatching time recorded in the county-month (raw). Unit not stated by the authors; magnitudes suggest hours. & time (hours?) & county-month & birdreport.cn & 46,528 & 183.1 & 1,798.2 & 0.000--73,802\\
+\texttt{BN} & Number of birdwatchers submitting records (raw). & persons & county-month & birdreport.cn & 46,528 & 6.99 & 20.33 & 1.00--598.0\\
+\texttt{BTN} & BT / BN: birdwatching time per birdwatcher (raw). & time per person & county-month & Generated & 46,528 & 36.30 & 566.3 & 0.000--36,901\\
+\texttt{Duration} & \textbf{Control:} observer effort, ln(BTN + 1). Winsorized. & log & county-month & Generated & 46,528 & 1.50 & 1.11 & 0.000--5.89\\
+\midrule
+\multicolumn{9}{l}{\rule{0pt}{12pt}\textbf{\color{jhublue}C. Treatment: solar policy (hand-collected government documents)}}\\\midrule
+\texttt{PI (= PSI)} & \textbf{Main treatment.} Policy Stringency Index: documents issued \emph{that year}, each scored 1--9 by binding force (outline 1 \dots\ ordinance 9), weighted by level (province $>$ city $>$ county) and summed. A yearly \emph{flow}. Missing values set to 0 by the authors (43.8\% of rows). Winsorized. & index points & county-year & Gov. websites & 46,528 & 2.66 & 4.12 & 0.000--15.50\\
+\texttt{PI1} & Alt.\ PSI: 9 types grouped into 3 classes scored 1-2-3, with level weights. & index points & county-year & Gov. websites & 46,528 & 1.10 & 1.71 & 0.000--6.40\\
+\texttt{PI2} & Alt.\ PSI: classes scored 1-2-4, with level weights. & index points & county-year & Gov. websites & 46,528 & 1.18 & 1.87 & 0.000--7.20\\
+\texttt{PI3} & Alt.\ PSI: classes scored 2-4-8, with level weights. & index points & county-year & Gov. websites & 46,528 & 2.36 & 3.74 & 0.000--14.40\\
+\texttt{PI4} & Alt.\ PSI: classes 1-2-3, \emph{no} level weights. & index points & county-year & Gov. websites & 46,528 & 2.55 & 4.04 & 0.000--16.00\\
+\texttt{PI5} & Alt.\ PSI: classes 1-2-4, no level weights. & index points & county-year & Gov. websites & 46,528 & 2.71 & 4.35 & 0.000--17.00\\
+\texttt{PI6} & Alt.\ PSI: classes 2-4-8, no level weights. & index points & county-year & Gov. websites & 46,528 & 5.43 & 8.71 & 0.000--34.00\\
+\texttt{ICtotal} & Cumulative installed capacity of centralized (utility-scale) PV stations. & MW & county-year & NEA licences & 46,528 & 60.83 & 167.4 & 0.000--1,160.0\\
+\texttt{Area} & Estimated PV station land area = ICtotal$\times$1000/0.15/10$^6$ (assumes 150 W/m$^2$). Alt.\ treatment. & km$^2$ & county-year & Generated & 46,528 & 0.406 & 1.12 & 0.000--7.73\\
+\midrule
+\multicolumn{9}{l}{\rule{0pt}{12pt}\textbf{\color{jhublue}D. Control variables}}\\\midrule
+\texttt{Temp} & Annual average temperature. & $^\circ$C & county-year & ERA5-Land & 46,528 & 14.83 & 5.91 & -3.64--24.52\\
+\texttt{Wind} & Annual average wind speed. & m/s & county-year & ERA5-Land & 46,528 & 2.24 & 0.841 & 0.809--4.80\\
+\texttt{PD} & Population density (raw). & persons/km$^2$ & county-year & NBS & 46,528 & 997.5 & 2,211.7 & 0.067--19,745\\
+\texttt{Pop} & \textbf{Control:} ln(PD). Winsorized. & log & county-year & Generated & 46,528 & 5.57 & 1.82 & 0.231--9.51\\
+\texttt{CO2} & Carbon emissions (raw). & tonnes CO$_2$ & county-year & EDGAR & 46,528 & 5,164,187 & 8,141,266 & 11,438--103,587,390\\
+\texttt{Carbon} & \textbf{Control:} ln(CO2). Winsorized. & log & county-year & Generated & 46,528 & 14.56 & 1.39 & 11.35--17.46\\
+\texttt{Water} & Share of county area that is water. & fraction 0--1 & county-year & 30 m land cover & 46,528 & 0.036 & 0.054 & 0.000--0.284\\
+\texttt{Green} & Share of county area that is forest + shrub. & fraction 0--1 & county-year & 30 m land cover & 46,528 & 0.332 & 0.320 & 0.000--0.938\\
+\texttt{Farm} & Share of county area that is farmland. & fraction 0--1 & county-year & 30 m land cover & 46,528 & 0.363 & 0.246 & 0.000--0.888\\
+\texttt{Grass} & Share of county area that is grassland. & fraction 0--1 & county-year & 30 m land cover & 46,528 & 0.089 & 0.211 & 0.000--0.910\\
+\midrule
+\multicolumn{9}{l}{\rule{0pt}{12pt}\textbf{\color{jhublue}E. Instrumental variable}}\\\midrule
+\texttt{sun} & Long-run average annual sunshine duration. Paper: 1984--2013; Stata label in the data says 1994--2023. & hours/year & county (fixed) & CMA & 45,784 & 1,970.1 & 487.7 & 993.5--3,049.3\\
+\texttt{lnsun} & ln(sun). & log & county (fixed) & Generated & 45,784 & 7.55 & 0.260 & 6.90--8.02\\
+\texttt{CCPU} & City-level Climate Policy Uncertainty index from news text (Ma et al.\ 2023). Missing for 400 counties. & index & city-year & Ma et al.\ 2023 & 38,241 & 1.21 & 0.741 & 0.091--3.22\\
+\texttt{inv\_CCPU} & 1 / CCPU. & index$^{-1}$ & city-year & Generated & 38,241 & 1.72 & 2.06 & 0.310--11.01\\
+\texttt{Sun\_ccpu} & \textbf{Instrument:} lnsun / CCPU. & ratio & county-year & Generated & 37,503 & 12.39 & 14.51 & 2.21--87.90\\
+\midrule
+\multicolumn{9}{l}{\rule{0pt}{12pt}\textbf{\color{jhublue}F. Other policies and robustness flags}}\\\midrule
+\texttt{cities} & = 1 if provincial capital or one of the 4 municipalities (327 counties). & 0/1 & county & Authors & 46,528 & 0.285 & 0.452 & 0.000--1.00\\
+\texttt{CEI} & = 1 if a Central Environmental Inspection team was stationed in the province that year. & 0/1 & province-year & MEE & 46,528 & 0.254 & 0.435 & 0.000--1.00\\
+\texttt{FFP} & Raw coal-plant closure record (only 362 non-missing rows). & code & county-year & GEM tracker & 362 & 1.01 & 0.117 & 1.00--2.00\\
+\texttt{Coal} & = 1 if a coal power plant closed (FFP non-missing). & 0/1 & county-year & Generated & 46,528 & 0.008 & 0.088 & 0.000--1.00\\
+\texttt{{\cjk 风电数量}} & Number of new wind-power projects (raw). Missing for 73\% of rows. & count & county-year & GWPT & 12,651 & 0.417 & 1.32 & 0.000--37.00\\
+\texttt{Windexp} & = 1 if new wind projects $\neq 0$. \textbf{Coding issue:} Stata treats missing as $\neq 0$, so all 33,877 rows with missing wind data are coded 1 (mean 0.79). & 0/1 & county-year & Generated & 46,528 & 0.792 & 0.406 & 0.000--1.00\\
+\texttt{Greenfin} & = 1 if in a Green Finance Reform pilot zone (from 2017m7 / 2019m12 / 2022m9). & 0/1 & county-month & IIGF, CUFE & 46,528 & 0.036 & 0.186 & 0.000--1.00\\
+\texttt{PM25} & PM$_{2.5}$ concentration (raw). & $\mu$g/m$^3$ & county-year & WUSTL ACAG & 46,122 & 31.24 & 11.78 & 9.04--118.4\\
+\texttt{PM} & ln(PM25). Winsorized. Robustness control. & log & county-year & Generated & 46,122 & 3.37 & 0.359 & 2.51--4.25\\
+\texttt{is\_neighbor\_of\_highPI} & = 1 if the county borders a high-PSI county (spillover check). & 0/1 & county & Authors & 46,528 & 0.475 & 0.499 & 0.000--1.00\\
+\texttt{ShannonBD3} & Shannon index recomputed for the low-effort robustness check (threshold ``3). & index (nats) & county-month & birdreport.cn & 27,255 & 3.00 & 0.660 & 1.07--4.47\\
+\texttt{ShannonBD5} & Same, threshold ``5. & index (nats) & county-month & birdreport.cn & 22,652 & 3.08 & 0.655 & 1.11--4.52\\
+\texttt{ShannonBD10} & Same, threshold ``10. & index (nats) & county-month & birdreport.cn & 15,528 & 3.20 & 0.647 & 1.20--4.61\\
+\texttt{ShannonBD20} & Same, threshold ``20. & index (nats) & county-month & birdreport.cn & 8,219 & 3.34 & 0.636 & 1.31--4.77\\
+\midrule
+\multicolumn{9}{l}{\rule{0pt}{12pt}\textbf{\color{jhublue}G. Heterogeneity: place types and bird groups}}\\\midrule
+\texttt{poverty\_county} & = 1 if a national poverty county. & 0/1 & county & Gov. list & 46,528 & 0.188 & 0.391 & 0.000--1.00\\
+\texttt{north\_region} & = 1 if in the Three-North region (northwest, north, northeast). & 0/1 & province & Authors & 46,528 & 0.250 & 0.433 & 0.000--1.00\\
+\texttt{desert\_gobi} & = 1 if the county contains sandy land or Gobi desert. & 0/1 & county (fixed) & CNLUCC & 46,528 & 0.108 & 0.311 & 0.000--1.00\\
+\texttt{Migratory} & Shannon index computed only over \emph{migratory} species. & index (nats) & county-month & birdreport.cn & 40,054 & 1.38 & 0.885 & 0.000--3.34\\
+\texttt{Resident} & Shannon index over resident species. & index (nats) & county-month & birdreport.cn & 45,627 & 2.20 & 0.917 & 0.000--4.02\\
+\texttt{Endemic} & Shannon index over species endemic to China. & index (nats) & county-month & birdreport.cn & 24,893 & 0.335 & 0.429 & 0.000--1.65\\
+\texttt{non\_Endemic} & Shannon index over non-endemic species. & index (nats) & county-month & birdreport.cn & 46,375 & 2.37 & 0.966 & 0.000--4.25\\
+\texttt{Protected} & Shannon index over state key protected species (2021 list). & index (nats) & county-month & birdreport.cn & 33,852 & 0.922 & 0.747 & 0.000--2.72\\
+\texttt{non\_Protected} & Shannon index over non-protected species. & index (nats) & county-month & birdreport.cn & 45,830 & 2.34 & 0.947 & 0.000--4.15\\
+\texttt{Nest\_veg} & Shannon index over species nesting in vegetation. & index (nats) & county-month & birdreport.cn & 44,949 & 2.06 & 0.918 & 0.000--3.88\\
+\texttt{Land\_water} & Shannon index over ground/water-surface nesters. & index (nats) & county-month & birdreport.cn & 44,188 & 1.63 & 0.860 & 0.000--3.45\\
+\texttt{non\_Herbivorous} & Shannon index over carnivores/omnivores/insectivores. & index (nats) & county-month & birdreport.cn & 46,416 & 2.39 & 0.970 & 0.000--4.26\\
+\texttt{Herbivorous} & Shannon index over herbivores (stems, leaves, fruit). & index (nats) & county-month & birdreport.cn & 10,134 & 0.226 & 0.391 & 0.000--1.61\\
+\texttt{Small\_flock} & Shannon index over small-flock species. & index (nats) & county-month & birdreport.cn & 46,205 & 2.31 & 0.967 & 0.000--4.20\\
+\texttt{Large\_flock} & Shannon index over large-flock species. & index (nats) & county-month & birdreport.cn & 38,888 & 0.810 & 0.627 & 0.000--2.34\\
+\midrule
+\multicolumn{9}{l}{\rule{0pt}{12pt}\textbf{\color{jhublue}H. Mechanisms and wider consequences}}\\\midrule
+\texttt{Ndvi} & Normalized Difference Vegetation Index $\times$100 (greenness). & index, 0--100 & county-year & MODIS MOD13A3 & 46,528 & 68.01 & 15.93 & 15.97--89.75\\
+\texttt{LAI} & Leaf Area Index: one-sided leaf area per unit ground area. & m$^2$/m$^2$ & county-year & MODIS MOD15A2H & 46,495 & 1.08 & 0.732 & 0.014--3.28\\
+\texttt{Nightlight} & Mean night-time light (DMSP-OLS-like, harmonised with VIIRS). Range 0--63 (DMSP digital number). & DN 0--63 & county-year & Harvard Dataverse & 46,528 & 20.38 & 21.22 & 0.030--63.00\\
+\texttt{APtotal} & Grain / crop output (raw). & tonnes & county-year & CSMAR & 25,300 & 186,913 & 245,760 & 1.00--3,202,003\\
+\texttt{Output} & ln(APtotal). Winsorized. Paper uses its one-year lead. & log & county-year & Generated & 25,300 & 11.22 & 1.74 & 5.12--13.94\\
+\midrule
+\end{longtable}
+}
+\end{landscape}
+
+%==========================================================================
+\section{The Variables Used in the Main Regression}
+\begin{table}[H]\centering\small
+\begin{tabularx}{\linewidth}{l>{\raggedright\arraybackslash}Xll}
+\toprule
+Role & Variable and meaning & Unit & Mean (SD)\\
+\midrule
+Outcome & \texttt{ShannonBD}: Shannon bird diversity & index (nats) & 2.45 (0.98)\\
+Treatment & \texttt{PI}: Policy Stringency Index (PSI) & index points & 2.66 (4.12)\\
+Control & \texttt{Temp}: annual mean temperature & $^\circ$C & 14.83 (5.91)\\
+Control & \texttt{Wind}: annual mean wind speed & m/s & 2.24 (0.84)\\
+Control & \texttt{Pop}: ln(population per km$^2$) & log & 5.57 (1.82)\\
+Control & \texttt{Duration}: ln(birdwatching time per birdwatcher + 1) & log & 1.50 (1.11)\\
+Control & \texttt{Carbon}: ln(CO$_2$ emissions in tonnes) & log & 14.56 (1.39)\\
+Control & \texttt{Water}: water share of area & fraction & 0.036 (0.054)\\
+Control & \texttt{Green}: forest + shrub share & fraction & 0.332 (0.320)\\
+Control & \texttt{Farm}: farmland share & fraction & 0.363 (0.246)\\
+Control & \texttt{Grass}: grassland share & fraction & 0.089 (0.211)\\
+Fixed effects & \texttt{county} (2,501 codes) and \texttt{year} (120 year-months) & -- & --\\
+Clustering & \texttt{county} & -- & --\\
+\bottomrule
+\end{tabularx}
+\end{table}
+\noindent These statistics match the paper's Table S4 exactly.
+
+%==========================================================================
+\section{Things to Know About These Data}
+
+\begin{warnbox}[{1. Missing policy data are coded as zero}]
+\small
+The line \texttt{replace PI = 0 if missing(PI)} sets PSI to 0 for 724 counties that are absent from the policy file: 43.8\% of all rows. These are mostly urban districts (PSI imputed as 0 for 83.0\% of urban rows vs 1.2\% of rural rows). In this file a PSI of 0 can mean ``no solar policy'' \emph{or} ``no policy data''; the two cannot be told apart without the separate policy file. The alternative PSI measures (\texttt{PI1}--\texttt{PI6}) and \texttt{ICtotal} are zero-filled the same way.
+\end{warnbox}
+
+\begin{warnbox}[{2. PSI is a yearly flow of documents, not a measure of solar land}]
+\small
+PSI counts documents issued in that year, so it can fall back to 0 the next year (it falls in 12.6\% of county-years). Its correlation with PV station area (\texttt{Area}) is only about 0.07. \texttt{Area} itself is an estimate computed from installed capacity with a fixed 150 W/m$^2$ assumption.
+\end{warnbox}
+
+\begin{warnbox}[{3. Wind-expansion dummy is coded 1 when wind data are missing}]
+\small
+\texttt{Windexp} is created with \texttt{replace Windexp = 1 if {\cjk 风电数量} != 0}. In Stata a missing value is treated as a very large number, so ``missing $\neq$ 0'' is true. All 33,877 rows with missing wind data (73\% of the sample) are therefore coded \texttt{Windexp} = 1; only 2,979 rows have an actual new wind project. This affects the paper's ``concurrent policies'' robustness check.
+\end{warnbox}
+
+\begin{warnbox}[{4. Sunshine period differs between the paper and the data label}]
+\small
+The paper describes the instrument as average sunshine for 1984--2013. The variable label of \texttt{sun} in the data says ``1994--2023 average sunshine duration''. The values cannot tell which is correct; it is worth checking with the authors, because sunshine measured during the study years would be more likely to affect birds directly.
+\end{warnbox}
+
+\begin{warnbox}[{5. The low-effort robustness outcomes do not match the paper's description}]
+\small
+The paper says Table S14 drops the bottom 20\%, 10\%, 5\% and 3\% of county-months by number of birdwatching records. But \texttt{ShannonBD20}, \texttt{ShannonBD10}, \texttt{ShannonBD5} and \texttt{ShannonBD3} are available for only 17.7\%, 33.4\%, 48.7\% and 58.6\% of rows, and their values differ from \texttt{ShannonBD} (by up to 1.79) where both exist. They therefore look like Shannon indices \emph{recomputed} after applying minimum-record thresholds of 20, 10, 5 and 3, which remove far more than the stated percentages.
+\end{warnbox}
+
+\begin{keybox}[{6. Other points}]
+\small
+\begin{itemize}[leftmargin=12pt]
+\item \textbf{Instrument sample:} \texttt{CCPU} is missing for 400 counties, so the IV regressions use 37,503 rows.
+\item \textbf{Group-specific Shannon indices} exist only where that group was seen: e.g.\ \texttt{Herbivorous} in 21.8\% of rows, \texttt{Endemic} in 53.5\%.
+\item \textbf{Birdwatching time} (\texttt{BT}): the unit is not documented. Typical values (median 7 per county-month, with a median of 2 birdwatchers) suggest hours. \texttt{Duration} uses its log, so the unit does not affect the main regression beyond the $+1$ inside the log.
+\item \textbf{Shannon = 0} in 3.6\% of rows (only one species recorded that month).
+\item \textbf{Raw vs transformed:} \texttt{PD}, \texttt{CO2}, \texttt{PM25}, \texttt{BT}, \texttt{BN}, \texttt{BTN} and \texttt{APtotal} are raw (not winsorized); their log versions (\texttt{Pop}, \texttt{Carbon}, \texttt{PM}, \texttt{Duration}, \texttt{Output}) are winsorized, so they differ from the log of the raw value at the extremes.
+\item \textbf{Annual variables repeated monthly:} PSI and all controls take one value per county-year, so regressions effectively weight each county-year by its number of birding months.
+\item \textbf{Name merges:} \texttt{poverty\_county} is merged by county name, which produces 9 county-years where the flag differs across months of the same county-year.
+\end{itemize}
+\end{keybox}
+
+\section*{Sources}
+\small
+Zhang et al.\ (2026), \textit{Science} 393, 831, Supplementary Materials Tables S1 (definitions and units), S2 (data sources), S3 (PSI scoring) and S4 (summary statistics); the authors' \texttt{CODE.do}; and direct inspection of the analysis dataset.
+
+\end{document}

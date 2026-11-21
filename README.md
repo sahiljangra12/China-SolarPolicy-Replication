@@ -40,6 +40,7 @@ Full account: [`07_Final_Report/Final_Report.pdf`](07_Final_Report/Final_Report.
 | `06_Followups_Nov19/` | Residualized sensitivity, dCDH estimators, data checks |
 | `07_Final_Report/` | Final report and the dCDH report |
 | `07_Interactive/` | The 792-regression grid, sensitivity inputs and IV grid behind the website's live tools |
+| `08_Reference_Documents/` | Line-by-line guide to the Stata code, the data dictionary, and the earlier (12 November) report on Tasks 1–3 |
 | `docs/` | The website |
 | `site_source/` | Page sources and the script that builds `docs/` from the outputs above |
 
