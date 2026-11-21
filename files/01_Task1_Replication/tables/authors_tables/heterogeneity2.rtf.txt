@@ -1,0 +1,36 @@
+Table S18. Bird species heterogeneity.
+
+  --------------- --------------- --------------- --------------- --------------- --------------- ---------------
+                  (1)             (2)             (3)             (4)             (5)             (6)
+                  Endemic         Non-endemic     Migratory       Resident        Protected       Non-protected
+  PI              0.0022          -0.0127***   -0.0116***   -0.0128***   -0.0139***   -0.0138***
+                  (0.0022)        (0.0036)        (0.0037)        (0.0034)        (0.0034)        (0.0035)
+  Temp            -0.0136         -0.0072         0.0012          -0.0255         -0.0336**    -0.0137
+                  (0.0117)        (0.0177)        (0.0168)        (0.0165)        (0.0156)        (0.0175)
+  Wind            -0.0463         0.0394          0.0372          0.0302          0.0793          0.0636
+                  (0.0385)        (0.0717)        (0.0705)        (0.0711)        (0.0683)        (0.0722)
+  Pop             0.0514          -0.0621         -0.0012         -0.1113         0.0139          -0.0980
+                  (0.0661)        (0.1248)        (0.1306)        (0.1194)        (0.1165)        (0.1211)
+  Duration        0.0333***    0.1604***    0.1256***    0.1436***    0.1176***    0.1503***
+                  (0.0030)        (0.0055)        (0.0050)        (0.0052)        (0.0046)        (0.0054)
+  Carbon          -0.0529*     -0.1271***   -0.1057***   -0.1356***   -0.0708*     -0.1433***
+                  (0.0307)        (0.0407)        (0.0370)        (0.0371)        (0.0409)        (0.0412)
+  Water           0.2362          -1.2173         0.0243          -1.7266         -1.3131         -1.1137
+                  (0.5912)        (1.1115)        (1.0717)        (1.0697)        (0.8118)        (1.1616)
+  Green           0.1231          1.3025          0.0559          1.0553          0.6721          1.1165
+                  (0.5586)        (0.9281)        (0.8823)        (0.8886)        (0.8433)        (0.9199)
+  Farm            -0.9720***   0.1987          -0.3724         -0.1555         -0.2391         -0.0929
+                  (0.3645)        (0.6934)        (0.6887)        (0.6371)        (0.5733)        (0.6836)
+  Grass           0.4227          1.4391          1.2435          1.3759*      1.1624          1.3432
+                  (0.4183)        (0.8996)        (1.2256)        (0.7498)        (0.7139)        (0.8200)
+  Year-month FE   YES             YES             YES             YES             YES             YES
+  County FE       YES             YES             YES             YES             YES             YES
+  Observations    24581           46217           39837           45469           33562           45666
+  R-squared       0.3910          0.3040          0.2927          0.3340          0.3343          0.2997
+  --------------- --------------- --------------- --------------- --------------- --------------- ---------------
+
+Notes: Panel A presents the results classified by endemism status, migratory status, and conservation status in sequence. Columns (1) and (2) correspond to endemic species and Non-endemic species. Columns (3) and (4) correspond to migratory birds and resident birds. Columns (5) and (6) correspond to nationally protected species and Non-protected species. Panel B presents the results classified by
+nesting guilds, dietary guilds, and flocking behavior in sequence. Columns (7) and (8) correspond to land or water nesters and vegetation nesters. Columns (9) and (10) correspond to carnivorous and omnivorous species and herbivores species. Columns (11) and (12) correspond to small-flock species and large-flock species. The dependent variable is ShannonBD (the negative sum of the proportion of
+each bird species multiplied by its natural logarithm). The independent variable is PSI (the weighted sum of policies at the provincial, municipal, and county levels). Other control variables include Temp (annual average temperature), Wind (annual average wind speed), Pop (the logarithm of the ratio of total population to regional area), Duration (the logarithm of the ratio of birdwatching
+duration to the number of birdwatchers), Carbon (the logarithm of the carbon emissions), Water (the area of water divided by the total area), Green (the sum of the area of forests and shrubs divided by the total area), Farm (the area of farmland divided by the total area), Grass (the area of the grassland divided by the total area). All specifications include county and Year-month fixed effects.
+The robust standard errors clustered by the county are reported in parenthesis. ***, **, * denote the significance at the 1%, 5%, and 10% levels, respectively.

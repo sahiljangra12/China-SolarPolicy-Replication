@@ -1,0 +1,16 @@
+Table R1. Within-city temporal variation of the CPU index: Variance decomposition.
+
+  --------------------------------- ----------
+                                    Value
+  Number of cities                  288.0000
+  Avg periods per city              8.0000
+  Overall mean                      1.2992
+  Overall SD                        0.6501
+  Between-city SD                   0.3512
+  Within-city SD                    0.5593
+  Between-city variance share (%)   29.1846
+  Within-city variance share (%)    74.0279
+  --------------------------------- ----------
+
+Notes: This table reports the variance decomposition of the city-level CPU index obtained from xtsum. The data is collapsed to city-year means. Within-city variance share = within-city variance / total variance. The within-city SD exceeds the between-city SD, confirming that CPU exhibits substantial time variation within cities, providing the identifying variation for our shift-share instrument
+after county fixed effects absorb cross-sectional differences. The CPU index is sourced from Ma et al. (2023).

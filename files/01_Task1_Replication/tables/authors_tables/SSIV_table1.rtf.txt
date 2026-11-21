@@ -1,0 +1,40 @@
+Table S9. Shift-share IV diagnostics: Overidentification and sensitivity analysis.
+
+  -------------------- --------------------- --------------- ------------------------ ------------------------ ---------------------------
+                       (1)                   (2)             (3)                      (4)                      (5)
+                       Over-identification   Full sample     Excl. extreme 5%         Excl. top 10%            Excl. bottom 10%
+  PI                   -0.1222***         -0.1264***   -0.1096***            -0.1072***            -0.1220***
+                       (0.0336)              (0.0347)        (0.0309)                 (0.0292)                 (0.0361)
+  Temp                 -0.0037               -0.0039         -0.0155                  -0.0059                  -0.0263
+                       (0.0243)              (0.0245)        (0.0258)                 (0.0253)                 (0.0271)
+  Wind                 0.1666**           0.1698**     0.1615*               0.1541*               0.1772**
+                       (0.0840)              (0.0847)        (0.0853)                 (0.0849)                 (0.0868)
+  Pop                  -0.1326               -0.1335         -0.0717                  -0.1413                  -0.0970
+                       (0.1368)              (0.1372)        (0.1483)                 (0.1369)                 (0.1494)
+  Duration             0.1555***          0.1554***    0.1567***             0.1520***             0.1562***
+                       (0.0064)              (0.0064)        (0.0067)                 (0.0066)                 (0.0068)
+  Carbon               -0.1379**          -0.1384**    -0.1334**             -0.1271**             -0.1270**
+                       (0.0543)              (0.0546)        (0.0551)                 (0.0561)                 (0.0543)
+  Water                0.5347                0.5986          0.6113                   0.7639                   0.3158
+                       (1.2834)              (1.2926)        (1.2589)                 (1.2730)                 (1.2681)
+  Green                2.1433**           2.1733**     2.1588**              2.0380*               1.8556*
+                       (1.0445)              (1.0528)        (1.0757)                 (1.0571)                 (1.1057)
+  Farm                 0.7988                0.8204          0.8807                   0.7573                   0.8727
+                       (0.8102)              (0.8162)        (0.8302)                 (0.8331)                 (0.8431)
+  Grass                1.1214                1.1258          1.9206                   1.1008                   1.0245
+                       (1.3791)              (1.3907)        (1.3548)                 (1.6779)                 (1.3645)
+  Year-month FE        YES                   YES             YES                      YES                      YES
+  County FE            YES                   YES             YES                      YES                      YES
+  Sample restriction   Over-identification   Full sample     Excl. extreme sunshine   Excl. top 10% sunshine   Excl. bottom 10% sunshine
+  Observations         37503                 37503           34359                    34941                    34140
+  Hansen J statistic   0.6356                0.0000          0.0000                   0.0000                   0.0000
+  Hansen J p-value     0.7277                                                                                  
+  -------------------- --------------------- --------------- ------------------------ ------------------------ ---------------------------
+
+Notes: This table reports the shift-share IV diagnostics following Goldsmith-Pinkham et al. (70). The instrument is Ln(Sunshine) / city CPU, where Ln(Sunshine) is the time-invariant share (natural logarithm of average sunshine duration for each county during the period from 1984 to 2013) and 1 / city CPU is the time-varying shift (inverse of city-level climate policy uncertainty index). Column (1)
+reports the overidentification test. We divide observations into terciles based on the CPU level and interact each tercile indicator with the original instrument Ln(Sunshine) / city CPU, yielding three instruments that exploit the same source of identifying variation —the within-city temporal fluctuation of climate policy uncertainty —but operate under different policy uncertainty regimes (low,
+medium, and high CPU). We estimate the overidentified model using ivreghdfe with cluster-robust standard errors, which automatically absorbs county and year-month fixed effects and reports the Hansen J statistic. The Hansen J statistic tests whether all instruments are jointly valid (H0: all instruments are valid; failure to reject supports instrument validity). Columns (2)-(5) present the
+sensitivity analysis: Column (2) uses the full sample; Column (3) excludes counties in the top and bottom 5% of the Ln(Sunshine) distribution; Column (4) excludes the top 10%; Column (5) excludes the bottom 10%. The dependent variable is ShannonBD (the negative sum of the proportion of each bird species multiplied by its natural logarithm). The endogenous variable is PSI (the weighted sum of
+policies at the provincial, municipal, and county levels), instrumented by Ln(Sunshine) / city CPU. Other control variables include Temp (annual average temperature), Wind (annual average wind speed), Pop (the logarithm of the ratio of total population to regional area), Duration (the logarithm of the ratio of birdwatching duration to the number of birdwatchers), Carbon (the logarithm of the
+carbon emissions), Water (the area of water divided by the total area), Green (the sum of the area of forests and shrubs divided by the total area), Farm (the area of farmland divided by the total area), Grass (the area of the grassland divided by the total area). All specifications include county and year-month fixed effects. The robust standard errors clustered by county are reported in
+parentheses. ***, **, * denote significance at the 1%, 5%, and 10% levels, respectively.

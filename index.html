@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Overview | Solar Policy and Bird Diversity</title>
+<meta name="description" content="Replication and evaluation of Zhang et al. (2026), China's solar expansion policy reduces bird diversity. Stata analyses, live tools and page-level references.">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header class="top"><div class="in">
+  <a class="brand" href="index.html"><i></i><span>Solar Policy &amp; Bird Diversity</span></a>
+  <nav class="tabs"><a href="index.html" class="on">Overview</a><a href="lab.html">Live tools</a><a href="evidence.html">Evidence</a><a href="paper.html">Paper check</a><a href="library.html">Library</a><a href="qa.html">Q&amp;A</a></nav>
+  <div class="tools"><input id="gsearch" type="search" placeholder="Search  /" aria-label="Search this site" autocomplete="off"><div id="gres"></div><button class="iconbtn" id="themeBtn" type="button">Dark</button></div>
+</div></header>
+<div class="wrap"><aside class="side" id="side"></aside><main>
+<!--title:Overview-->
+<section class="hero" id="top" data-nav="Summary">
+  <div class="kicker">Replication and evaluation &middot; updated 21 November 2026</div>
+  <h1>Does China's solar expansion policy reduce bird diversity?</h1>
+  <p class="big">A replication and evaluation of Zhang et al. (2026), <i>Science</i> 393, 831. Work by Sahil, research assistant to Prof. Paul J. Ferraro, Johns Hopkins University. Every number here comes from Stata, run on the authors' own data, and links to the log line that produced it.</p>
+  <div class="box verdict"><b class="h">Short answer</b>
+  The paper's numbers reproduce exactly. The evidence does not establish that solar policy reduced birds: the data cannot separate &ldquo;policy reduces birds&rdquo; from &ldquo;policy is related to where and how much people record birds&rdquo;. Our results do not show that solar development is harmless either.</div>
+  <div class="stats">
+    <div class="stat"><b>&minus;0.0125</b><span>Paper's main estimate. Reproduced exactly. <a class="src" data-file="files/01_Task1_Replication/logs/1_5_twfe_diagnostics.log" data-find="PI |  -.0125283">log</a></span></div>
+    <div class="stat"><b>&minus;0.0027</b><span>Same estimate in a fair comparison (p = 0.47). <a class="src" data-file="files/01_Task1_Replication/logs/1_5_twfe_diagnostics.log" data-find="PI |   -.002683">log</a></span></div>
+    <div class="stat"><b>83% vs 1%</b><span>Urban vs rural county-months with PSI filled in as 0. <a class="src" data-file="files/06_Followups_Nov19/logs/6_3_meeting_facts.log" data-find="83.06">log</a></span></div>
+    <div class="stat"><b>2.2%</b><span>Confounder strength that brings the estimate to zero. <a class="src" data-file="files/06_Followups_Nov19/logs/6_1_sensitivity_residualized.log" data-find="Robustness Value, q = 1.00 (RV_q)">log</a></span></div>
+    <div class="stat"><b>12 of 108</b><span>Specifications of the main model that stay negative and significant. <a href="lab.html#lab-spec">Try them</a></span></div>
+  </div>
+</section>
+
+<section id="use" data-nav="How to use this site">
+  <h2>How to use this site</h2>
+  <div class="cards">
+    <a class="c" href="lab.html"><b>Test it yourself</b><span>Change the model, add a confounder, relax the instrument, compare estimators. Every result is a real Stata estimate.</span></a>
+    <a class="c" href="evidence.html"><b>Read the evidence</b><span>Six short sections. Each number opens the Stata log at the line that produced it.</span></a>
+    <a class="c" href="paper.html"><b>Check our reading of the paper</b><span>Eleven claims, each tied to an exact page and table, next to what we found.</span></a>
+    <a class="c" href="library.html"><b>See every output</b><span>All reports, figures, tables, logs, code and data in one place.</span></a>
+  </div>
+  <p class="small">Tip: press <code>/</code> to search the whole site. Blue chips open the paper's page; green chips open a Stata log or code file.</p>
+</section>
+
+<section id="verdict" data-nav="Verdict at a glance">
+  <h2>Verdict at a glance</h2>
+  <p class="lead">One row per piece of evidence. The last column says whether it supports the claim that solar policy harms birds.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Evidence</th><th>What it shows</th><th>Supports harm?</th><th></th></tr>
+    <tr><td>Paper's TWFE regression</td><td>&minus;0.0125, significant</td><td><span class="tag yes">Yes</span></td><td><a href="evidence.html#main">details</a></td></tr>
+    <tr><td>TWFE in fair comparisons</td><td>About &minus;0.003, not significant</td><td><span class="tag no">No</span></td><td><a href="evidence.html#main">details</a></td></tr>
+    <tr><td>Birdwatching effort and missing months</td><td>PSI is linked to less observation, through the urban&ndash;rural split</td><td><span class="tag mid">Undermines</span></td><td><a href="evidence.html#effort">details</a></td></tr>
+    <tr><td>Sensitivity analysis</td><td>A weak confounder (2.2%) overturns the estimate</td><td><span class="tag mid">Fragile</span></td><td><a href="lab.html#lab-sens">try it</a></td></tr>
+    <tr><td>Instrumental variable</td><td>Significant, but exclusion fails; corrected &minus;0.042, not significant</td><td><span class="tag mid">Weak</span></td><td><a href="evidence.html#iv">details</a></td></tr>
+    <tr><td>Staggered DiD (binary adoption)</td><td>+0.02 to +0.08, not significant</td><td><span class="tag no">No</span></td><td><a href="evidence.html#did">details</a></td></tr>
+    <tr><td>dCDH (PSI as a dose)</td><td>&minus;0.03 to &minus;0.05; not significant with controls in fair samples; effort pre-trends fail</td><td><span class="tag mid">Partly</span></td><td><a href="evidence.html#dcdh">details</a></td></tr>
+    <tr><td>Solar-plant area</td><td>Negative in TWFE; vanishes holding effort fixed; dCDH not significant</td><td><span class="tag mid">Unclear</span></td><td><a href="evidence.html#area">details</a></td></tr>
+  </table></div>
+</section>
+
+<section id="record" data-nav="Project record">
+  <h2>Project record</h2>
+  <p class="lead">Everything done, in order, with its report, code and logs.</p>
+  <div class="tl">
+    <div class="it"><div class="when">Task 1</div><h3>Replication, data structure and identification</h3>
+      <p>Ran the authors' code, rebuilt the sample, examined TWFE, IV and matching. 12 of 12 checked numbers match. The main estimate falls to &minus;0.0027 in fair comparisons.</p>
+      <p><a class="btn sm alt" href="reports/Task1_Report.pdf">Report</a> <a class="src" data-file="files/01_Task1_Replication/code/1_5_twfe_diagnostics.do">code</a> <a class="src" data-file="files/01_Task1_Replication/logs/1_4_reproduction_check.log" data-find="PI |  -.0125283">reproduction log</a> <a class="src" data-file="files/01_Task1_Replication/tables/1_4_reproduction_check.csv">12-number check</a></p></div>
+    <div class="it"><div class="when">Task 2</div><h3>Sensitivity to unobserved confounding</h3>
+      <p>Cinelli&ndash;Hazlett analysis. A confounder explaining 2.2% of leftover variation removes the effect.</p>
+      <p><a class="btn sm alt" href="reports/Task2_Report.pdf">Report</a> <a class="src" data-file="files/02_Task2_Sensitivity/code/2_1_sensitivity_analysis.do">code</a> <a class="src" data-file="files/02_Task2_Sensitivity/logs/2_1_sensitivity_analysis.log" data-find="PI |  -.0125283">log</a> <a class="src" data-file="files/02_Task2_Sensitivity/tables/2_1_robustness_values.csv">robustness values</a></p></div>
+    <div class="it"><div class="when">Task 3</div><h3>Staggered difference-in-differences</h3>
+      <p>Callaway&ndash;Sant'Anna, Borusyak&ndash;Jaravel&ndash;Spiess and Sun&ndash;Abraham. No harm in the main sample: +0.02 to +0.08, not significant.</p>
+      <p><a class="btn sm alt" href="reports/Task3_Report.pdf">Report</a> <a class="src" data-file="files/03_Task3_Staggered_DiD/logs/3_4_imputation_bjs.log" data-find="tau |   .0780324">BJS log</a> <a class="src" data-file="files/03_Task3_Staggered_DiD/logs/3_5_sun_abraham.log" data-find="Sun-Abraham average effect">Sun&ndash;Abraham log</a> <a href="lab.html#lab-es">event-study viewer</a></p></div>
+    <div class="it"><div class="when">13 November follow-ups</div><h3>Effort, missing months, solar area, weak instrument</h3>
+      <p>PSI is linked to less observation. The Area effect vanishes holding effort fixed. The IV fails on exclusion, not strength.</p>
+      <p><a class="btn sm alt" href="reports/Followup_Report.pdf">Report</a> <a class="src" data-file="files/05_Followups_Nov13/logs/5_1_effort_test.log" data-find="lnBT paper      lnBT urbYM">effort log</a> <a class="src" data-file="files/05_Followups_Nov13/logs/5_4_missingness_test.log" data-find="PI |  -.0054924">missingness log</a> <a class="src" data-file="files/05_Followups_Nov13/logs/5_6_weak_iv_anderson_rubin.log" data-find="AR 95% set, cluster(county)">Anderson&ndash;Rubin log</a></p></div>
+    <div class="it"><div class="when">19 November follow-ups</div><h3>Residualized sensitivity, dCDH estimators, data checks</h3>
+      <p>dCDH gives &minus;0.03 to &minus;0.05 per PSI point, weaker with controls; the effort pre-trend test fails.</p>
+      <p><a class="btn sm alt" href="reports/Followup2_Nov19.pdf">Report</a> <a class="btn sm alt" href="reports/dCDH_Report.pdf">dCDH report</a> <a class="src" data-file="files/06_Followups_Nov19/logs/6_2_dcdh_estimators.log" data-find="Av_tot_eff | -.0546444">dCDH log</a> <a class="src" data-file="files/06_Followups_Nov19/logs/6_3_meeting_facts.log" data-find="83.06">data facts log</a></p></div>
+    <div class="it"><div class="when">20&ndash;21 November</div><h3>Synthesis and live tools</h3>
+      <p>One consolidated report, and a grid of 792 regressions and 68 IV regressions run in Stata so that readers can test alternatives on this site.</p>
+      <p><a class="btn sm" href="reports/Final_Report.pdf">Final report</a> <a class="src" data-file="files/07_Interactive/code/7_1_spec_grid.do">grid code</a> <a class="src" data-file="files/07_Interactive/data/spec_grid.csv">grid results</a></p></div>
+  </div>
+</section>
+
+<section id="context" data-nav="Context">
+  <h2>Context</h2>
+  <p>The paper was published on 20 August 2026. On 1 October 2026 <i>Science</i> posted an Editor's Note saying eLetters had raised technical concerns and that the editors were evaluating them (<a href="https://doi.org/10.1126/science.aem4102" target="_blank" rel="noopener">doi:10.1126/science.aem4102</a>). The authors' data and code are public: <a href="https://github.com/jianke22/China-s-solar-expansion-policy-reduces-bird-diversity" target="_blank" rel="noopener">their replication package</a>.</p>
+  <p class="small">This is an independent replication and evaluation. It is not affiliated with the paper's authors or the journal.</p>
+</section>
+
+</main></div>
+<footer>Independent replication and evaluation of Zhang et al. (2026), <i>Science</i> 393, 831. Not affiliated with the paper's authors or the journal. Code, data and outputs: <a href="https://github.com/sahiljangra12/China-SolarPolicy-Replication">GitHub</a>.</footer>
+<dialog id="drawer"><div class="dh"><b id="dtitle"></b><button class="iconbtn" data-close type="button">Close</button></div><div class="db" id="dbody"></div></dialog>
+<dialog id="viewer"><div class="dh"><b id="vname"></b><span class="small" id="vcount"></span><input id="vfind" type="search" placeholder="Find in file" aria-label="Find in file"><a class="iconbtn" id="vraw" target="_blank" rel="noopener">Raw</a><a class="iconbtn" id="vgh" target="_blank" rel="noopener">GitHub</a><button class="iconbtn" data-close type="button">Close</button></div><pre id="vtext"></pre><div id="vhtml" style="display:none"></div></dialog>
+<dialog id="pdfv"><div class="dh"><b id="pdftitle"></b><span class="small" id="pdfpage"></span><button class="iconbtn" id="pdfprev" type="button">&larr;</button><button class="iconbtn" id="pdfnext" type="button">&rarr;</button><button class="iconbtn" id="pdfout" type="button">&minus;</button><button class="iconbtn" id="pdfin" type="button">+</button><button class="iconbtn" id="pdfswap" type="button">Change file</button><button class="iconbtn" data-close type="button">Close</button></div>
+  <div id="pdfbody"><div id="pdfask" class="card" style="max-width:560px;margin:40px auto;text-align:left;display:none"><p id="pdfmsg"></p><input type="file" id="pdffile" accept="application/pdf,.pdf"></div><canvas id="pdfcanvas"></canvas></div></dialog>
+<dialog id="lightbox"><img alt=""><p></p></dialog>
+<script src="assets/data.js"></script>
+<script src="assets/sources.js"></script>
+<script src="assets/search.js"></script>
+<script src="assets/site.js"></script>
+
+</body>
+</html>

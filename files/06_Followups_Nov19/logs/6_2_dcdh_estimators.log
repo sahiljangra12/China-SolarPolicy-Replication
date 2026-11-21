@@ -1,0 +1,955 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/06_Followups_Nov19/logs/6_2_dcdh_estima
+> tors.log
+  log type:  text
+ opened on:  19 Nov 2026, 23:21:30
+
+. capture noisily do "$T6/code/6_2_dcdh_estimators.do"
+
+. *==========================================================================
+. * 6_2_dcdh_estimators.do
+. * PURPOSE : de Chaisemartin & D'Haultfoeuille (dCDH) difference-in-
+. *           differences estimators with PSI as a MULTI-VALUED, NON-ABSORBING
+. *           treatment (no binarization), as requested on 19 Nov.
+. *   (A) did_multiplegt_dyn  - de Chaisemartin & D'Haultfoeuille (2024,
+. *       REStat 108(4)): event-study effects l = 1..5 years after a county's
+. *       PSI first changes, compared with counties that had the SAME PSI in
+. *       the first year and have not changed yet; placebos test pre-trends.
+. *   (B) did_multiplegt_stat - de Chaisemartin, D'Haultfoeuille, Pasquier,
+. *       Sow & Vazquez-Bare (2024+): average slope (AS / WAS) of the
+. *       outcome with respect to the treatment for units whose treatment
+. *       changes, compared with "stayers" whose treatment does not change
+. *       between two consecutive years (assumes no lagged effects).
+. * DATA    : county-year panel 2014-2023. Outcome = Shannon with
+. *           month-of-year effects removed, averaged over the observed months
+. *           (same outcome as Task 3). PSI is yearly, so the year is the
+. *           natural time unit.
+. * SAMPLES : paper-style (all counties; the 724 counties missing from the
+. *           policy file have PSI = 0 in every year, so they act as stayers)
+. *           and real-PSI (counties in the policy file only).
+. *==========================================================================
+. if "$ROOT" == "" quietly do "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/00_config.do"
+
+. global T6 "$ROOT/06_Followups_Nov19"
+
+. 
+. foreach p in gtools did_multiplegt_dyn did_multiplegt_stat {
+  2.     capture which `p'
+  3.     if _rc capture noisily ssc install `p', replace
+  4. }
+
+. 
+. *------------------------------------------------ county-year panel
+. * Built from the full analysis sample (all 2,501 counties). Unlike Task 3,
+. * counties already treated in 2014 are KEPT: dCDH compares each county with
+. * counties that had the same PSI in the first year, so no pre-period with
+. * PSI = 0 is needed.
+. use "$SAMPLE", clear
+
+. capture confirm variable month
+
+. if _rc gen month = month(dofm(year))
+
+. reg ShannonBD i.month
+
+      Source |       SS           df       MS      Number of obs   =    46,528
+-------------+----------------------------------   F(11, 46516)    =     51.70
+       Model |    541.2974        11  49.2088546   Prob > F        =    0.0000
+    Residual |  44271.1695    46,516  .951740681   R-squared       =    0.0121
+-------------+----------------------------------   Adj R-squared   =    0.0118
+       Total |  44812.4669    46,527  .963149718   Root MSE        =    .97557
+
+------------------------------------------------------------------------------
+   ShannonBD | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+       month |
+          2  |  -.0173737   .0207346    -0.84   0.402    -.0580139    .0232665
+          3  |   .0736119   .0216689     3.40   0.001     .0311406    .1160833
+          4  |   .1981946    .020622     9.61   0.000     .1577752    .2386141
+          5  |   .2783702   .0203594    13.67   0.000     .2384654     .318275
+          6  |   .1622055   .0215908     7.51   0.000     .1198873    .2045238
+          7  |   .0392431   .0206092     1.90   0.057    -.0011512    .0796374
+          8  |  -.0136875   .0211736    -0.65   0.518     -.055188     .027813
+          9  |  -.0477415     .02238    -2.13   0.033    -.0916066   -.0038763
+         10  |  -.0165322   .0212537    -0.78   0.437    -.0581898    .0251254
+         11  |  -.0246693   .0223631    -1.10   0.270    -.0685012    .0191627
+         12  |  -.0765653   .0215481    -3.55   0.000    -.1187999   -.0343306
+             |
+       _cons |   2.394365    .014161   169.08   0.000     2.366609    2.422121
+------------------------------------------------------------------------------
+
+. predict double sh_res, residuals
+
+. summarize ShannonBD, meanonly
+
+. gen double shannon_sa = sh_res + r(mean)
+
+. drop sh_res
+
+. gen lnBN = ln(BN)
+
+. collapse (mean) shannon_sa ShannonBD lnBN PI $control (count) n_months = ShannonBD ///
+>          (first) in_PI_file urban prov, by(county YEAR)
+
+. xtset county YEAR
+
+Panel variable: county (unbalanced)
+ Time variable: YEAR, 2014 to 2023, but with gaps
+         Delta: 1 unit
+
+. label var shannon_sa "Shannon (month-of-year effects removed), county-year mean"
+
+. label var PI "PSI (yearly)"
+
+. compress
+  variable n_months was long now byte
+  (35,469 bytes saved)
+
+. save "$T6/data/countyyear_psi.dta", replace
+file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/06_Followups_Nov19/data/countyyear_psi.dta
+    saved
+
+. 
+. * describe the treatment paths (how often PSI changes, stays, goes down)
+. sort county YEAR
+
+. by county: gen dPI = PI - PI[_n-1] if YEAR == YEAR[_n-1] + 1
+(4,148 missing values generated)
+
+. gen byte up   = dPI > 0  & !missing(dPI)
+
+. gen byte down = dPI < 0  & !missing(dPI)
+
+. gen byte same = dPI == 0 & !missing(dPI)
+
+. tabstat up down same, by(in_PI_file) stat(mean n)
+
+Summary statistics: Mean, N
+Group variable: in_PI_file ((first) in_PI_file)
+
+in_PI_file |        up      down      same
+-----------+------------------------------
+         0 |         0         0  .7098357
+           |      4077      4077      4077
+-----------+------------------------------
+         1 |  .2034599  .0549961  .3587658
+           |      7746      7746      7746
+-----------+------------------------------
+     Total |  .1332995  .0360315  .4798275
+           |     11823     11823     11823
+------------------------------------------
+
+. bysort county: egen everchange = max(up | down)
+
+. egen tagc = tag(county)
+
+. tab in_PI_file everchange if tagc
+
+   (first) |      everchange
+in_PI_file |         0          1 |     Total
+-----------+----------------------+----------
+         0 |       724          0 |       724 
+         1 |       761      1,016 |     1,777 
+-----------+----------------------+----------
+     Total |     1,485      1,016 |     2,501 
+
+. drop dPI up down same everchange tagc
+
+. 
+. global ctrl "Temp Wind Pop Duration Carbon Water Green Farm Grass"
+
+. 
+. *------------------------------------------------ (A) did_multiplegt_dyn
+. * A1 paper-style sample, no controls
+. capture noisily did_multiplegt_dyn shannon_sa county YEAR PI, effects(5) placebo(3) cluster(county) graph_off
+
+
+--------------------------------------------------------------------------------
+             Estimation of treatment effects: Event-study effects
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+    Effect_1 | -.1367214   .0543679  -.2432805  -.0301624       4960        523 
+    Effect_2 |  -.156185   .0744957   -.302194  -.0101761       3617        206 
+    Effect_3 |  -.238029   .1173872  -.4681037  -.0079543       2867        149 
+    Effect_4 | -.2236867   .1431219  -.5042004   .0568269       2216         81 
+    Effect_5 | -.1882341   .1497585  -.4817554   .1052872       1766         77 
+--------------------------------------------------------------------------------
+Test of joint nullity of the effects : p-value = .06700367
+
+
+--------------------------------------------------------------------------------
+               Average cumulative (total) effect per treatment unit
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N     Switch  x Periods 
+-------------+----------------------------------------------------------------------------
+  Av_tot_eff | -.0546444   .0179289  -.0897843  -.0195045       6350       1036            
+--------------------------------------------------------------------------------
+Average number of time periods over which a treatment's effect is accumulated = 1.9296577
+
+
+--------------------------------------------------------------------------------
+          Testing the parallel trends and no anticipation assumptions
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 | -.0701417   .0691481  -.2056695   .0653862       2891        252 
+   Placebo_2 |  .0544152   .1334313  -.2071053   .3159358       1549         73 
+   Placebo_3 |  .0247824   .2253525  -.4169005   .4664652        760         33 
+--------------------------------------------------------------------------------
+Test of joint nullity of the placebos : p-value = .74470412
+
+
+The development of this package was funded by the European Union (ERC, REALLYCREDIBLE,GA N°101043899).
+
+. * A2 normalized: effect per one unit of PSI (weighted over current + lagged doses)
+. capture noisily did_multiplegt_dyn shannon_sa county YEAR PI, effects(5) placebo(3) normalized cluster(county) graph_o
+> ff
+
+
+--------------------------------------------------------------------------------
+             Estimation of treatment effects: Event-study effects
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+    Effect_1 | -.0541666   .0215396  -.0963834  -.0119498       4960        523 
+    Effect_2 | -.0267783   .0127725  -.0518119  -.0017447       3617        206 
+    Effect_3 | -.0251071   .0123819  -.0493752   -.000839       2867        149 
+    Effect_4 | -.0274691   .0175756  -.0619167   .0069784       2216         81 
+    Effect_5 | -.0156422   .0124449  -.0400336   .0087493       1766         77 
+--------------------------------------------------------------------------------
+Test of joint nullity of the effects : p-value = .06700367
+
+
+--------------------------------------------------------------------------------
+               Average cumulative (total) effect per treatment unit
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N     Switch  x Periods 
+-------------+----------------------------------------------------------------------------
+  Av_tot_eff | -.0546444   .0179289  -.0897843  -.0195045       6350       1036            
+--------------------------------------------------------------------------------
+Average number of time periods over which a treatment's effect is accumulated = 1.9296577
+
+
+--------------------------------------------------------------------------------
+          Testing the parallel trends and no anticipation assumptions
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 | -.0282044   .0278049   -.082701   .0262922       2891        252 
+   Placebo_2 |  .0093116   .0228328    -.03544   .0540631       1549         73 
+   Placebo_3 |   .002328   .0211689  -.0391623   .0438183        760         33 
+--------------------------------------------------------------------------------
+Test of joint nullity of the placebos : p-value = .74470412
+
+
+The development of this package was funded by the European Union (ERC, REALLYCREDIBLE,GA N°101043899).
+
+. * A3 with the paper's controls (all nine exceed Stata/BE's 2,048-variable limit
+. *    inside the command, so only the effort control Duration is used)
+. capture noisily did_multiplegt_dyn shannon_sa county YEAR PI, effects(5) placebo(3) normalized controls(Duration) clus
+> ter(county) graph_off
+Baseline Treatment Level 3 dropped because of insufficient observations.
+Baseline Treatment Level 7 dropped because of insufficient observations.
+Baseline Treatment Level 9 dropped because of insufficient observations.
+Baseline Treatment Level 14 dropped because of insufficient observations.
+Baseline Treatment Level 17 dropped because of insufficient observations.
+Baseline Treatment Level 18 dropped because of insufficient observations.
+Baseline Treatment Level 19 dropped because of insufficient observations.
+Baseline Treatment Level 20 dropped because of insufficient observations.
+Baseline Treatment Level 22 dropped because of insufficient observations.
+Baseline Treatment Level 23 dropped because of insufficient observations.
+Baseline Treatment Level 24 dropped because of insufficient observations.
+Baseline Treatment Level 26 dropped because of insufficient observations.
+Baseline Treatment Level 28 dropped because of insufficient observations.
+Baseline Treatment Level 29 dropped because of insufficient observations.
+Baseline Treatment Level 33 dropped because of insufficient observations.
+Baseline Treatment Level 34 dropped because of insufficient observations.
+Baseline Treatment Level 36 dropped because of insufficient observations.
+Baseline Treatment Level 42 dropped because of insufficient observations.
+Baseline Treatment Level 43 dropped because of insufficient observations.
+Baseline Treatment Level 45 dropped because of insufficient observations.
+Baseline Treatment Level 49 dropped because of insufficient observations.
+Baseline Treatment Level 50 dropped because of insufficient observations.
+Baseline Treatment Level 52 dropped because of insufficient observations.
+Baseline Treatment Level 53 dropped because of insufficient observations.
+Baseline Treatment Level 54 dropped because of insufficient observations.
+Baseline Treatment Level 55 dropped because of insufficient observations.
+Baseline Treatment Level 59 dropped because of insufficient observations.
+Baseline Treatment Level 62 dropped because of insufficient observations.
+Baseline Treatment Level 63 dropped because of insufficient observations.
+Baseline Treatment Level 64 dropped because of insufficient observations.
+Baseline Treatment Level 66 dropped because of insufficient observations.
+Baseline Treatment Level 67 dropped because of insufficient observations.
+Baseline Treatment Level 69 dropped because of insufficient observations.
+Baseline Treatment Level 70 dropped because of insufficient observations.
+Baseline Treatment Level 72 dropped because of insufficient observations.
+Baseline Treatment Level 74 dropped because of insufficient observations.
+Baseline Treatment Level 75 dropped because of insufficient observations.
+Baseline Treatment Level 76 dropped because of insufficient observations.
+Baseline Treatment Level 78 dropped because of insufficient observations.
+Baseline Treatment Level 80 dropped because of insufficient observations.
+Baseline Treatment Level 81 dropped because of insufficient observations.
+Baseline Treatment Level 83 dropped because of insufficient observations.
+Baseline Treatment Level 86 dropped because of insufficient observations.
+Baseline Treatment Level 88 dropped because of insufficient observations.
+Baseline Treatment Level 89 dropped because of insufficient observations.
+Baseline Treatment Level 91 dropped because of insufficient observations.
+Baseline Treatment Level 92 dropped because of insufficient observations.
+Baseline Treatment Level 93 dropped because of insufficient observations.
+Baseline Treatment Level 94 dropped because of insufficient observations.
+Baseline Treatment Level 102 dropped because of insufficient observations.
+Baseline Treatment Level 103 dropped because of insufficient observations.
+Baseline Treatment Level 105 dropped because of insufficient observations.
+Baseline Treatment Level 110 dropped because of insufficient observations.
+Baseline Treatment Level 111 dropped because of insufficient observations.
+Baseline Treatment Level 112 dropped because of insufficient observations.
+Baseline Treatment Level 113 dropped because of insufficient observations.
+Baseline Treatment Level 114 dropped because of insufficient observations.
+Baseline Treatment Level 115 dropped because of insufficient observations.
+Baseline Treatment Level 116 dropped because of insufficient observations.
+Baseline Treatment Level 117 dropped because of insufficient observations.
+Baseline Treatment Level 118 dropped because of insufficient observations.
+no room to add more variables
+    Up to 2,048 variables are allowed with this version of Stata.  Versions are available that allow up to 120,000
+    variables.
+
+. * A4 comparisons only within urban / within rural (like urban x time FE)
+. capture noisily did_multiplegt_dyn shannon_sa county YEAR PI, effects(5) placebo(3) trends_nonparam(urban) cluster(cou
+> nty) graph_off
+
+
+--------------------------------------------------------------------------------
+             Estimation of treatment effects: Event-study effects
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+    Effect_1 | -.1020085   .0601124  -.2198266   .0158096       4770        518 
+    Effect_2 | -.1353335   .0764162  -.2851065   .0144394       3045        203 
+    Effect_3 | -.1446092   .1179903  -.3758659   .0866474       2497        146 
+    Effect_4 | -.1898457   .1452774  -.4745842   .0948929       1901         79 
+    Effect_5 | -.1364741   .1456595  -.4219616   .1490133       1493         75 
+--------------------------------------------------------------------------------
+Test of joint nullity of the effects : p-value = .35618355
+
+
+--------------------------------------------------------------------------------
+               Average cumulative (total) effect per treatment unit
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N     Switch  x Periods 
+-------------+----------------------------------------------------------------------------
+  Av_tot_eff | -.0405934   .0186459  -.0771386  -.0040481       6160       1021            
+--------------------------------------------------------------------------------
+Average number of time periods over which a treatment's effect is accumulated = 1.9300045
+
+
+--------------------------------------------------------------------------------
+          Testing the parallel trends and no anticipation assumptions
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 | -.0551777   .0731171  -.1984847   .0881292       2578        250 
+   Placebo_2 |  .0149153   .1359262  -.2514951   .2813257       1358         73 
+   Placebo_3 |  .1335599    .242922  -.3425584   .6096781        657         33 
+--------------------------------------------------------------------------------
+Test of joint nullity of the placebos : p-value = .8120263
+
+
+The development of this package was funded by the European Union (ERC, REALLYCREDIBLE,GA N°101043899).
+
+. * A5 real-PSI counties only
+. capture noisily did_multiplegt_dyn shannon_sa county YEAR PI if in_PI_file==1, effects(5) placebo(3) cluster(county) g
+> raph_off
+
+
+--------------------------------------------------------------------------------
+             Estimation of treatment effects: Event-study effects
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+    Effect_1 | -.0961636   .0564937  -.2068892    .014562       2066        523 
+    Effect_2 | -.1199827    .077106  -.2711075   .0311422       1230        206 
+    Effect_3 | -.1269247   .1226201  -.3672556   .1134062        937        149 
+    Effect_4 | -.1942367   .1472555  -.4828522   .0943788        676         81 
+    Effect_5 | -.0982395    .153014  -.3981414   .2016623        525         77 
+--------------------------------------------------------------------------------
+Test of joint nullity of the effects : p-value = .38605376
+
+
+--------------------------------------------------------------------------------
+               Average cumulative (total) effect per treatment unit
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N     Switch  x Periods 
+-------------+----------------------------------------------------------------------------
+  Av_tot_eff |  -.037293   .0186451  -.0738367  -.0007493       3021       1036            
+--------------------------------------------------------------------------------
+Average number of time periods over which a treatment's effect is accumulated = 1.9296577
+
+
+--------------------------------------------------------------------------------
+          Testing the parallel trends and no anticipation assumptions
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 | -.0625597   .0722084  -.2040855   .0789661       1030        252 
+   Placebo_2 | -.0210243   .1384388  -.2923594   .2503107        453         73 
+   Placebo_3 |  .2272225   .2432143  -.2494687   .7039136        186         33 
+--------------------------------------------------------------------------------
+Test of joint nullity of the placebos : p-value = .61608657
+
+
+The development of this package was funded by the European Union (ERC, REALLYCREDIBLE,GA N°101043899).
+
+. * A6 real-PSI, normalized, with the effort control
+. capture noisily did_multiplegt_dyn shannon_sa county YEAR PI if in_PI_file==1, effects(5) placebo(3) normalized contro
+> ls(Duration) cluster(county) graph_off
+Baseline Treatment Level 3 dropped because of insufficient observations.
+Baseline Treatment Level 7 dropped because of insufficient observations.
+Baseline Treatment Level 9 dropped because of insufficient observations.
+Baseline Treatment Level 14 dropped because of insufficient observations.
+Baseline Treatment Level 17 dropped because of insufficient observations.
+Baseline Treatment Level 18 dropped because of insufficient observations.
+Baseline Treatment Level 19 dropped because of insufficient observations.
+Baseline Treatment Level 20 dropped because of insufficient observations.
+Baseline Treatment Level 22 dropped because of insufficient observations.
+Baseline Treatment Level 23 dropped because of insufficient observations.
+Baseline Treatment Level 24 dropped because of insufficient observations.
+Baseline Treatment Level 26 dropped because of insufficient observations.
+Baseline Treatment Level 28 dropped because of insufficient observations.
+Baseline Treatment Level 29 dropped because of insufficient observations.
+Baseline Treatment Level 33 dropped because of insufficient observations.
+Baseline Treatment Level 34 dropped because of insufficient observations.
+Baseline Treatment Level 36 dropped because of insufficient observations.
+Baseline Treatment Level 42 dropped because of insufficient observations.
+Baseline Treatment Level 43 dropped because of insufficient observations.
+Baseline Treatment Level 45 dropped because of insufficient observations.
+Baseline Treatment Level 49 dropped because of insufficient observations.
+Baseline Treatment Level 50 dropped because of insufficient observations.
+Baseline Treatment Level 52 dropped because of insufficient observations.
+Baseline Treatment Level 53 dropped because of insufficient observations.
+Baseline Treatment Level 54 dropped because of insufficient observations.
+Baseline Treatment Level 55 dropped because of insufficient observations.
+Baseline Treatment Level 59 dropped because of insufficient observations.
+Baseline Treatment Level 62 dropped because of insufficient observations.
+Baseline Treatment Level 63 dropped because of insufficient observations.
+Baseline Treatment Level 64 dropped because of insufficient observations.
+Baseline Treatment Level 66 dropped because of insufficient observations.
+Baseline Treatment Level 67 dropped because of insufficient observations.
+Baseline Treatment Level 69 dropped because of insufficient observations.
+Baseline Treatment Level 70 dropped because of insufficient observations.
+Baseline Treatment Level 72 dropped because of insufficient observations.
+Baseline Treatment Level 74 dropped because of insufficient observations.
+Baseline Treatment Level 75 dropped because of insufficient observations.
+Baseline Treatment Level 76 dropped because of insufficient observations.
+Baseline Treatment Level 78 dropped because of insufficient observations.
+Baseline Treatment Level 80 dropped because of insufficient observations.
+Baseline Treatment Level 81 dropped because of insufficient observations.
+Baseline Treatment Level 83 dropped because of insufficient observations.
+Baseline Treatment Level 86 dropped because of insufficient observations.
+Baseline Treatment Level 88 dropped because of insufficient observations.
+Baseline Treatment Level 89 dropped because of insufficient observations.
+Baseline Treatment Level 91 dropped because of insufficient observations.
+Baseline Treatment Level 92 dropped because of insufficient observations.
+Baseline Treatment Level 93 dropped because of insufficient observations.
+Baseline Treatment Level 94 dropped because of insufficient observations.
+Baseline Treatment Level 102 dropped because of insufficient observations.
+Baseline Treatment Level 103 dropped because of insufficient observations.
+Baseline Treatment Level 105 dropped because of insufficient observations.
+Baseline Treatment Level 110 dropped because of insufficient observations.
+Baseline Treatment Level 111 dropped because of insufficient observations.
+Baseline Treatment Level 112 dropped because of insufficient observations.
+Baseline Treatment Level 113 dropped because of insufficient observations.
+Baseline Treatment Level 114 dropped because of insufficient observations.
+Baseline Treatment Level 115 dropped because of insufficient observations.
+Baseline Treatment Level 116 dropped because of insufficient observations.
+Baseline Treatment Level 117 dropped because of insufficient observations.
+Baseline Treatment Level 118 dropped because of insufficient observations.
+no room to add more variables
+    Up to 2,048 variables are allowed with this version of Stata.  Versions are available that allow up to 120,000
+    variables.
+
+. * A7 continuous first-year PSI (polynomial of order 1), bootstrap SEs as the authors recommend
+. set seed 20261119
+
+. capture noisily did_multiplegt_dyn shannon_sa county YEAR PI, effects(5) placebo(3) continuous(1) bootstrap(100, 20261
+> 119) normalized cluster(county) graph_off
+You specified the continuous option without the bootstrap option. Please be aware that we recommend to compute bootstrap
+> ed standard errors when you are using the continuous option as the analytical standard errors can be liberal in that c
+> ase.
+
+. * A8 event-study graph for the main specification (A1)
+. capture noisily did_multiplegt_dyn shannon_sa county YEAR PI, effects(5) placebo(3) cluster(county)
+
+
+--------------------------------------------------------------------------------
+             Estimation of treatment effects: Event-study effects
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+    Effect_1 | -.1367214   .0543679  -.2432805  -.0301624       4960        523 
+    Effect_2 |  -.156185   .0744957   -.302194  -.0101761       3617        206 
+    Effect_3 |  -.238029   .1173872  -.4681037  -.0079543       2867        149 
+    Effect_4 | -.2236867   .1431219  -.5042004   .0568269       2216         81 
+    Effect_5 | -.1882341   .1497585  -.4817554   .1052872       1766         77 
+--------------------------------------------------------------------------------
+Test of joint nullity of the effects : p-value = .06700367
+
+
+--------------------------------------------------------------------------------
+               Average cumulative (total) effect per treatment unit
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N     Switch  x Periods 
+-------------+----------------------------------------------------------------------------
+  Av_tot_eff | -.0546444   .0179289  -.0897843  -.0195045       6350       1036            
+--------------------------------------------------------------------------------
+Average number of time periods over which a treatment's effect is accumulated = 1.9296577
+
+
+--------------------------------------------------------------------------------
+          Testing the parallel trends and no anticipation assumptions
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 | -.0701417   .0691481  -.2056695   .0653862       2891        252 
+   Placebo_2 |  .0544152   .1334313  -.2071053   .3159358       1549         73 
+   Placebo_3 |  .0247824   .2253525  -.4169005   .4664652        760         33 
+--------------------------------------------------------------------------------
+Test of joint nullity of the placebos : p-value = .74470412
+
+
+The development of this package was funded by the European Union (ERC, REALLYCREDIBLE,GA N°101043899).
+
+. capture noisily graph export "$T6/figures/6_2_dcdh_dyn_eventstudy.png", replace width(1600)
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/06_Followups_Nov19/figures/6_2_dcdh_dyn_eventstudy.png saved as PNG format
+
+. 
+. *------------------------------------------------ (E) effort checks with dCDH
+. * E1 does PSI change the number of birdwatchers (checklists)? outcome = mean ln(BN)
+. capture noisily did_multiplegt_dyn lnBN county YEAR PI, effects(5) placebo(3) normalized cluster(county) graph_off
+
+
+--------------------------------------------------------------------------------
+             Estimation of treatment effects: Event-study effects
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+    Effect_1 | -.0250571   .0136574  -.0518251    .001711       4960        523 
+    Effect_2 | -.0136717   .0087343  -.0307906   .0034473       3617        206 
+    Effect_3 | -.0145399   .0059664  -.0262338  -.0028461       2867        149 
+    Effect_4 |  .0061067   .0121299  -.0176673   .0298808       2216         81 
+    Effect_5 |   .007043   .0090483  -.0106913   .0247772       1766         77 
+--------------------------------------------------------------------------------
+Test of joint nullity of the effects : p-value = .08044163
+
+
+--------------------------------------------------------------------------------
+               Average cumulative (total) effect per treatment unit
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N     Switch  x Periods 
+-------------+----------------------------------------------------------------------------
+  Av_tot_eff | -.0189264   .0103668  -.0392449   .0013921       6350       1036            
+--------------------------------------------------------------------------------
+Average number of time periods over which a treatment's effect is accumulated = 1.9296577
+
+
+--------------------------------------------------------------------------------
+          Testing the parallel trends and no anticipation assumptions
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 |  .0526331    .020281   .0128831   .0923831       2891        252 
+   Placebo_2 |  .0206374   .0146244  -.0080259   .0493007       1549         73 
+   Placebo_3 |  .0290861   .0093584   .0107439   .0474282        760         33 
+--------------------------------------------------------------------------------
+Test of joint nullity of the placebos : p-value = .00115733
+
+
+The development of this package was funded by the European Union (ERC, REALLYCREDIBLE,GA N°101043899).
+
+. * E2 same, real-PSI counties
+. capture noisily did_multiplegt_dyn lnBN county YEAR PI if in_PI_file==1, effects(5) placebo(3) normalized cluster(coun
+> ty) graph_off
+
+
+--------------------------------------------------------------------------------
+             Estimation of treatment effects: Event-study effects
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+    Effect_1 | -.0044805     .01426  -.0324296   .0234687       2066        523 
+    Effect_2 | -.0021497   .0089921   -.019774   .0154746       1230        206 
+    Effect_3 |  .0004868   .0065568  -.0123642   .0133379        937        149 
+    Effect_4 |  .0134836   .0122788  -.0105824   .0375495        676         81 
+    Effect_5 |   .018343   .0092179   .0002763   .0364097        525         77 
+--------------------------------------------------------------------------------
+Test of joint nullity of the effects : p-value = .47815507
+
+
+--------------------------------------------------------------------------------
+               Average cumulative (total) effect per treatment unit
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N     Switch  x Periods 
+-------------+----------------------------------------------------------------------------
+  Av_tot_eff |  .0057523   .0108564  -.0155258   .0270303       3021       1036            
+--------------------------------------------------------------------------------
+Average number of time periods over which a treatment's effect is accumulated = 1.9296577
+
+
+--------------------------------------------------------------------------------
+          Testing the parallel trends and no anticipation assumptions
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 |  .0491235   .0212014   .0075696   .0906775       1030        252 
+   Placebo_2 |  .0066851   .0149672    -.02265   .0360202        453         73 
+   Placebo_3 |  .0357031   .0104281   .0152645   .0561417        186         33 
+--------------------------------------------------------------------------------
+Test of joint nullity of the placebos : p-value = .00124891
+
+
+The development of this package was funded by the European Union (ERC, REALLYCREDIBLE,GA N°101043899).
+
+. * E3 Shannon holding the number of birdwatchers fixed
+. capture noisily did_multiplegt_dyn shannon_sa county YEAR PI, effects(5) placebo(3) normalized controls(lnBN) cluster(
+> county) graph_off
+Baseline Treatment Level 3 dropped because of insufficient observations.
+Baseline Treatment Level 7 dropped because of insufficient observations.
+Baseline Treatment Level 9 dropped because of insufficient observations.
+Baseline Treatment Level 14 dropped because of insufficient observations.
+Baseline Treatment Level 17 dropped because of insufficient observations.
+Baseline Treatment Level 18 dropped because of insufficient observations.
+Baseline Treatment Level 19 dropped because of insufficient observations.
+Baseline Treatment Level 20 dropped because of insufficient observations.
+Baseline Treatment Level 22 dropped because of insufficient observations.
+Baseline Treatment Level 23 dropped because of insufficient observations.
+Baseline Treatment Level 24 dropped because of insufficient observations.
+Baseline Treatment Level 26 dropped because of insufficient observations.
+Baseline Treatment Level 28 dropped because of insufficient observations.
+Baseline Treatment Level 29 dropped because of insufficient observations.
+Baseline Treatment Level 33 dropped because of insufficient observations.
+Baseline Treatment Level 34 dropped because of insufficient observations.
+Baseline Treatment Level 36 dropped because of insufficient observations.
+Baseline Treatment Level 42 dropped because of insufficient observations.
+Baseline Treatment Level 43 dropped because of insufficient observations.
+Baseline Treatment Level 45 dropped because of insufficient observations.
+Baseline Treatment Level 49 dropped because of insufficient observations.
+Baseline Treatment Level 50 dropped because of insufficient observations.
+Baseline Treatment Level 52 dropped because of insufficient observations.
+Baseline Treatment Level 53 dropped because of insufficient observations.
+Baseline Treatment Level 54 dropped because of insufficient observations.
+Baseline Treatment Level 55 dropped because of insufficient observations.
+Baseline Treatment Level 59 dropped because of insufficient observations.
+Baseline Treatment Level 62 dropped because of insufficient observations.
+Baseline Treatment Level 63 dropped because of insufficient observations.
+Baseline Treatment Level 64 dropped because of insufficient observations.
+Baseline Treatment Level 66 dropped because of insufficient observations.
+Baseline Treatment Level 67 dropped because of insufficient observations.
+Baseline Treatment Level 69 dropped because of insufficient observations.
+Baseline Treatment Level 70 dropped because of insufficient observations.
+Baseline Treatment Level 72 dropped because of insufficient observations.
+Baseline Treatment Level 74 dropped because of insufficient observations.
+Baseline Treatment Level 75 dropped because of insufficient observations.
+Baseline Treatment Level 76 dropped because of insufficient observations.
+Baseline Treatment Level 78 dropped because of insufficient observations.
+Baseline Treatment Level 80 dropped because of insufficient observations.
+Baseline Treatment Level 81 dropped because of insufficient observations.
+Baseline Treatment Level 83 dropped because of insufficient observations.
+Baseline Treatment Level 86 dropped because of insufficient observations.
+Baseline Treatment Level 88 dropped because of insufficient observations.
+Baseline Treatment Level 89 dropped because of insufficient observations.
+Baseline Treatment Level 91 dropped because of insufficient observations.
+Baseline Treatment Level 92 dropped because of insufficient observations.
+Baseline Treatment Level 93 dropped because of insufficient observations.
+Baseline Treatment Level 94 dropped because of insufficient observations.
+Baseline Treatment Level 102 dropped because of insufficient observations.
+Baseline Treatment Level 103 dropped because of insufficient observations.
+Baseline Treatment Level 105 dropped because of insufficient observations.
+Baseline Treatment Level 110 dropped because of insufficient observations.
+Baseline Treatment Level 111 dropped because of insufficient observations.
+Baseline Treatment Level 112 dropped because of insufficient observations.
+Baseline Treatment Level 113 dropped because of insufficient observations.
+Baseline Treatment Level 114 dropped because of insufficient observations.
+Baseline Treatment Level 115 dropped because of insufficient observations.
+Baseline Treatment Level 116 dropped because of insufficient observations.
+Baseline Treatment Level 117 dropped because of insufficient observations.
+Baseline Treatment Level 118 dropped because of insufficient observations.
+no room to add more variables
+    Up to 2,048 variables are allowed with this version of Stata.  Versions are available that allow up to 120,000
+    variables.
+
+. * E4 WAS for ln(birdwatchers)
+. capture noisily did_multiplegt_stat lnBN county YEAR PI, estimator(was) placebo(1) cluster(county)
+                                  ----------------------------------------------
+                                   Number of observations     =             7675
+                                   Estimation method          =    doubly-robust
+                                   Polynomial order           =              (1)
+                                  ----------------------------------------------
+                                (Std. err. adjusted for 2501 clusters in county)
+--------------------------------------------------------------------------------
+                           Weighted Average Slope (WAS)
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+         WAS | -.0255366   .0118663  -.0487946  -.0022787       2002       5673 
+--------------------------------------------------------------------------------
+                                 Placebo(s) WAS
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 | -.0675527       .084  -.2321928   .0970874        574       3594 
+ 
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+. * E5 WAS for Shannon controlling for ln(birdwatchers)
+. capture noisily did_multiplegt_stat shannon_sa county YEAR PI, estimator(was) placebo(1) controls(lnBN) cluster(county
+> )
+                                  ----------------------------------------------
+                                   Number of observations     =             7675
+                                   Estimation method          =    doubly-robust
+                                   Polynomial order           =              (1)
+                                  ----------------------------------------------
+                                (Std. err. adjusted for 2501 clusters in county)
+--------------------------------------------------------------------------------
+                           Weighted Average Slope (WAS)
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+         WAS | -.0427066   .0172962  -.0766071  -.0088062       2002       5673 
+--------------------------------------------------------------------------------
+                                 Placebo(s) WAS
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 | -.0570074   .1032903  -.2594563   .1454416        574       3594 
+ 
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+. 
+. *------------------------------------------------ (B) did_multiplegt_stat
+. * B1 paper-style sample: average slope (AS) and weighted average slope (WAS)
+. capture noisily did_multiplegt_stat shannon_sa county YEAR PI, estimator(as was) placebo(1) cluster(county)
+                                  ----------------------------------------------
+                                   Number of observations     =             7675
+                                   Estimation method          =    doubly-robust
+                                   Polynomial order           =              (1)
+                                  ----------------------------------------------
+                                (Std. err. adjusted for 2501 clusters in county)
+--------------------------------------------------------------------------------
+                               Average Slope (AS)
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+          AS | -.0178794   .0552832  -.1262344   .0904757       2002       5673 
+--------------------------------------------------------------------------------
+                                 Placebo(s) AS
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 | -.0029465   .0891178  -.1776173   .1717243        574       3594 
+--------------------------------------------------------------------------------
+                           Weighted Average Slope (WAS)
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+         WAS | -.0346522   .0164839  -.0669608  -.0023437       2002       5673 
+--------------------------------------------------------------------------------
+                                 Placebo(s) WAS
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 | -.0299212    .092238  -.2107076   .1508652        574       3594 
+ 
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+. * B2 real-PSI counties only
+. capture noisily did_multiplegt_stat shannon_sa county YEAR PI if in_PI_file==1, estimator(as was) placebo(1) cluster(c
+> ounty)
+                                  ----------------------------------------------
+                                   Number of observations     =             4781
+                                   Estimation method          =    doubly-robust
+                                   Polynomial order           =              (1)
+                                  ----------------------------------------------
+                                (Std. err. adjusted for 1777 clusters in county)
+--------------------------------------------------------------------------------
+                               Average Slope (AS)
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+          AS | -.0266146   .0580694  -.1404307   .0872014       2002       2779 
+--------------------------------------------------------------------------------
+                                 Placebo(s) AS
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 |  .0140202   .0682292   -.119709   .1477494        574       1479 
+--------------------------------------------------------------------------------
+                           Weighted Average Slope (WAS)
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+         WAS | -.0274569   .0132901  -.0535056  -.0014082       2002       2779 
+--------------------------------------------------------------------------------
+                                 Placebo(s) WAS
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 |  .0121251   .0314835  -.0495826   .0738327        574       1479 
+ 
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+. * B3 with controls
+. capture noisily did_multiplegt_stat shannon_sa county YEAR PI, estimator(was) placebo(1) controls($ctrl) cluster(count
+> y)
+                                  ----------------------------------------------
+                                   Number of observations     =             7675
+                                   Estimation method          =    doubly-robust
+                                   Polynomial order           =              (1)
+                                  ----------------------------------------------
+                                (Std. err. adjusted for 2501 clusters in county)
+--------------------------------------------------------------------------------
+                           Weighted Average Slope (WAS)
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+         WAS | -.0238796   .0154292  -.0541208   .0063616       2002       5673 
+--------------------------------------------------------------------------------
+                                 Placebo(s) WAS
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 |  .0076216    .069449  -.1284985   .1437417        574       3594 
+ 
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+. 
+. *------------------------------------------------ benchmark: TWFE on the same county-year panel
+. reghdfe shannon_sa PI $ctrl, absorb(county YEAR) cluster(county)
+(dropped 276 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     11,547
+Absorbing 2 HDFE groups                           F(  10,   2224) =      40.77
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.4714
+                                                  Adj R-squared   =     0.3440
+                                                  Within R-sq.    =     0.0651
+Number of clusters (county)  =      2,225         Root MSE        =     0.6625
+
+                             (Std. err. adjusted for 2,225 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+  shannon_sa | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0090079   .0043371    -2.08   0.038    -.0175131   -.0005026
+        Temp |   .0113029    .022695     0.50   0.619    -.0332027    .0558086
+        Wind |   .0353663   .0949849     0.37   0.710     -.150902    .2216346
+         Pop |  -.0763903   .1387366    -0.55   0.582    -.3484571    .1956764
+    Duration |   .2064922   .0106458    19.40   0.000     .1856155    .2273689
+      Carbon |  -.1125462   .0490701    -2.29   0.022    -.2087743   -.0163181
+       Water |  -.7555974   1.173989    -0.64   0.520    -3.057827    1.546632
+       Green |   1.479477   1.058065     1.40   0.162    -.5954214    3.554376
+        Farm |   1.231158   .7876226     1.56   0.118    -.3133949     2.77571
+       Grass |   1.119219   .9861632     1.13   0.257    -.8146776    3.053116
+       _cons |   2.653599   1.302988     2.04   0.042      .098398      5.2088
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2225        2225           0    *|
+        YEAR |        10           1           9     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. reghdfe shannon_sa PI $ctrl if in_PI_file==1, absorb(county YEAR) cluster(county)
+(dropped 233 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =      7,513
+Absorbing 2 HDFE groups                           F(  10,   1543) =      32.66
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.4756
+                                                  Adj R-squared   =     0.3379
+                                                  Within R-sq.    =     0.0756
+Number of clusters (county)  =      1,544         Root MSE        =     0.6890
+
+                             (Std. err. adjusted for 1,544 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+  shannon_sa | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0028254   .0047518    -0.59   0.552     -.012146    .0064953
+        Temp |   .0057853     .02758     0.21   0.834    -.0483129    .0598835
+        Wind |   .1349864   .1218891     1.11   0.268    -.1040994    .3740723
+         Pop |  -.0812744   .1821381    -0.45   0.655    -.4385387      .27599
+    Duration |   .2229878   .0126348    17.65   0.000     .1982047     .247771
+      Carbon |  -.0916596   .0558854    -1.64   0.101     -.201279    .0179599
+       Water |  -2.913725   1.582327    -1.84   0.066    -6.017464     .190014
+       Green |    .731655   1.415293     0.52   0.605    -2.044446    3.507756
+        Farm |  -.2923186    1.08818    -0.27   0.788    -2.426786    1.842149
+       Grass |   .6297463    1.23438     0.51   0.610    -1.791494    3.050987
+       _cons |   2.958237   1.593523     1.86   0.064    -.1674622    6.083936
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      1544        1544           0    *|
+        YEAR |        10           1           9     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. 
+end of do-file
+
+. log close
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/06_Followups_Nov19/logs/6_2_dcdh_estima
+> tors.log
+  log type:  text
+ closed on:  19 Nov 2026, 23:32:15
+------------------------------------------------------------------------------------------------------------------------

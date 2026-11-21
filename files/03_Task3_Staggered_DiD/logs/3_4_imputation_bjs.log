@@ -1,0 +1,287 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/logs/3_4_imputat
+> ion_bjs.log
+  log type:  text
+ opened on:  11 Nov 2026, 17:51:24
+
+================ 3_4_imputation_bjs ================
+
+. *==========================================================================
+. * 00_config.do
+. * Project : Replication of Zhang et al. (2026), "China's solar expansion
+. *           policy reduces bird diversity", Science 393, 831.
+. * Purpose : One place for paths, globals and package installation.
+. *           Every task do-file starts with:  do "<ROOT>/00_config.do"
+. * Author  : Sahil (Research Assistant, Johns Hopkins University)
+. *==========================================================================
+. version 16
+
+. set more off
+
+. set linesize 120
+
+. 
+. *---------------------------------------------------------------- paths
+. global ROOT "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication"
+
+. global ORIG "$ROOT/00_Original_Package"
+
+. global DATA "$ORIG/DATA"
+
+. global T1   "$ROOT/01_Task1_Replication"
+
+. global T2   "$ROOT/02_Task2_Sensitivity"
+
+. global T3   "$ROOT/03_Task3_Staggered_DiD"
+
+. 
+. * analysis sample built in Task 1 (used by all tasks)
+. global SAMPLE "$T1/data/analysis_sample.dta"
+
+. 
+. *---------------------------------------------------------------- model
+. * the authors' nine control variables (Table 1, column 3)
+. global control     "Temp Wind Pop Duration Carbon Water Green Farm Grass"
+
+. global control_noD "Temp Wind Pop Carbon Water Green Farm Grass"
+
+. 
+. *---------------------------------------------------------------- packages
+. * installed only if missing
+. foreach p in require ftools reghdfe ivreg2 ranktest ivreghdfe estout winsor2 ///
+>              psmatch2 binscatter sensemakr drdid csdid did_imputation       ///
+>              event_plot avar eventstudyinteract {
+  2.     capture which `p'
+  3.     if _rc {
+  4.         di as txt "installing `p' ..."
+  5.         capture noisily ssc install `p', replace
+  6.     }
+  7. }
+
+. set scheme s2color
+
+. 
+end of do-file
+
+. *==========================================================================
+. * 3_4_imputation_bjs.do
+. * PURPOSE : Borusyak, Jaravel & Spiess (2024) imputation estimator on the
+. *           MONTHLY data: county and year-month fixed effects are estimated
+. *           on untreated observations only, untreated outcomes are imputed
+. *           for treated observations, and effects are averaged by event year.
+. * WHY     : Uses the authors' own monthly unit and fixed-effect structure,
+. *           handles the unbalanced panel, and avoids forbidden comparisons.
+. * SPECS   : main sample; paper-style sample
+. * OUTPUT  : tables/3_4_bjs.csv, figures/3_4_event_study_bjs_*.pdf
+. *==========================================================================
+. tempname B
+
+. postfile `B' str40 spec int event_time double(b se) using "$T3/tables/bjs.dta", replace
+
+. 
+. foreach s in main paper {
+  2.     use "$T3/data/staggered_monthly.dta", clear
+  3.     if "`s'" == "main" {
+  4.         keep if !missing(g_main)
+  5.         gen Ei = cond(g_main == 0, ., g_main)
+  6.         local lab "Main sample"
+  7.     }
+  8.     else {
+  9.         gen Ei = cond(g_paper == 0, ., g_paper)
+ 10.         local lab "Paper-style sample (missing PSI = never)"
+ 11.     }
+ 12.     di as res _n "================ BJS: `lab' ================"
+ 13.     * Imputation needs every county and every year-month to have at least one
+.     * UNTREATED observation (their fixed effects are estimated on untreated data
+.     * only). Drop the few that never do, iterating until stable.
+.     gen byte untreated = missing(Ei) | YEAR < Ei
+ 14.     local dropped = 1
+ 15.     while `dropped' > 0 {
+ 16.         local n0 = _N
+ 17.         bysort county: egen u_c = max(untreated)
+ 18.         bysort year:   egen u_t = max(untreated)
+ 19.         keep if u_c == 1 & u_t == 1
+ 20.         drop u_c u_t
+ 21.         local dropped = `n0' - _N
+ 22.     }
+ 23. 
+.     * overall ATT (all post-adoption observations, equally weighted)
+.     capture noisily did_imputation ShannonBD county YEAR Ei, fe(county year) cluster(county) autosample
+ 24.     if _rc {
+ 25.         di as err "year-month FE not imputable; falling back to county + year FE"
+ 26.         local fe "county YEAR"
+ 27.         did_imputation ShannonBD county YEAR Ei, fe(`fe') cluster(county) autosample
+ 28.     }
+ 29.     else local fe "county year"
+ 30.     post `B' ("`lab'") (99) (_b[tau]) (_se[tau])
+ 31. 
+.     * event study: horizons 0-5, pre-trend coefficients for 5 years
+.     did_imputation ShannonBD county YEAR Ei, fe(`fe') cluster(county) ///
+>         horizons(0/5) pretrends(5) autosample
+ 32.     di as res "Fixed effects used: `fe'"
+ 33.     estimates store bjs_`s'
+ 34.     forvalues k = 0/5 {
+ 35.         post `B' ("`lab'") (`k') (_b[tau`k']) (_se[tau`k'])
+ 36.     }
+ 37.     forvalues k = 1/5 {
+ 38.         post `B' ("`lab'") (-`k') (_b[pre`k']) (_se[pre`k'])
+ 39.     }
+ 40.     test pre1 pre2 pre3 pre4 pre5
+ 41.     di as res "Joint pre-trend test p = " %5.3f r(p)
+ 42. }
+(20,385 observations deleted)
+(2,849 missing values generated)
+
+================ BJS: Main sample ================
+(3,698 observations deleted)
+(0 observations deleted)
+Could not run imputation for some observations because some absorbed variables/FEs are collinear in the D==0 subsample b
+> ut not in the full sample
+Please note that autosample does not know how to deal with this. Please correct the sample manually
+equation/system not identified
+year-month FE not imputable; falling back to county + year FE
+
+                                                         Number of obs = 9,055
+------------------------------------------------------------------------------
+   ShannonBD | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         tau |   .0780324   .0693833     1.12   0.261    -.0579565    .2140212
+------------------------------------------------------------------------------
+
+                                                         Number of obs = 8,298
+------------------------------------------------------------------------------
+   ShannonBD | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        tau0 |    .106613   .0536669     1.99   0.047     .0014278    .2117983
+        tau1 |   .0246107   .0876841     0.28   0.779     -.147247    .1964685
+        tau2 |   .0628539   .0779224     0.81   0.420    -.0898711     .215579
+        tau3 |  -.0510701   .0985604    -0.52   0.604     -.244245    .1421048
+        tau4 |   .0982653   .1118105     0.88   0.379    -.1208792    .3174097
+        tau5 |   .0514246   .1275135     0.40   0.687    -.1984971    .3013464
+        pre1 |   -.046106   .1051513    -0.44   0.661    -.2521988    .1599868
+        pre2 |    .033067   .0957705     0.35   0.730    -.1546397    .2207737
+        pre3 |  -.1794837   .0980169    -1.83   0.067    -.3715932    .0126258
+        pre4 |  -.0583635    .104952    -0.56   0.578    -.2640657    .1473386
+        pre5 |  -.0085335   .0949247    -0.09   0.928    -.1945825    .1775155
+------------------------------------------------------------------------------
+Fixed effects used: county YEAR
+
+ ( 1)  pre1 = 0
+ ( 2)  pre2 = 0
+ ( 3)  pre3 = 0
+ ( 4)  pre4 = 0
+ ( 5)  pre5 = 0
+
+           chi2(  5) =    6.77
+         Prob > chi2 =    0.2385
+Joint pre-trend test p = 0.239
+(23,234 missing values generated)
+
+================ BJS: Paper-style sample (missing PSI = never) ================
+(3,698 observations deleted)
+(0 observations deleted)
+
+                                                        Number of obs = 29,440
+------------------------------------------------------------------------------
+   ShannonBD | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         tau |  -.0871976   .0598448    -1.46   0.145    -.2044913    .0300962
+------------------------------------------------------------------------------
+
+                                                        Number of obs = 28,683
+------------------------------------------------------------------------------
+   ShannonBD | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        tau0 |  -.0433581   .0474462    -0.91   0.361     -.136351    .0496349
+        tau1 |  -.1113218   .0832171    -1.34   0.181    -.2744243    .0517806
+        tau2 |  -.1237404   .0712626    -1.74   0.082    -.2634126    .0159318
+        tau3 |  -.1191162   .0920395    -1.29   0.196    -.2995103     .061278
+        tau4 |   -.071044   .1004068    -0.71   0.479    -.2678377    .1257497
+        tau5 |  -.0826957   .1155952    -0.72   0.474    -.3092581    .1438666
+        pre1 |  -.1731743   .0872199    -1.99   0.047    -.3441221   -.0022265
+        pre2 |  -.0896434   .0829848    -1.08   0.280    -.2522906    .0730038
+        pre3 |  -.1415486   .0846683    -1.67   0.095    -.3074954    .0243983
+        pre4 |  -.0443435   .0914425    -0.48   0.628    -.2235674    .1348804
+        pre5 |   .0544154   .0828216     0.66   0.511     -.107912    .2167427
+------------------------------------------------------------------------------
+Fixed effects used: county year
+
+ ( 1)  pre1 = 0
+ ( 2)  pre2 = 0
+ ( 3)  pre3 = 0
+ ( 4)  pre4 = 0
+ ( 5)  pre5 = 0
+
+           chi2(  5) =    8.37
+         Prob > chi2 =    0.1369
+Joint pre-trend test p = 0.137
+
+. postclose `B'
+
+. 
+. use "$T3/tables/bjs.dta", clear
+
+. gen lo = b - 1.96*se
+
+. gen hi = b + 1.96*se
+
+. list, noobs sep(0)
+
+  +------------------------------------------------------------------------------------------------------+
+  |                                     spec   event_~e            b          se          lo          hi |
+  |------------------------------------------------------------------------------------------------------|
+  |                              Main sample         99    .07803236   .06938332    -.057959    .2140237 |
+  |                              Main sample          0    .10661302   .05366692    .0014258    .2118002 |
+  |                              Main sample          1    .02461074   .08768413   -.1472502    .1964716 |
+  |                              Main sample          2    .06285394   .07792238   -.0898739    .2155818 |
+  |                              Main sample          3   -.05107011   .09856041   -.2442485    .1421083 |
+  |                              Main sample          4    .09826528   .11181045   -.1208832    .3174138 |
+  |                              Main sample          5    .05142464   .12751345   -.1985017     .301351 |
+  |                              Main sample         -1   -.04610599   .10515132   -.2522026    .1599906 |
+  |                              Main sample         -2      .033067   .09577046   -.1546431    .2207771 |
+  |                              Main sample         -3   -.17948369   .09801686   -.3715967    .0126294 |
+  |                              Main sample         -4   -.05836354     .104952   -.2640695    .1473424 |
+  |                              Main sample         -5   -.00853351   .09492472    -.194586    .1775189 |
+  | Paper-style sample (missing PSI = never)         99   -.08719755   .05984483   -.2044934    .0300983 |
+  | Paper-style sample (missing PSI = never)          0   -.04335807   .04744625   -.1363527    .0496366 |
+  | Paper-style sample (missing PSI = never)          1   -.11132184   .08321708   -.2744273    .0517836 |
+  | Paper-style sample (missing PSI = never)          2   -.12374041   .07126264   -.2634152    .0159344 |
+  | Paper-style sample (missing PSI = never)          3   -.11911618   .09203953   -.2995137    .0612813 |
+  | Paper-style sample (missing PSI = never)          4   -.07104404   .10040679   -.2678413    .1257533 |
+  | Paper-style sample (missing PSI = never)          5   -.08269574   .11559517   -.3092623    .1438708 |
+  | Paper-style sample (missing PSI = never)         -1    -.1731743   .08721989   -.3441253   -.0022233 |
+  | Paper-style sample (missing PSI = never)         -2   -.08964342    .0829848   -.2522936    .0730068 |
+  | Paper-style sample (missing PSI = never)         -3   -.14154856    .0846683   -.3074984    .0244013 |
+  | Paper-style sample (missing PSI = never)         -4    -.0443435   .09144246   -.2235707    .1348837 |
+  | Paper-style sample (missing PSI = never)         -5    .05441539   .08282159   -.1079149    .2167457 |
+  +------------------------------------------------------------------------------------------------------+
+
+. export delimited using "$T3/tables/3_4_bjs.csv", replace
+file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/tables/3_4_bjs.csv saved
+
+. local i = 0
+
+. foreach sp in "Main sample" "Paper-style sample (missing PSI = never)" {
+  2.     local ++i
+  3.     twoway (rcap hi lo event_time if spec=="`sp'" & event_time != 99, lcolor(dkgreen)) ///
+>            (scatter b event_time if spec=="`sp'" & event_time != 99, mcolor(dkgreen)), ///
+>         yline(0, lpattern(dash)) xline(-0.5, lpattern(dot)) ///
+>         xtitle("Years relative to first solar policy") ytitle("Effect on Shannon diversity") ///
+>         title("Borusyak-Jaravel-Spiess imputation event study", size(medium)) ///
+>         subtitle("`sp'; 95% CI", size(small)) xlabel(-5(1)5) legend(off)
+  4.     graph export "$T3/figures/3_4_event_study_bjs_`i'.pdf", replace
+  5. }
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/figures/3_4_event_study_bjs_1.pdf saved as PDF format
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/figures/3_4_event_study_bjs_2.pdf saved as PDF format
+
+. 
+end of do-file
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/logs/3_4_imputat
+> ion_bjs.log
+  log type:  text
+ closed on:  11 Nov 2026, 17:51:27
+------------------------------------------------------------------------------------------------------------------------

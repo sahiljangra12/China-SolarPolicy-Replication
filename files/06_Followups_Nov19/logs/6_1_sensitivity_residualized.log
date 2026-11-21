@@ -1,0 +1,506 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/06_Followups_Nov19/logs/6_1_sensitivity
+> _residualized.log
+  log type:  text
+ opened on:  19 Nov 2026, 23:19:26
+
+. *==========================================================================
+. * 6_1_sensitivity_residualized.do
+. * PURPOSE : Cinelli-Hazlett sensitivity analysis of the TWFE estimate using
+. *           the residualization approach Prof. Ferraro suggested:
+. *             reghdfe outcome,   absorb(FE) resid(y_resid)
+. *             reghdfe treatment, absorb(FE) resid(d_resid)
+. *             reg y_resid d_resid ..., nocons
+. *             sensemakr ...
+. *           (controls are residualized too, so the coefficient is exactly
+. *            the paper's: Frisch-Waugh-Lovell).
+. * QUESTION: how much confounding would it take to make the estimate zero,
+. *           insignificant, or positive?
+. * SPECS   : S1 = paper (county + year-month FE)
+. *           S2 = urban x year-month FE (separate monthly shocks urban/rural)
+. * NOTE    : sensemakr uses df = N - k - 1 and does not subtract the absorbed
+. *           fixed effects, so its RVs differ slightly from the exact ones in
+. *           02_Task2 (2.16% / 1.24%). Explicit county dummies cannot be used
+. *           in Stata/BE (2,344 dummies > 2,048-variable limit) - that is the
+. *           part that "did not run"; the residualized version below does.
+. *==========================================================================
+. if "$ROOT" == "" quietly do "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/00_config.do"
+
+. global T6 "$ROOT/06_Followups_Nov19"
+
+. 
+. local i = 0
+
+. foreach fe in "county year" "county year#urban" {
+  2.     local ++i
+  3.     use "$SAMPLE", clear
+  4.     di _n as res "=================== S`i': absorb(`fe') ==================="
+  5.     * 1. the paper's regression, to fix the sample (drops singletons)
+.     reghdfe ShannonBD PI $control, absorb(`fe') vce(unadjusted)
+  6.     keep if e(sample)
+  7.     scalar b_S`i' = _b[PI]
+  8.     * 2. residualize outcome, treatment and every control on the FE
+.     foreach v in ShannonBD PI $control {
+  9.         quietly reghdfe `v', absorb(`fe') resid(r_`v')
+ 10.     }
+ 11.     * 3. same coefficient by OLS on residuals (check)
+.     reg r_ShannonBD r_PI r_Temp r_Wind r_Pop r_Duration r_Carbon r_Water r_Green r_Farm r_Grass, nocons
+ 12.     di as res "check: reghdfe b = " %10.7f b_S`i' "   residual OLS b = " %10.7f _b[r_PI]
+ 13.     * 4. sensemakr: robustness values + bounds benchmarked on Duration
+.     *    (the strongest observed control) at 1x ... 5x its strength
+.     sensemakr r_ShannonBD r_PI r_Temp r_Wind r_Pop r_Duration r_Carbon ///
+>         r_Water r_Green r_Farm r_Grass, treat(r_PI) benchmark(r_Duration) kd(1 2 3 4 5)
+ 14.     * 5. contour plots (estimate and t-value)
+.     capture noisily sensemakr r_ShannonBD r_PI r_Temp r_Wind r_Pop r_Duration r_Carbon ///
+>         r_Water r_Green r_Farm r_Grass, treat(r_PI) benchmark(r_Duration) kd(1 2 3) contourplot
+ 15.     capture noisily graph export "$T6/figures/6_1_contour_estimate_S`i'.png", replace width(1600)
+ 16.     capture noisily sensemakr r_ShannonBD r_PI r_Temp r_Wind r_Pop r_Duration r_Carbon ///
+>         r_Water r_Green r_Farm r_Grass, treat(r_PI) benchmark(r_Duration) kd(1 2 3) tcontourplot
+ 17.     capture noisily graph export "$T6/figures/6_1_contour_tvalue_S`i'.png", replace width(1600)
+ 18. }
+
+=================== S1: absorb(county year) ===================
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,  43898) =     181.97
+                                                  Prob > F        =     0.0000
+                                                  R-squared       =     0.3372
+                                                  Adj R-squared   =     0.2999
+                                                  Within R-sq.    =     0.0398
+                                                  Root MSE        =     0.8208
+
+------------------------------------------------------------------------------
+   ShannonBD | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0125283   .0027334    -4.58   0.000    -.0178858   -.0071708
+        Temp |   -.007307   .0144434    -0.51   0.613    -.0356163    .0210024
+        Wind |   .0434958   .0599719     0.73   0.468    -.0740503    .1610418
+         Pop |  -.0885085   .0857152    -1.03   0.302    -.2565118    .0794949
+    Duration |   .1638102   .0039011    41.99   0.000     .1561639    .1714565
+      Carbon |  -.1117558   .0334118    -3.34   0.001    -.1772434   -.0462681
+       Water |   -1.27986   .6970195    -1.84   0.066    -2.646031    .0863107
+       Green |   1.151814   .6124295     1.88   0.060    -.0485591    2.352186
+        Farm |   .0657308   .4362937     0.15   0.880    -.7894126    .9208742
+       Grass |   1.264197   .6541783     1.93   0.053    -.0180045    2.546398
+       _cons |   3.893401     .80722     4.82   0.000     2.311235    5.475567
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344           0        2344     |
+        year |       120           1         119     |
+-----------------------------------------------------+
+(157 observations deleted)
+
+      Source |       SS           df       MS      Number of obs   =    46,371
+-------------+----------------------------------   F(10, 46361)    =    192.18
+       Model |  1226.01387        10  122.601387   Prob > F        =    0.0000
+    Residual |  29576.0456    46,361  .637950986   R-squared       =    0.0398
+-------------+----------------------------------   Adj R-squared   =    0.0396
+       Total |  30802.0595    46,371  .664252647   Root MSE        =    .79872
+
+------------------------------------------------------------------------------
+ r_ShannonBD | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        r_PI |  -.0125283   .0026598    -4.71   0.000    -.0177415   -.0073151
+      r_Temp |   -.007307   .0140545    -0.52   0.603     -.034854    .0202401
+      r_Wind |   .0434958   .0583571     0.75   0.456    -.0708851    .1578767
+       r_Pop |  -.0885085   .0834073    -1.06   0.289    -.2519879     .074971
+  r_Duration |   .1638102   .0037961    43.15   0.000     .1563697    .1712506
+    r_Carbon |  -.1117558   .0325121    -3.44   0.001      -.17548   -.0480315
+     r_Water |   -1.27986   .6782517    -1.89   0.059    -2.609244    .0495235
+     r_Green |   1.151814   .5959393     1.93   0.053    -.0162364    2.319864
+      r_Farm |   .0657308   .4245461     0.15   0.877     -.766386    .8978476
+     r_Grass |   1.264197    .636564     1.99   0.047     .0165216    2.511872
+------------------------------------------------------------------------------
+check: reghdfe b = -0.0125283   residual OLS b = -0.0125283
+
+                                                            DOF    =   46360 
+                                                            q      =    1.00 
+                                                            alpha  =    0.05 
+                                                            reduce =    TRUE
+                                                            H0     =       0
+
+ Treatment      |     Coef.      S.E.      t(H0)    R2yd.x     RV_q    RV_qa
+----------------+-----------------------------------------------------------
+           r_PI |   -0.0125    0.0027    -4.7102    0.0005   0.0216   0.0127
+
+ Partial R2 of the treatment with the outcome (R2yd.x): 
+ An extreme confounder (orthogonal to the covariates) that explains 100 percent of the 
+ residual variance of the outcome, would need to explain at least 0.05 percent of the 
+ residual variance of the treatment to fully account for the observed estimated effect. 
+ 
+ Robustness Value, q = 1.00 (RV_q): 
+ Unobserved confounders (orthogonal to the covariates) that explain more than 2.16 percent 
+ of the residual variance of both the treatment and the outcome are strong enough to bring 
+ the point estimate to 0 (a bias of 100 percent of the original estimate). Conversely, 
+ unobserved confounders that do not explain more than 2.16 percent of the residual variance 
+ of both the treatment and the outcome are not strong enough to bring the point estimate 
+ to 0. 
+ 
+ Robustness Value, q = 1.00, alpha = 0.05 (RV_qa): 
+ Unobserved confounders (orthogonal to the covariates) that explain more than 1.27 percent 
+ of the residual variance of both the treatment and the outcome are strong enough to bring 
+ the estimate to a range where it is no longer 'statistically different' from 0 (a bias 
+ of 100 percent of the original estimate), at the significance level of alpha = 0.05. Conversely,
+ unobserved confounders that do not explain more than 1.27 percent of the residual variance 
+ of both the treatment and the outcome are not strong enough to bring the estimate to a 
+ range where it is no longer 'statistically different' from 0, at the significance 
+ level of alpha = 0.05 
+ 
+ Bounds on Omitted Variable Bias: 
+ The table shows the maximum strength of unobserved confounders, bounded by a multiple of the 
+ observed explanatory power of the chosen benchmark covariate(s) with the treatment and the outcome.
+
+ Bound                 |   R2dz.x   R2yz.dx     Coef.      S.E.     t(H0)  Lower CI Upper CI 
+-----------------------+----------------------------------------------------------------------
+ 1.00x      r_Duration |   0.0006    0.0402   -0.0096    0.0026   -3.6930   -0.0147  -0.0045 
+ 2.00x      r_Duration |   0.0013    0.0804   -0.0067    0.0026   -2.6340   -0.0117  -0.0017 
+ 3.00x      r_Duration |   0.0019    0.1207   -0.0038    0.0025   -1.5288   -0.0087   0.0011 
+ 4.00x      r_Duration |   0.0026    0.1609   -0.0009    0.0024   -0.3728   -0.0057   0.0039 
+ 5.00x      r_Duration |   0.0032    0.2011    0.0020    0.0024    0.8399   -0.0027   0.0067 
+
+
+ Extreme Bound         |   R2dz.x   R2yz.dx     Coef.
+-----------------------+------------------------------ 
+ 1.00x      r_Duration |   0.0006    1.0000    0.0019 
+ 2.00x      r_Duration |   0.0013    1.0000    0.0079 
+ 3.00x      r_Duration |   0.0019    1.0000    0.0126 
+ 4.00x      r_Duration |   0.0026    1.0000    0.0164 
+ 5.00x      r_Duration |   0.0032    1.0000    0.0199 
+
+                                                            DOF    =   46360 
+                                                            q      =    1.00 
+                                                            alpha  =    0.05 
+                                                            reduce =    TRUE
+                                                            H0     =       0
+
+ Treatment      |     Coef.      S.E.      t(H0)    R2yd.x     RV_q    RV_qa
+----------------+-----------------------------------------------------------
+           r_PI |   -0.0125    0.0027    -4.7102    0.0005   0.0216   0.0127
+
+ Partial R2 of the treatment with the outcome (R2yd.x): 
+ An extreme confounder (orthogonal to the covariates) that explains 100 percent of the 
+ residual variance of the outcome, would need to explain at least 0.05 percent of the 
+ residual variance of the treatment to fully account for the observed estimated effect. 
+ 
+ Robustness Value, q = 1.00 (RV_q): 
+ Unobserved confounders (orthogonal to the covariates) that explain more than 2.16 percent 
+ of the residual variance of both the treatment and the outcome are strong enough to bring 
+ the point estimate to 0 (a bias of 100 percent of the original estimate). Conversely, 
+ unobserved confounders that do not explain more than 2.16 percent of the residual variance 
+ of both the treatment and the outcome are not strong enough to bring the point estimate 
+ to 0. 
+ 
+ Robustness Value, q = 1.00, alpha = 0.05 (RV_qa): 
+ Unobserved confounders (orthogonal to the covariates) that explain more than 1.27 percent 
+ of the residual variance of both the treatment and the outcome are strong enough to bring 
+ the estimate to a range where it is no longer 'statistically different' from 0 (a bias 
+ of 100 percent of the original estimate), at the significance level of alpha = 0.05. Conversely,
+ unobserved confounders that do not explain more than 1.27 percent of the residual variance 
+ of both the treatment and the outcome are not strong enough to bring the estimate to a 
+ range where it is no longer 'statistically different' from 0, at the significance 
+ level of alpha = 0.05 
+ 
+ Bounds on Omitted Variable Bias: 
+ The table shows the maximum strength of unobserved confounders, bounded by a multiple of the 
+ observed explanatory power of the chosen benchmark covariate(s) with the treatment and the outcome.
+
+ Bound                 |   R2dz.x   R2yz.dx     Coef.      S.E.     t(H0)  Lower CI Upper CI 
+-----------------------+----------------------------------------------------------------------
+ 1.00x      r_Duration |   0.0006    0.0402   -0.0096    0.0026   -3.6930   -0.0147  -0.0045 
+ 2.00x      r_Duration |   0.0013    0.0804   -0.0067    0.0026   -2.6340   -0.0117  -0.0017 
+ 3.00x      r_Duration |   0.0019    0.1207   -0.0038    0.0025   -1.5288   -0.0087   0.0011 
+
+
+ Extreme Bound         |   R2dz.x   R2yz.dx     Coef.
+-----------------------+------------------------------ 
+ 1.00x      r_Duration |   0.0006    1.0000    0.0019 
+ 2.00x      r_Duration |   0.0013    1.0000    0.0079 
+ 3.00x      r_Duration |   0.0019    1.0000    0.0126 
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/06_Followups_Nov19/figures/6_1_contour_estimate_S1.png saved as PNG format
+
+                                                            DOF    =   46360 
+                                                            q      =    1.00 
+                                                            alpha  =    0.05 
+                                                            reduce =    TRUE
+                                                            H0     =       0
+
+ Treatment      |     Coef.      S.E.      t(H0)    R2yd.x     RV_q    RV_qa
+----------------+-----------------------------------------------------------
+           r_PI |   -0.0125    0.0027    -4.7102    0.0005   0.0216   0.0127
+
+ Partial R2 of the treatment with the outcome (R2yd.x): 
+ An extreme confounder (orthogonal to the covariates) that explains 100 percent of the 
+ residual variance of the outcome, would need to explain at least 0.05 percent of the 
+ residual variance of the treatment to fully account for the observed estimated effect. 
+ 
+ Robustness Value, q = 1.00 (RV_q): 
+ Unobserved confounders (orthogonal to the covariates) that explain more than 2.16 percent 
+ of the residual variance of both the treatment and the outcome are strong enough to bring 
+ the point estimate to 0 (a bias of 100 percent of the original estimate). Conversely, 
+ unobserved confounders that do not explain more than 2.16 percent of the residual variance 
+ of both the treatment and the outcome are not strong enough to bring the point estimate 
+ to 0. 
+ 
+ Robustness Value, q = 1.00, alpha = 0.05 (RV_qa): 
+ Unobserved confounders (orthogonal to the covariates) that explain more than 1.27 percent 
+ of the residual variance of both the treatment and the outcome are strong enough to bring 
+ the estimate to a range where it is no longer 'statistically different' from 0 (a bias 
+ of 100 percent of the original estimate), at the significance level of alpha = 0.05. Conversely,
+ unobserved confounders that do not explain more than 1.27 percent of the residual variance 
+ of both the treatment and the outcome are not strong enough to bring the estimate to a 
+ range where it is no longer 'statistically different' from 0, at the significance 
+ level of alpha = 0.05 
+ 
+ Bounds on Omitted Variable Bias: 
+ The table shows the maximum strength of unobserved confounders, bounded by a multiple of the 
+ observed explanatory power of the chosen benchmark covariate(s) with the treatment and the outcome.
+
+ Bound                 |   R2dz.x   R2yz.dx     Coef.      S.E.     t(H0)  Lower CI Upper CI 
+-----------------------+----------------------------------------------------------------------
+ 1.00x      r_Duration |   0.0006    0.0402   -0.0096    0.0026   -3.6930   -0.0147  -0.0045 
+ 2.00x      r_Duration |   0.0013    0.0804   -0.0067    0.0026   -2.6340   -0.0117  -0.0017 
+ 3.00x      r_Duration |   0.0019    0.1207   -0.0038    0.0025   -1.5288   -0.0087   0.0011 
+
+
+ Extreme Bound         |   R2dz.x   R2yz.dx     Coef.
+-----------------------+------------------------------ 
+ 1.00x      r_Duration |   0.0006    1.0000    0.0019 
+ 2.00x      r_Duration |   0.0013    1.0000    0.0079 
+ 3.00x      r_Duration |   0.0019    1.0000    0.0126 
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/06_Followups_Nov19/figures/6_1_contour_tvalue_S1.png saved as PNG format
+
+=================== S2: absorb(county year#urban) ===================
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,  43779) =     173.19
+                                                  Prob > F        =     0.0000
+                                                  R-squared       =     0.3411
+                                                  Adj R-squared   =     0.3021
+                                                  Within R-sq.    =     0.0381
+                                                  Root MSE        =     0.8195
+
+------------------------------------------------------------------------------
+   ShannonBD | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   -.002683   .0029141    -0.92   0.357    -.0083948    .0030287
+        Temp |   .0001733   .0145089     0.01   0.990    -.0282644     .028611
+        Wind |   .0382813    .060063     0.64   0.524    -.0794433    .1560058
+         Pop |  -.0785441   .0857144    -0.92   0.359    -.2465459    .0894577
+    Duration |   .1618188   .0039108    41.38   0.000     .1541536    .1694839
+      Carbon |  -.0990999   .0334709    -2.96   0.003    -.1647035   -.0334963
+       Water |  -.2651954    .705224    -0.38   0.707    -1.647447    1.117056
+       Green |   1.604513   .6146777     2.61   0.009     .3997338    2.809293
+        Farm |   .8856803   .4456754     1.99   0.047     .0121483    1.759212
+       Grass |   1.896732   .6568345     2.89   0.004     .6093244     3.18414
+       _cons |   2.990337   .8124007     3.68   0.000     1.398017    4.582658
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2344           0        2344     |
+   year#urban |       240           2         238     |
+------------------------------------------------------+
+(157 observations deleted)
+
+      Source |       SS           df       MS      Number of obs   =    46,371
+-------------+----------------------------------   F(10, 46361)    =    183.40
+       Model |  1163.06878        10  116.306878   Prob > F        =    0.0000
+    Residual |  29400.4376    46,361  .634163146   R-squared       =    0.0381
+-------------+----------------------------------   Adj R-squared   =    0.0378
+       Total |  30563.5064    46,371  .659108201   Root MSE        =    .79634
+
+------------------------------------------------------------------------------
+ r_ShannonBD | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        r_PI |   -.002683   .0028318    -0.95   0.343    -.0082334    .0028673
+      r_Temp |   .0001733   .0140991     0.01   0.990    -.0274611    .0278077
+      r_Wind |   .0382813   .0583665     0.66   0.512    -.0761179    .1526804
+       r_Pop |  -.0785441   .0832933    -0.94   0.346    -.2418003    .0847121
+  r_Duration |   .1618188   .0038003    42.58   0.000     .1543701    .1692674
+    r_Carbon |  -.0990999   .0325255    -3.05   0.002    -.1628504   -.0353495
+     r_Water |  -.2651954   .6853045    -0.39   0.699    -1.608403    1.078012
+     r_Green |   1.604513   .5973157     2.69   0.007     .4337653    2.775261
+      r_Farm |   .8856803   .4330871     2.05   0.041     .0368231    1.734537
+     r_Grass |   1.896732   .6382818     2.97   0.003     .6456899    3.147774
+------------------------------------------------------------------------------
+check: reghdfe b = -0.0026830   residual OLS b = -0.0026830
+
+                                                            DOF    =   46360 
+                                                            q      =    1.00 
+                                                            alpha  =    0.05 
+                                                            reduce =    TRUE
+                                                            H0     =       0
+
+ Treatment      |     Coef.      S.E.      t(H0)    R2yd.x     RV_q    RV_qa
+----------------+-----------------------------------------------------------
+           r_PI |   -0.0027    0.0028    -0.9475    0.0000   0.0044        .
+
+ Partial R2 of the treatment with the outcome (R2yd.x): 
+ An extreme confounder (orthogonal to the covariates) that explains 100 percent of the 
+ residual variance of the outcome, would need to explain at least 0.00 percent of the 
+ residual variance of the treatment to fully account for the observed estimated effect. 
+ 
+ Robustness Value, q = 1.00 (RV_q): 
+ Unobserved confounders (orthogonal to the covariates) that explain more than 0.44 percent 
+ of the residual variance of both the treatment and the outcome are strong enough to bring 
+ the point estimate to 0 (a bias of 100 percent of the original estimate). Conversely, 
+ unobserved confounders that do not explain more than 0.44 percent of the residual variance 
+ of both the treatment and the outcome are not strong enough to bring the point estimate 
+ to 0. 
+ 
+ Robustness Value, q = 1.00, alpha = 0.05 (RV_qa): 
+ Unobserved confounders (orthogonal to the covariates) that explain more than    . percent 
+ of the residual variance of both the treatment and the outcome are strong enough to bring 
+ the estimate to a range where it is no longer 'statistically different' from 0 (a bias 
+ of 100 percent of the original estimate), at the significance level of alpha = 0.05. Conversely,
+ unobserved confounders that do not explain more than    . percent of the residual variance 
+ of both the treatment and the outcome are not strong enough to bring the estimate to a 
+ range where it is no longer 'statistically different' from 0, at the significance 
+ level of alpha = 0.05 
+ 
+ Bounds on Omitted Variable Bias: 
+ The table shows the maximum strength of unobserved confounders, bounded by a multiple of the 
+ observed explanatory power of the chosen benchmark covariate(s) with the treatment and the outcome.
+
+ Bound                 |   R2dz.x   R2yz.dx     Coef.      S.E.     t(H0)  Lower CI Upper CI 
+-----------------------+----------------------------------------------------------------------
+ 1.00x      r_Duration |   0.0001    0.0391   -0.0014    0.0028   -0.5221   -0.0069   0.0040 
+ 2.00x      r_Duration |   0.0002    0.0782   -0.0002    0.0027   -0.0793   -0.0055   0.0051 
+ 3.00x      r_Duration |   0.0003    0.1173    0.0010    0.0027    0.3827   -0.0042   0.0062 
+ 4.00x      r_Duration |   0.0004    0.1565    0.0023    0.0026    0.8659   -0.0028   0.0074 
+ 5.00x      r_Duration |   0.0005    0.1956    0.0035    0.0025    1.3724   -0.0015   0.0085 
+
+
+ Extreme Bound         |   R2dz.x   R2yz.dx     Coef.
+-----------------------+------------------------------ 
+ 1.00x      r_Duration |   0.0001    1.0000    0.0036 
+ 2.00x      r_Duration |   0.0002    1.0000    0.0061 
+ 3.00x      r_Duration |   0.0003    1.0000    0.0081 
+ 4.00x      r_Duration |   0.0004    1.0000    0.0098 
+ 5.00x      r_Duration |   0.0005    1.0000    0.0113 
+
+                                                            DOF    =   46360 
+                                                            q      =    1.00 
+                                                            alpha  =    0.05 
+                                                            reduce =    TRUE
+                                                            H0     =       0
+
+ Treatment      |     Coef.      S.E.      t(H0)    R2yd.x     RV_q    RV_qa
+----------------+-----------------------------------------------------------
+           r_PI |   -0.0027    0.0028    -0.9475    0.0000   0.0044        .
+
+ Partial R2 of the treatment with the outcome (R2yd.x): 
+ An extreme confounder (orthogonal to the covariates) that explains 100 percent of the 
+ residual variance of the outcome, would need to explain at least 0.00 percent of the 
+ residual variance of the treatment to fully account for the observed estimated effect. 
+ 
+ Robustness Value, q = 1.00 (RV_q): 
+ Unobserved confounders (orthogonal to the covariates) that explain more than 0.44 percent 
+ of the residual variance of both the treatment and the outcome are strong enough to bring 
+ the point estimate to 0 (a bias of 100 percent of the original estimate). Conversely, 
+ unobserved confounders that do not explain more than 0.44 percent of the residual variance 
+ of both the treatment and the outcome are not strong enough to bring the point estimate 
+ to 0. 
+ 
+ Robustness Value, q = 1.00, alpha = 0.05 (RV_qa): 
+ Unobserved confounders (orthogonal to the covariates) that explain more than    . percent 
+ of the residual variance of both the treatment and the outcome are strong enough to bring 
+ the estimate to a range where it is no longer 'statistically different' from 0 (a bias 
+ of 100 percent of the original estimate), at the significance level of alpha = 0.05. Conversely,
+ unobserved confounders that do not explain more than    . percent of the residual variance 
+ of both the treatment and the outcome are not strong enough to bring the estimate to a 
+ range where it is no longer 'statistically different' from 0, at the significance 
+ level of alpha = 0.05 
+ 
+ Bounds on Omitted Variable Bias: 
+ The table shows the maximum strength of unobserved confounders, bounded by a multiple of the 
+ observed explanatory power of the chosen benchmark covariate(s) with the treatment and the outcome.
+
+ Bound                 |   R2dz.x   R2yz.dx     Coef.      S.E.     t(H0)  Lower CI Upper CI 
+-----------------------+----------------------------------------------------------------------
+ 1.00x      r_Duration |   0.0001    0.0391   -0.0014    0.0028   -0.5221   -0.0069   0.0040 
+ 2.00x      r_Duration |   0.0002    0.0782   -0.0002    0.0027   -0.0793   -0.0055   0.0051 
+ 3.00x      r_Duration |   0.0003    0.1173    0.0010    0.0027    0.3827   -0.0042   0.0062 
+
+
+ Extreme Bound         |   R2dz.x   R2yz.dx     Coef.
+-----------------------+------------------------------ 
+ 1.00x      r_Duration |   0.0001    1.0000    0.0036 
+ 2.00x      r_Duration |   0.0002    1.0000    0.0061 
+ 3.00x      r_Duration |   0.0003    1.0000    0.0081 
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/06_Followups_Nov19/figures/6_1_contour_estimate_S2.png saved as PNG format
+
+                                                            DOF    =   46360 
+                                                            q      =    1.00 
+                                                            alpha  =    0.05 
+                                                            reduce =    TRUE
+                                                            H0     =       0
+
+ Treatment      |     Coef.      S.E.      t(H0)    R2yd.x     RV_q    RV_qa
+----------------+-----------------------------------------------------------
+           r_PI |   -0.0027    0.0028    -0.9475    0.0000   0.0044        .
+
+ Partial R2 of the treatment with the outcome (R2yd.x): 
+ An extreme confounder (orthogonal to the covariates) that explains 100 percent of the 
+ residual variance of the outcome, would need to explain at least 0.00 percent of the 
+ residual variance of the treatment to fully account for the observed estimated effect. 
+ 
+ Robustness Value, q = 1.00 (RV_q): 
+ Unobserved confounders (orthogonal to the covariates) that explain more than 0.44 percent 
+ of the residual variance of both the treatment and the outcome are strong enough to bring 
+ the point estimate to 0 (a bias of 100 percent of the original estimate). Conversely, 
+ unobserved confounders that do not explain more than 0.44 percent of the residual variance 
+ of both the treatment and the outcome are not strong enough to bring the point estimate 
+ to 0. 
+ 
+ Robustness Value, q = 1.00, alpha = 0.05 (RV_qa): 
+ Unobserved confounders (orthogonal to the covariates) that explain more than    . percent 
+ of the residual variance of both the treatment and the outcome are strong enough to bring 
+ the estimate to a range where it is no longer 'statistically different' from 0 (a bias 
+ of 100 percent of the original estimate), at the significance level of alpha = 0.05. Conversely,
+ unobserved confounders that do not explain more than    . percent of the residual variance 
+ of both the treatment and the outcome are not strong enough to bring the estimate to a 
+ range where it is no longer 'statistically different' from 0, at the significance 
+ level of alpha = 0.05 
+ 
+ Bounds on Omitted Variable Bias: 
+ The table shows the maximum strength of unobserved confounders, bounded by a multiple of the 
+ observed explanatory power of the chosen benchmark covariate(s) with the treatment and the outcome.
+
+ Bound                 |   R2dz.x   R2yz.dx     Coef.      S.E.     t(H0)  Lower CI Upper CI 
+-----------------------+----------------------------------------------------------------------
+ 1.00x      r_Duration |   0.0001    0.0391   -0.0014    0.0028   -0.5221   -0.0069   0.0040 
+ 2.00x      r_Duration |   0.0002    0.0782   -0.0002    0.0027   -0.0793   -0.0055   0.0051 
+ 3.00x      r_Duration |   0.0003    0.1173    0.0010    0.0027    0.3827   -0.0042   0.0062 
+
+
+ Extreme Bound         |   R2dz.x   R2yz.dx     Coef.
+-----------------------+------------------------------ 
+ 1.00x      r_Duration |   0.0001    1.0000    0.0036 
+ 2.00x      r_Duration |   0.0002    1.0000    0.0061 
+ 3.00x      r_Duration |   0.0003    1.0000    0.0081 
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/06_Followups_Nov19/figures/6_1_contour_tvalue_S2.png saved as PNG format
+
+. 
+end of do-file
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/06_Followups_Nov19/logs/6_1_sensitivity
+> _residualized.log
+  log type:  text
+ closed on:  19 Nov 2026, 23:19:31
+------------------------------------------------------------------------------------------------------------------------

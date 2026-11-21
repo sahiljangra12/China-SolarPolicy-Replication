@@ -1,0 +1,35 @@
+Table S13. Robustness checks using alternative sampling criteria.
+
+  --------------- --------------- --------------- --------------
+                  (1)             (2)             (3)
+                  ShannonBD       ShannonBD       ShannonBD
+  PI              -0.0152***   -0.0123***   -0.0099**
+                  (0.0039)        (0.0038)        (0.0041)
+  Temp            -0.0153         -0.0079         -0.0061
+                  (0.0189)        (0.0184)        (0.0217)
+  Wind            0.0863          0.0350          0.0048
+                  (0.0771)        (0.0760)        (0.0935)
+  Pop             -0.0856         -0.1333         0.1300
+                  (0.1298)        (0.1241)        (0.2259)
+  Duration        0.1617***    0.1633***    0.1871***
+                  (0.0060)        (0.0059)        (0.0068)
+  Carbon          -0.1214**    -0.1164***   -0.0941**
+                  (0.0476)        (0.0441)        (0.0454)
+  Water           -1.2160         -1.3599         -0.4262
+                  (1.1652)        (1.1889)        (1.2813)
+  Green           1.4266          1.1884          2.6018**
+                  (0.9732)        (1.0211)        (1.0606)
+  Farm            0.1278          -0.0967         2.2190**
+                  (0.7297)        (0.7488)        (0.8938)
+  Grass           1.5146          1.1768          2.1981**
+                  (0.9476)        (0.9665)        (1.0626)
+  Year-month FE   YES             YES             YES
+  County FE       YES             YES             YES
+  Observations    41797           44048           33102
+  R-squared       0.2185          0.3045          0.2818
+  --------------- --------------- --------------- --------------
+
+Notes: This table shows the results of robustness checks using alternative sampling criteria. Column (1) excludes the top and bottom 5% of the dependent variable based on county-level averages. Column (2) removes the top 5% of the independent variable based on county-level averages. Column (3) excludes provincial capital cities and municipalities directly under the central government. The
+dependent variable is ShannonBD (the negative sum of the proportion of each bird species multiplied by its natural logarithm). The independent variable is PSI (the weighted sum of policies at the provincial, municipal, and county levels). Other control variables include Temp (annual average temperature), Wind (annual average wind speed), Pop (the logarithm of the ratio of total population to
+regional area), Duration (the logarithm of the ratio of birdwatching duration to the number of birdwatchers), Carbon (the logarithm of the carbon emissions), Water (the area of water divided by the total area), Green (the sum of the area of forests and shrubs divided by the total area), Farm (the area of farmland divided by the total area), Grass (the area of the grassland divided by the total
+area). All specifications include county and Year-month fixed effects. The robust standard errors clustered by the county are reported in parenthesis. ***, **, * denote the significance at the 1%, 5%, and 10% levels, respectively.

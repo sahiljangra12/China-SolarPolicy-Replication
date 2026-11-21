@@ -1,0 +1,631 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/06_Followups_Nov19/logs/6_4_extra_check
+> s.log
+  log type:  text
+ opened on:  20 Nov 2026, 23:26:12
+
+. capture noisily do "$T6/code/6_4_extra_checks.do"
+
+. *==========================================================================
+. * 6_4_extra_checks.do
+. * PURPOSE : Three checks that complete the 19 Nov requests.
+. *   (1) dCDH with the paper's controls. did_multiplegt_dyn cannot take
+. *       controls in Stata/BE (2,048-variable limit), so the outcome is first
+. *       adjusted for the nine controls: their effect is estimated with
+. *       county and year FE (reghdfe) and subtracted ("covariate-adjusted
+. *       outcome"). Caveat: the control coefficients are estimated on all
+. *       county-years.
+. *   (2) dCDH with solar-plant AREA (km2) as the treatment - the physical
+. *       treatment the professor suggested - all counties and only counties
+. *       in the capacity file (true zeros).
+. *   (3) Did birding grow faster in urban districts? (backs the statement
+. *       that the urban-rural split drives who goes birding)
+. *==========================================================================
+. if "$ROOT" == "" quietly do "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/00_config.do"
+
+. global T6 "$ROOT/06_Followups_Nov19"
+
+. global ctrl "Temp Wind Pop Duration Carbon Water Green Farm Grass"
+
+. 
+. *------------------------------------------------ (1) covariate-adjusted dCDH
+. use "$T6/data/countyyear_psi.dta", clear
+
+. reghdfe shannon_sa $ctrl, absorb(county YEAR) keepsingleton
+WARNING: Singleton observations not dropped; statistical significance is biased (link)
+(MWFE estimator converged in 6 iterations)
+
+HDFE Linear regression                            Number of obs   =     11,823
+Absorbing 2 HDFE groups                           F(   9,   9304) =      71.45
+                                                  Prob > F        =     0.0000
+                                                  R-squared       =     0.4864
+                                                  Adj R-squared   =     0.3474
+                                                  Within R-sq.    =     0.0647
+                                                  Root MSE        =     0.6627
+
+------------------------------------------------------------------------------
+  shannon_sa | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Temp |   .0102109   .0221505     0.46   0.645    -.0332089    .0536307
+        Wind |   .0267704   .0975615     0.27   0.784    -.1644716    .2180124
+         Pop |  -.0766451   .1280533    -0.60   0.549    -.3276576    .1743674
+    Duration |   .2070891   .0082238    25.18   0.000     .1909687    .2232096
+      Carbon |  -.1114139   .0447753    -2.49   0.013    -.1991833   -.0236446
+       Water |  -.9048348   1.157256    -0.78   0.434     -3.17331     1.36364
+       Green |   1.324798   .9953514     1.33   0.183    -.6263091    3.275904
+        Farm |   1.137571   .7513463     1.51   0.130    -.3352322    2.610374
+       Grass |   1.072073   .9969445     1.08   0.282    -.8821563    3.026303
+       _cons |   2.735314   1.176362     2.33   0.020     .4293872     5.04124
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2501           0        2501     |
+        YEAR |        10           1           9     |
+-----------------------------------------------------+
+
+. predict double xbc, xb
+
+. gen double shannon_adj = shannon_sa - (xbc - _b[_cons])
+
+. label var shannon_adj "Shannon net of the nine controls"
+
+. did_multiplegt_dyn shannon_adj county YEAR PI, effects(5) placebo(3) normalized cluster(county) graph_off
+
+
+--------------------------------------------------------------------------------
+             Estimation of treatment effects: Event-study effects
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+    Effect_1 | -.0441563   .0196723  -.0827133  -.0055993       4960        523 
+    Effect_2 | -.0161432   .0124924  -.0406278   .0083415       3617        206 
+    Effect_3 | -.0217215   .0115563  -.0443714   .0009284       2867        149 
+    Effect_4 | -.0151754   .0170424  -.0485779   .0182271       2216         81 
+    Effect_5 | -.0100501   .0135941  -.0366941   .0165938       1766         77 
+--------------------------------------------------------------------------------
+Test of joint nullity of the effects : p-value = .21124502
+
+
+--------------------------------------------------------------------------------
+               Average cumulative (total) effect per treatment unit
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N     Switch  x Periods 
+-------------+----------------------------------------------------------------------------
+  Av_tot_eff | -.0406251   .0180025  -.0759093  -.0053408       6350       1036            
+--------------------------------------------------------------------------------
+Average number of time periods over which a treatment's effect is accumulated = 1.9296577
+
+
+--------------------------------------------------------------------------------
+          Testing the parallel trends and no anticipation assumptions
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 | -.0189768   .0254063  -.0687723   .0308186       2891        252 
+   Placebo_2 |  .0152212   .0208814  -.0257055    .056148       1549         73 
+   Placebo_3 | -.0017833   .0207341  -.0424213   .0388547        760         33 
+--------------------------------------------------------------------------------
+Test of joint nullity of the placebos : p-value = .76764217
+
+
+The development of this package was funded by the European Union (ERC, REALLYCREDIBLE,GA N°101043899).
+
+. did_multiplegt_dyn shannon_adj county YEAR PI if in_PI_file==1, effects(5) placebo(3) normalized cluster(county) graph
+> _off
+
+
+--------------------------------------------------------------------------------
+             Estimation of treatment effects: Event-study effects
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+    Effect_1 | -.0283879   .0204995  -.0685662   .0117905       2066        523 
+    Effect_2 | -.0108825   .0128875  -.0361416   .0143766       1230        206 
+    Effect_3 | -.0116767    .012103  -.0353982   .0120449        937        149 
+    Effect_4 | -.0138223   .0174775  -.0480775   .0204329        676         81 
+    Effect_5 | -.0039396   .0138155  -.0310175   .0231383        525         77 
+--------------------------------------------------------------------------------
+Test of joint nullity of the effects : p-value = .7237193
+
+
+--------------------------------------------------------------------------------
+               Average cumulative (total) effect per treatment unit
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N     Switch  x Periods 
+-------------+----------------------------------------------------------------------------
+  Av_tot_eff |  -.025392   .0186369  -.0619196   .0111356       3021       1036            
+--------------------------------------------------------------------------------
+Average number of time periods over which a treatment's effect is accumulated = 1.9296577
+
+
+--------------------------------------------------------------------------------
+          Testing the parallel trends and no anticipation assumptions
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 | -.0149502   .0267009   -.067283   .0373826       1030        252 
+   Placebo_2 |  .0062718   .0215427  -.0359512   .0484948        453         73 
+   Placebo_3 |  .0178106   .0220362  -.0253796   .0610008        186         33 
+--------------------------------------------------------------------------------
+Test of joint nullity of the placebos : p-value = .7829889
+
+
+The development of this package was funded by the European Union (ERC, REALLYCREDIBLE,GA N°101043899).
+
+. did_multiplegt_dyn shannon_adj county YEAR PI, effects(5) placebo(3) normalized trends_nonparam(urban) cluster(county)
+>  graph_off
+
+
+--------------------------------------------------------------------------------
+             Estimation of treatment effects: Event-study effects
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+    Effect_1 | -.0330094   .0219795  -.0760883   .0100696       4770        518 
+    Effect_2 | -.0129211    .012487   -.037395   .0115529       3045        203 
+    Effect_3 |  -.013705    .011276  -.0358056   .0083956       2497        146 
+    Effect_4 | -.0109915    .016826  -.0439698   .0219867       1901         79 
+    Effect_5 | -.0059058   .0127854  -.0309648   .0191532       1493         75 
+--------------------------------------------------------------------------------
+Test of joint nullity of the effects : p-value = .65515654
+
+
+--------------------------------------------------------------------------------
+               Average cumulative (total) effect per treatment unit
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N     Switch  x Periods 
+-------------+----------------------------------------------------------------------------
+  Av_tot_eff | -.0290147   .0182593  -.0648023   .0067728       6160       1021            
+--------------------------------------------------------------------------------
+Average number of time periods over which a treatment's effect is accumulated = 1.9300045
+
+
+--------------------------------------------------------------------------------
+          Testing the parallel trends and no anticipation assumptions
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 | -.0146524    .026841  -.0672597   .0379549       2578        250 
+   Placebo_2 |  .0108104   .0209748  -.0302996   .0519203       1358         73 
+   Placebo_3 |  .0083491   .0217796   -.034338   .0510363        657         33 
+--------------------------------------------------------------------------------
+Test of joint nullity of the placebos : p-value = .86555468
+
+
+The development of this package was funded by the European Union (ERC, REALLYCREDIBLE,GA N°101043899).
+
+. 
+. *------------------------------------------------ (2) dCDH with Area
+. preserve
+
+.     use "$DATA/IC.dta", clear
+
+.     keep id YEAR ICtotal
+
+.     gen double Area = ICtotal*1000/0.15/1000000
+
+.     tempfile ic
+
+.     save `ic'
+file /var/folders/wt/r578njlx4vx70bfy46gk25bm0000gn/T//S_84660.000002 saved as .dta format
+
+.     keep id
+
+.     duplicates drop
+
+Duplicates in terms of all variables
+
+(21,450 observations deleted)
+
+.     gen byte in_IC_file = 1
+
+.     tempfile icid
+
+.     save `icid'
+file /var/folders/wt/r578njlx4vx70bfy46gk25bm0000gn/T//S_84660.000003 saved as .dta format
+
+. restore
+
+. use "$T6/data/countyyear_psi.dta", clear
+
+. * county -> id link from the analysis sample
+. preserve
+
+.     use "$SAMPLE", clear
+
+.     keep county id
+
+.     duplicates drop
+
+Duplicates in terms of all variables
+
+(44,027 observations deleted)
+
+.     tempfile cid
+
+.     save `cid'
+file /var/folders/wt/r578njlx4vx70bfy46gk25bm0000gn/T//S_84660.000005 saved as .dta format
+
+. restore
+
+. merge m:1 county using `cid', keep(master match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            11,823  
+    -----------------------------------------
+
+. merge m:1 id YEAR using `ic', keep(master match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         5,912
+        from master                     5,912  
+        from using                          0  
+
+    Matched                             5,911  
+    -----------------------------------------
+
+. merge m:1 id using `icid', keep(master match) nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         5,912
+        from master                     5,912  
+        from using                          0  
+
+    Matched                             5,911  
+    -----------------------------------------
+
+. replace in_IC_file = 0 if missing(in_IC_file)
+(5,912 real changes made)
+
+. replace Area = 0 if missing(Area)
+(5,912 real changes made)
+
+. tab in_IC_file
+
+ in_IC_file |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |      5,912       50.00       50.00
+          1 |      5,911       50.00      100.00
+------------+-----------------------------------
+      Total |     11,823      100.00
+
+. summarize Area, detail
+
+                            Area
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%            0              0
+ 5%            0              0
+10%            0              0       Obs              11,823
+25%            0              0       Sum of wgt.      11,823
+
+50%            0                      Mean           .4751474
+                        Largest       Std. dev.      2.048937
+75%     .2666667       58.56883
+90%      1.12408       60.90216       Variance       4.198143
+95%     2.066667       64.23549       Skewness       17.77209
+99%         6.96       85.76883       Kurtosis       511.5271
+
+. did_multiplegt_dyn shannon_sa county YEAR Area, effects(5) placebo(3) normalized cluster(county) graph_off
+
+
+--------------------------------------------------------------------------------
+             Estimation of treatment effects: Event-study effects
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+    Effect_1 |  .0199764   .0854744  -.1475503   .1875031       5363        388 
+    Effect_2 | -.1287119     .06293  -.2520524  -.0053714       4086        206 
+    Effect_3 | -.1067018   .0505562  -.2057901  -.0076135       3246        155 
+    Effect_4 | -.0325769   .0456355  -.1220209    .056867       2524        127 
+    Effect_5 | -.0466643   .0368588  -.1189063   .0255777       2033        114 
+--------------------------------------------------------------------------------
+Test of joint nullity of the effects : p-value = .14906254
+
+
+--------------------------------------------------------------------------------
+               Average cumulative (total) effect per treatment unit
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N     Switch  x Periods 
+-------------+----------------------------------------------------------------------------
+  Av_tot_eff | -.1063768   .0680534   -.239759   .0270054       6964        990            
+--------------------------------------------------------------------------------
+Average number of time periods over which a treatment's effect is accumulated = 1.9465167
+
+
+--------------------------------------------------------------------------------
+          Testing the parallel trends and no anticipation assumptions
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 | -.1764261   .1050698  -.3823591   .0295069       3562        223 
+   Placebo_2 | -.0668291   .0984932  -.2598723   .1262141       1993         66 
+   Placebo_3 |  .0053327   .1075816  -.2055233   .2161887       1129         29 
+--------------------------------------------------------------------------------
+Test of joint nullity of the placebos : p-value = .34473547
+
+
+The development of this package was funded by the European Union (ERC, REALLYCREDIBLE,GA N°101043899).
+
+. did_multiplegt_dyn shannon_sa county YEAR Area if in_IC_file==1, effects(5) placebo(3) normalized cluster(county) grap
+> h_off
+
+
+--------------------------------------------------------------------------------
+             Estimation of treatment effects: Event-study effects
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+    Effect_1 |  .0621314   .0997614  -.1333974   .2576602       1389        388 
+    Effect_2 | -.1197752   .0715518   -.260014   .0204637        853        206 
+    Effect_3 | -.0935061    .057926   -.207039   .0200268        612        155 
+    Effect_4 |  -.017264   .0540169  -.1231351   .0886071        456        127 
+    Effect_5 |  .0153914   .0419389  -.0668073   .0975901        362        114 
+--------------------------------------------------------------------------------
+Test of joint nullity of the effects : p-value = .23073293
+
+
+--------------------------------------------------------------------------------
+               Average cumulative (total) effect per treatment unit
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N     Switch  x Periods 
+-------------+----------------------------------------------------------------------------
+  Av_tot_eff | -.0532078   .0784342  -.2069361   .1005204       2275        990            
+--------------------------------------------------------------------------------
+Average number of time periods over which a treatment's effect is accumulated = 1.9465167
+
+
+--------------------------------------------------------------------------------
+          Testing the parallel trends and no anticipation assumptions
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 | -.1190113   .1371332  -.3877875   .1497648        757        223 
+   Placebo_2 | -.0066379    .129447  -.2603493   .2470736        291         66 
+   Placebo_3 | -.0511895   .1260258  -.2981956   .1958167        129         29 
+--------------------------------------------------------------------------------
+Test of joint nullity of the placebos : p-value = .83843324
+
+
+The development of this package was funded by the European Union (ERC, REALLYCREDIBLE,GA N°101043899).
+
+. did_multiplegt_dyn lnBN county YEAR Area, effects(5) placebo(3) normalized cluster(county) graph_off
+
+
+--------------------------------------------------------------------------------
+             Estimation of treatment effects: Event-study effects
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+    Effect_1 |  .0426438   .0511513   -.057611   .1428986       5363        388 
+    Effect_2 | -.0066346    .036874  -.0789063   .0656371       4086        206 
+    Effect_3 | -.0201735   .0321701  -.0832258   .0428787       3246        155 
+    Effect_4 |  .0153134   .0347952   -.052884   .0835108       2524        127 
+    Effect_5 | -.0160894   .0286257  -.0721948   .0400161       2033        114 
+--------------------------------------------------------------------------------
+Test of joint nullity of the effects : p-value = .68946984
+
+
+--------------------------------------------------------------------------------
+               Average cumulative (total) effect per treatment unit
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N     Switch  x Periods 
+-------------+----------------------------------------------------------------------------
+  Av_tot_eff |  .0035084   .0445481  -.0838043   .0908211       6964        990            
+--------------------------------------------------------------------------------
+Average number of time periods over which a treatment's effect is accumulated = 1.9465167
+
+
+--------------------------------------------------------------------------------
+          Testing the parallel trends and no anticipation assumptions
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI          N  Switchers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 |  .0032105   .0734703  -.1407887   .1472097       3562        223 
+   Placebo_2 |  .1399484   .0791351  -.0151535   .2950502       1993         66 
+   Placebo_3 |  -.002297   .0493647  -.0990501   .0944561       1129         29 
+--------------------------------------------------------------------------------
+Test of joint nullity of the placebos : p-value = .32060001
+
+
+The development of this package was funded by the European Union (ERC, REALLYCREDIBLE,GA N°101043899).
+
+. did_multiplegt_stat shannon_sa county YEAR Area, estimator(was) placebo(1) cluster(county)
+                                  ----------------------------------------------
+                                   Number of observations     =             7675
+                                   Estimation method          =    doubly-robust
+                                   Polynomial order           =              (1)
+                                  ----------------------------------------------
+                                (Std. err. adjusted for 2501 clusters in county)
+--------------------------------------------------------------------------------
+                           Weighted Average Slope (WAS)
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+         WAS |  .0121494   .3709325  -.7148783   .7391771       1045       6630 
+--------------------------------------------------------------------------------
+                                 Placebo(s) WAS
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 |  .0576135   .0843203  -.1076544   .2228813        435       4298 
+ 
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+. did_multiplegt_stat shannon_sa county YEAR Area if in_IC_file==1, estimator(was) placebo(1) cluster(county)
+                                  ----------------------------------------------
+                                   Number of observations     =             3701
+                                   Estimation method          =    doubly-robust
+                                   Polynomial order           =              (1)
+                                  ----------------------------------------------
+                                (Std. err. adjusted for 1317 clusters in county)
+--------------------------------------------------------------------------------
+                           Weighted Average Slope (WAS)
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+         WAS |  .0259497   .0478201  -.0677778   .1196771       1045       2656 
+--------------------------------------------------------------------------------
+                                 Placebo(s) WAS
+--------------------------------------------------------------------------------
+
+             |  Estimate         SE      LB CI      UB CI  Switchers    Stayers 
+-------------+-----------------------------------------------------------------
+   Placebo_1 |  .0222183   .0763146  -.1273584    .171795        435       1493 
+ 
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+
+. 
+. *------------------------------------------------ (3) urban vs rural birding growth
+. use "$ROOT/05_Followups_Nov13/data/county_month_grid.dta", clear
+
+. gen trend = YEAR - 2014
+
+. * share of months observed: extra yearly growth in urban districts
+. reghdfe obs c.trend#i.urban, absorb(county ym) cluster(county)
+(MWFE estimator converged in 2 iterations)
+note: 1.urban#c.trend omitted because of collinearity
+
+HDFE Linear regression                            Number of obs   =    325,920
+Absorbing 2 HDFE groups                           F(   1,   2715) =     261.03
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3554
+                                                  Adj R-squared   =     0.3497
+                                                  Within R-sq.    =     0.0123
+Number of clusters (county)  =      2,716         Root MSE        =     0.2834
+
+                              (Std. err. adjusted for 2,716 clusters in county)
+-------------------------------------------------------------------------------
+              |               Robust
+          obs | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+urban#c.trend |
+           0  |  -.0231407   .0014323   -16.16   0.000    -.0259492   -.0203322
+           1  |          0  (omitted)
+              |
+        _cons |   .2129475   .0042431    50.19   0.000     .2046274    .2212675
+-------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2716        2716           0    *|
+          ym |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. * number of birdwatchers (records), all grid months (0 if none)
+. reghdfe lnBN1 c.trend#i.urban, absorb(county ym) cluster(county)
+(MWFE estimator converged in 2 iterations)
+note: 1.urban#c.trend omitted because of collinearity
+
+HDFE Linear regression                            Number of obs   =    325,920
+Absorbing 2 HDFE groups                           F(   1,   2715) =     215.61
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.4434
+                                                  Adj R-squared   =     0.4385
+                                                  Within R-sq.    =     0.0313
+Number of clusters (county)  =      2,716         Root MSE        =     0.4538
+
+                              (Std. err. adjusted for 2,716 clusters in county)
+-------------------------------------------------------------------------------
+              |               Robust
+        lnBN1 | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+urban#c.trend |
+           0  |  -.0596182   .0040602   -14.68   0.000    -.0675796   -.0516569
+           1  |          0  (omitted)
+              |
+        _cons |   .3813681    .012028    31.71   0.000     .3577831     .404953
+-------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2716        2716           0    *|
+          ym |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. * PSI in the same grid: is PSI higher where birding grew less?
+. reghdfe obs c.trend#i.urban c.trend#c.PI, absorb(county ym) cluster(county)
+(MWFE estimator converged in 2 iterations)
+note: 1.urban#c.trend omitted because of collinearity
+
+HDFE Linear regression                            Number of obs   =    325,920
+Absorbing 2 HDFE groups                           F(   2,   2715) =     139.00
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3556
+                                                  Adj R-squared   =     0.3499
+                                                  Within R-sq.    =     0.0125
+Number of clusters (county)  =      2,716         Root MSE        =     0.2834
+
+                              (Std. err. adjusted for 2,716 clusters in county)
+-------------------------------------------------------------------------------
+              |               Robust
+          obs | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+urban#c.trend |
+           0  |  -.0245917   .0014865   -16.54   0.000    -.0275066   -.0216769
+           1  |          0  (omitted)
+              |
+ c.trend#c.PI |   .0003189    .000119     2.68   0.007     .0000856    .0005522
+              |
+        _cons |   .2131446   .0042336    50.35   0.000     .2048431    .2214461
+-------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2716        2716           0    *|
+          ym |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. 
+end of do-file
+
+. di "RC64=" _rc
+RC64=0
+
+. log close
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/06_Followups_Nov19/logs/6_4_extra_check
+> s.log
+  log type:  text
+ closed on:  20 Nov 2026, 23:26:31
+------------------------------------------------------------------------------------------------------------------------

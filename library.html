@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Library | Solar Policy and Bird Diversity</title>
+<meta name="description" content="Replication and evaluation of Zhang et al. (2026), China's solar expansion policy reduces bird diversity. Stata analyses, live tools and page-level references.">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header class="top"><div class="in">
+  <a class="brand" href="index.html"><i></i><span>Solar Policy &amp; Bird Diversity</span></a>
+  <nav class="tabs"><a href="index.html">Overview</a><a href="lab.html">Live tools</a><a href="evidence.html">Evidence</a><a href="paper.html">Paper check</a><a href="library.html" class="on">Library</a><a href="qa.html">Q&amp;A</a></nav>
+  <div class="tools"><input id="gsearch" type="search" placeholder="Search  /" aria-label="Search this site" autocomplete="off"><div id="gres"></div><button class="iconbtn" id="themeBtn" type="button">Dark</button></div>
+</div></header>
+<div class="wrap nosb"><main>
+<!--title:Library-->
+<!--nosidebar-->
+<section id="lib">
+  <div class="kicker">Library</div>
+  <h2>Every output, in one place</h2>
+  <p class="lead">Click any log, table or code file to read it here, with search. Everything is also in the <a href="https://github.com/sahiljangra12/China-SolarPolicy-Replication" target="_blank" rel="noopener">GitHub repository</a>.</p>
+  <div class="subtabs">
+    <button class="on" data-pane="reports">Reports (<span data-count="reports"></span>)</button>
+    <button data-pane="figures">Figures (<span data-count="figures"></span>)</button>
+    <button data-pane="tables">Tables (<span data-count="tables"></span>)</button>
+    <button data-pane="logs">Stata logs (<span data-count="logs"></span>)</button>
+    <button data-pane="code">Code (<span data-count="code"></span>)</button>
+    <button data-pane="data">Data (<span data-count="data"></span>)</button>
+  </div>
+  <div class="pane on" id="pane_reports"><p class="small">Later reports supersede earlier ones where numbers differ. Start with the Final report.</p><div id="p_reports"></div></div>
+  <div class="pane" id="pane_figures"><p class="small">All produced by Stata. Click a figure to enlarge it.</p><div id="p_figures"></div></div>
+  <div class="pane" id="pane_tables"><p class="small">Tables written by Stata. &ldquo;Authors' tables&rdquo; are the paper's tables as reproduced by running the authors' code.</p><input class="filter" id="f_tables" type="search" placeholder="Filter tables, e.g. S10, IV, area"><div class="flist" id="l_tables"></div></div>
+  <div class="pane" id="pane_logs"><p class="small">Complete, unedited Stata logs. Each opens with line numbers and search.</p><input class="filter" id="f_logs" type="search" placeholder="Filter logs, e.g. dcdh, effort, 5_6"><div class="flist" id="l_logs"></div></div>
+  <div class="pane" id="pane_code"><p class="small">Every do-file. One file runs everything: <code>run_everything.do</code>.</p><input class="filter" id="f_code" type="search" placeholder="Filter code, e.g. sensitivity, callaway"><div class="flist" id="l_code"></div></div>
+  <div class="pane" id="pane_data">
+    <h3>Datasets</h3>
+    <p class="small">The authors' 46 files are an unchanged copy of their public replication package; please cite their paper when using them. Files we built are marked &ldquo;Built here&rdquo;.</p>
+    <div class="tablewrap"><table id="t_data"></table></div>
+    <h3>Variables in the analysis file</h3>
+    <p class="small">The labels in the authors' file are in Chinese; the meanings are our translation.</p>
+    <input class="filter" id="f_dict" type="search" placeholder="Filter variables, e.g. sunshine, PSI, birdwatchers">
+    <div class="tablewrap"><table id="t_dict"></table></div>
+  </div>
+</section>
+
+</main></div>
+<footer>Independent replication and evaluation of Zhang et al. (2026), <i>Science</i> 393, 831. Not affiliated with the paper's authors or the journal. Code, data and outputs: <a href="https://github.com/sahiljangra12/China-SolarPolicy-Replication">GitHub</a>.</footer>
+<dialog id="drawer"><div class="dh"><b id="dtitle"></b><button class="iconbtn" data-close type="button">Close</button></div><div class="db" id="dbody"></div></dialog>
+<dialog id="viewer"><div class="dh"><b id="vname"></b><span class="small" id="vcount"></span><input id="vfind" type="search" placeholder="Find in file" aria-label="Find in file"><a class="iconbtn" id="vraw" target="_blank" rel="noopener">Raw</a><a class="iconbtn" id="vgh" target="_blank" rel="noopener">GitHub</a><button class="iconbtn" data-close type="button">Close</button></div><pre id="vtext"></pre><div id="vhtml" style="display:none"></div></dialog>
+<dialog id="pdfv"><div class="dh"><b id="pdftitle"></b><span class="small" id="pdfpage"></span><button class="iconbtn" id="pdfprev" type="button">&larr;</button><button class="iconbtn" id="pdfnext" type="button">&rarr;</button><button class="iconbtn" id="pdfout" type="button">&minus;</button><button class="iconbtn" id="pdfin" type="button">+</button><button class="iconbtn" id="pdfswap" type="button">Change file</button><button class="iconbtn" data-close type="button">Close</button></div>
+  <div id="pdfbody"><div id="pdfask" class="card" style="max-width:560px;margin:40px auto;text-align:left;display:none"><p id="pdfmsg"></p><input type="file" id="pdffile" accept="application/pdf,.pdf"></div><canvas id="pdfcanvas"></canvas></div></dialog>
+<dialog id="lightbox"><img alt=""><p></p></dialog>
+<script src="assets/data.js"></script>
+<script src="assets/sources.js"></script>
+<script src="assets/search.js"></script>
+<script src="assets/site.js"></script>
+<script src="assets/library.js"></script>
+<script src="assets/libpage.js"></script>
+</body>
+</html>

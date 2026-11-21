@@ -1,0 +1,35 @@
+Table 2. Statistical evidence for the inferior greening mechanism.
+
+  --------------- --------------- ---------------- ---------------
+                  (1)             (2)              (3)
+                  NDVI            Nightlight       Leaf area
+  PI              -0.0609***   -0.2220***    0.0039***
+                  (0.0138)        (0.0256)         (0.0007)
+  Temp            -0.9656***   0.0384           0.0280***
+                  (0.0842)        (0.1017)         (0.0031)
+  Wind            -3.1301***   -0.2611          -0.0432***
+                  (0.3847)        (0.4120)         (0.0132)
+  Pop             -0.4924         -0.9999          -0.0132
+                  (0.6068)        (0.9217)         (0.0159)
+  Duration        0.0221**     0.0604***     0.0007
+                  (0.0103)        (0.0142)         (0.0004)
+  Carbon          0.0132          0.0315           -0.0061
+                  (0.2187)        (0.2745)         (0.0059)
+  Water           5.4642          -88.3865***   0.2704**
+                  (3.8063)        (14.2655)        (0.1155)
+  Green           17.3088***   -18.2376*     0.3453**
+                  (3.8053)        (10.2519)        (0.1434)
+  Farm            8.2027***    -32.0623***   0.0844
+                  (3.1254)        (8.4823)         (0.0918)
+  Grass           -7.5378         -25.7797***   0.0136
+                  (5.5264)        (9.1801)         (0.1366)
+  Year-month FE   YES             YES              YES
+  County FE       YES             YES              YES
+  Observations    46371           46371            46338
+  R-squared       0.9917          0.9915           0.9921
+  --------------- --------------- ---------------- ---------------
+
+Notes: This table presents the results of the mechanism test. The dependent variables in Columns (1), (2), and (3) are NDVI, Nightlight, and Leaf area, respectively. NDVI is calculated as the difference between near-infrared and red band reflectance, divided by their sum, and scaled by a factor of 100. Nightlight is computed from raster data using spatial statistics, with core indicators including
+total light value, average light intensity, and a composite light index. Leaf area is defined as the total leaf area per unit of ground area. The independent variable is PSI (the weighted sum of policies at the provincial, municipal, and county levels). Other control variables include Temp (annual average temperature), Wind (annual average wind speed), Pop (the logarithm of the ratio of total
+population to regional area), Duration (the logarithm of the ratio of birdwatching duration to the number of birdwatchers), Carbon (the logarithm of the carbon emissions), Water (the area of water divided by the total area), Green (the sum of the area of forests and shrubs divided by the total area), Farm (the area of farmland divided by the total area), Grass (the area of the grassland divided by
+the total area). All specifications include county and Year-month fixed effects. The robust standard errors clustered by the county are reported in parenthesis. ***, **, * denote the significance at the 1%, 5%, and 10% levels, respectively.

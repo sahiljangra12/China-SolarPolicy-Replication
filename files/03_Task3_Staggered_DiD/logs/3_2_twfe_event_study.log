@@ -1,0 +1,263 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/logs/3_2_twfe_ev
+> ent_study.log
+  log type:  text
+ opened on:  11 Nov 2026, 17:51:19
+
+================ 3_2_twfe_event_study ================
+
+. *==========================================================================
+. * 00_config.do
+. * Project : Replication of Zhang et al. (2026), "China's solar expansion
+. *           policy reduces bird diversity", Science 393, 831.
+. * Purpose : One place for paths, globals and package installation.
+. *           Every task do-file starts with:  do "<ROOT>/00_config.do"
+. * Author  : Sahil (Research Assistant, Johns Hopkins University)
+. *==========================================================================
+. version 16
+
+. set more off
+
+. set linesize 120
+
+. 
+. *---------------------------------------------------------------- paths
+. global ROOT "/Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication"
+
+. global ORIG "$ROOT/00_Original_Package"
+
+. global DATA "$ORIG/DATA"
+
+. global T1   "$ROOT/01_Task1_Replication"
+
+. global T2   "$ROOT/02_Task2_Sensitivity"
+
+. global T3   "$ROOT/03_Task3_Staggered_DiD"
+
+. 
+. * analysis sample built in Task 1 (used by all tasks)
+. global SAMPLE "$T1/data/analysis_sample.dta"
+
+. 
+. *---------------------------------------------------------------- model
+. * the authors' nine control variables (Table 1, column 3)
+. global control     "Temp Wind Pop Duration Carbon Water Green Farm Grass"
+
+. global control_noD "Temp Wind Pop Carbon Water Green Farm Grass"
+
+. 
+. *---------------------------------------------------------------- packages
+. * installed only if missing
+. foreach p in require ftools reghdfe ivreg2 ranktest ivreghdfe estout winsor2 ///
+>              psmatch2 binscatter sensemakr drdid csdid did_imputation       ///
+>              event_plot avar eventstudyinteract {
+  2.     capture which `p'
+  3.     if _rc {
+  4.         di as txt "installing `p' ..."
+  5.         capture noisily ssc install `p', replace
+  6.     }
+  7. }
+
+. set scheme s2color
+
+. 
+end of do-file
+
+. *==========================================================================
+. * 3_2_twfe_event_study.do
+. * PURPOSE : Conventional ("naive") TWFE estimates on the binary adoption
+. *           design, as the benchmark that the heterogeneity-robust
+. *           estimators (3_3-3_5) are compared against.
+. *   (a) static TWFE:   Shannon on post-adoption dummy
+. *   (b) dynamic TWFE:  event-time dummies, -5..+5, reference year -1,
+. *                      endpoints binned
+. * WHY     : Under staggered timing and heterogeneous effects, TWFE uses
+. *           already-treated counties as controls ("forbidden comparisons";
+. *           Goodman-Bacon 2021; Baker et al. 2025), so it can be biased.
+. * OUTPUT  : tables/3_2_twfe.csv, figures/3_2_event_study_twfe.pdf
+. *==========================================================================
+. use "$T3/data/staggered_monthly.dta", clear
+
+. keep if !missing(g_main)                       // main sample
+(20,385 observations deleted)
+
+. 
+. *------------------------------------------------ (a) static
+. reghdfe ShannonBD post $control, absorb(county year) cluster(county)
+(dropped 86 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     12,667
+Absorbing 2 HDFE groups                           F(  10,    852) =      38.78
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3826
+                                                  Adj R-squared   =     0.3308
+                                                  Within R-sq.    =     0.0546
+Number of clusters (county)  =        853         Root MSE        =     0.8427
+
+                               (Std. err. adjusted for 853 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        post |   .0316694   .0411661     0.77   0.442    -.0491295    .1124683
+        Temp |   .0243338   .0283105     0.86   0.390    -.0312327    .0799003
+        Wind |   .1715581   .1274601     1.35   0.179    -.0786145    .4217307
+         Pop |  -.4081348   .5628003    -0.73   0.469    -1.512772    .6965028
+    Duration |   .1977507   .0105441    18.75   0.000     .1770553    .2184461
+      Carbon |  -.1181181   .0763815    -1.55   0.122    -.2680359    .0317998
+       Water |  -4.514242   2.084048    -2.17   0.031    -8.604711   -.4237725
+       Green |   1.251826   2.283291     0.55   0.584    -3.229709    5.733362
+        Farm |  -.6261553   1.820733    -0.34   0.731    -4.199803    2.947492
+       Grass |    .581694   1.897486     0.31   0.759      -3.1426    4.305988
+       _cons |   4.530712   3.323553     1.36   0.173      -1.9926    11.05402
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |       853         853           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. scalar static_b = _b[post]
+
+. scalar static_se = _se[post]
+
+. scalar static_N = e(N)
+
+. 
+. *------------------------------------------------ (b) dynamic
+. gen ev = rel_year
+(2,849 missing values generated)
+
+. replace ev = -5 if ev < -5 & !missing(ev)
+(329 real changes made)
+
+. replace ev =  5 if ev >  5 & !missing(ev)
+(3,026 real changes made)
+
+. forvalues k = 5(-1)2 {
+  2.     gen byte lead`k' = (ev == -`k')
+  3. }
+
+. forvalues k = 0/5 {
+  2.     gen byte lag`k' = (ev == `k')
+  3. }
+
+. reghdfe ShannonBD lead5 lead4 lead3 lead2 lag0-lag5 $control, absorb(county year) cluster(county)
+(dropped 86 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     12,667
+Absorbing 2 HDFE groups                           F(  19,    852) =      21.67
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3833
+                                                  Adj R-squared   =     0.3311
+                                                  Within R-sq.    =     0.0557
+Number of clusters (county)  =        853         Root MSE        =     0.8425
+
+                               (Std. err. adjusted for 853 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+       lead5 |    .046967   .0773386     0.61   0.544    -.1048295    .1987635
+       lead4 |  -.0082563   .0962739    -0.09   0.932    -.1972182    .1807055
+       lead3 |  -.0127931   .0737513    -0.17   0.862    -.1575486    .1319625
+       lead2 |   .1067792    .062898     1.70   0.090     -.016674    .2302325
+        lag0 |   .1080617   .0537379     2.01   0.045     .0025876    .2135359
+        lag1 |  -.0167752   .0624027    -0.27   0.788    -.1392563    .1057059
+        lag2 |   .0580694   .0637909     0.91   0.363    -.0671363    .1832752
+        lag3 |   .0854056    .069707     1.23   0.221     -.051412    .2222231
+        lag4 |   .0847447   .0804472     1.05   0.292    -.0731532    .2426425
+        lag5 |   .1240969   .0829696     1.50   0.135    -.0387518    .2869456
+        Temp |   .0287513   .0282364     1.02   0.309    -.0266698    .0841724
+        Wind |   .1503561    .131633     1.14   0.254    -.1080068    .4087191
+         Pop |  -.3963842   .5394474    -0.73   0.463    -1.455186    .6624174
+    Duration |   .1979154   .0105397    18.78   0.000     .1772286    .2186023
+      Carbon |  -.1105263    .076301    -1.45   0.148    -.2602862    .0392337
+       Water |  -3.949102   2.133427    -1.85   0.065    -8.136489    .2382862
+       Green |   1.135687   2.291707     0.50   0.620    -3.362366    5.633741
+        Farm |   -.425788   1.810621    -0.24   0.814    -3.979589    3.128013
+       Grass |   .6988293   1.916525     0.36   0.715    -3.062834    4.460493
+       _cons |   4.275347   3.262812     1.31   0.190    -2.128745    10.67944
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |       853         853           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+
+. test lead5 lead4 lead3 lead2
+
+ ( 1)  lead5 = 0
+ ( 2)  lead4 = 0
+ ( 3)  lead3 = 0
+ ( 4)  lead2 = 0
+
+       F(  4,   852) =    1.13
+            Prob > F =    0.3415
+
+. scalar pre_p = r(p)
+
+. di as res "Joint test of pre-trends (leads = 0): p = " %5.3f pre_p
+Joint test of pre-trends (leads = 0): p = 0.341
+
+. 
+. tempname P
+
+. postfile `P' str12 estimator int event_time double(b se) using "$T3/tables/es_twfe.dta", replace
+
+. forvalues k = 5(-1)2 {
+  2.     post `P' ("TWFE") (-`k') (_b[lead`k']) (_se[lead`k'])
+  3. }
+
+. post `P' ("TWFE") (-1) (0) (0)
+
+. forvalues k = 0/5 {
+  2.     post `P' ("TWFE") (`k') (_b[lag`k']) (_se[lag`k'])
+  3. }
+
+. post `P' ("TWFE_static") (99) (static_b) (static_se)
+
+. postclose `P'
+
+. 
+. use "$T3/tables/es_twfe.dta", clear
+
+. gen lo = b - 1.96*se
+
+. gen hi = b + 1.96*se
+
+. export delimited using "$T3/tables/3_2_twfe.csv", replace
+file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/tables/3_2_twfe.csv save
+> d
+
+. twoway (rcap hi lo event_time if estimator=="TWFE", lcolor(navy)) ///
+>        (scatter b event_time if estimator=="TWFE", mcolor(navy)), ///
+>     yline(0, lpattern(dash)) xline(-0.5, lpattern(dot)) ///
+>     xtitle("Years relative to first solar policy") ytitle("Effect on Shannon diversity") ///
+>     title("Dynamic TWFE event study (PSI-data counties)", size(medium)) ///
+>     subtitle("Reference year = -1; 95% CI; county-clustered SE", size(small)) ///
+>     xlabel(-5(1)5) legend(off)
+
+. graph export "$T3/figures/3_2_event_study_twfe.pdf", replace
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/figures/3_2_event_study_twfe.pdf saved as PDF format
+
+. 
+end of do-file
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/03_Task3_Staggered_DiD/logs/3_2_twfe_ev
+> ent_study.log
+  log type:  text
+ closed on:  11 Nov 2026, 17:51:19
+------------------------------------------------------------------------------------------------------------------------

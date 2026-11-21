@@ -1,0 +1,56 @@
+fact,value
+Bird.dta: county-month rows,48900
+Bird.dta: counties,2561
+Bird.dta: county-months in 2014,563
+Bird.dta: county-months in 2015,2158
+Bird.dta: county-months in 2016,1966
+Bird.dta: county-months in 2017,2014
+Bird.dta: county-months in 2018,3114
+Bird.dta: county-months in 2019,2871
+Bird.dta: county-months in 2020,5005
+Bird.dta: county-months in 2021,7989
+Bird.dta: county-months in 2022,9486
+Bird.dta: county-months in 2023,13734
+Analysis sample: county-months,46528
+Analysis sample: counties,2501
+Months observed per county: median,11
+Months observed per county: min,1
+Months observed per county: max,115
+Singleton counties (1 month only),157
+PSI mean (winsorized),2.662262516132104
+PSI SD,4.115858755865626
+PSI max,15.5
+Share of county-months with PSI = 0,.5912998624484181
+PSI median in 2014,0
+PSI median in 2015,0
+PSI median in 2016,0
+PSI median in 2017,0
+PSI median in 2018,0
+PSI median in 2019,0
+PSI median in 2020,0
+PSI median in 2021,0
+PSI median in 2022,0
+PSI median in 2023,0
+Counties whose PSI never changes in sample,1234
+Correlation PSI vs PV area (county-month),.0723109858741335
+PI.dta: share of county-years where PSI falls,.1256755987938784
+PI.dta: counties covered,1953
+Counties absent from PI.dta (PSI forced to 0),724
+Share of county-months with PSI imputed 0,.438123280605227
+Urban districts: share of obs with PSI imputed 0,.8303972936177235
+Rural counties: share of obs with PSI imputed 0,.0115303512943604
+Urban-district observations,24239
+Rural-county observations,22289
+Urban-coded units named ...区: share,.9010238907849829
+Rural-coded units named ...区: share,.0055487053020962
+Missing-PSI counties named ...区: share,.9903314917127072
+Missing-PSI counties whose NAME is in PI.dta,0
+Number of .dta files in the authors' package,46
+Lines in authors' CODE.do,975
+ShannonBD mean,2.445786283520562
+ShannonBD SD,.9814019147325523
+Nightlight min (winsorized),.0304346447706306
+Nightlight max (winsorized),63
+NL.dta first year,2014
+NL.dta last year,2023
+NL.dta Nightlight max (raw),63

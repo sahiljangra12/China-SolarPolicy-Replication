@@ -1,0 +1,1334 @@
+------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/02_Task2_Sensitivity/logs/2_1_sensitivi
+> ty_analysis.log
+  log type:  text
+ opened on:   7 Nov 2026, 21:27:07
+
+. do "$T2/code/2_1_sensitivity_analysis.do"
+
+. *==========================================================================
+. * 2_1_sensitivity_analysis.do
+. * PURPOSE : Cinelli & Hazlett (2020) sensitivity of the TWFE estimate to an
+. *           unobserved confounder Z, for two specifications:
+. *             S1  paper's baseline: county + year-month FE
+. *             S2  urban x year-month FE (Task 1 diagnostic)
+. * STEPS   : A  sensitivity statistics: partial R2 of PSI with Shannon,
+. *              robustness values RV_q=1 and RV_q=1,alpha=0.05  (C-H eqs 18-20)
+. *           B  benchmark bounds: Z "k times as strong" as each of the nine
+. *              controls (k = 1,2,3), adjusted estimate & t   (C-H eqs 12-13, 21-22)
+. *           C  group benchmark: Z as strong as urban x year-month trends
+. *           D  clustered-inference variant (significance threshold scaled by
+. *              lambda = clustered SE / classical SE)
+. *           E  contour plots of the adjusted estimate and t-value
+. *           F  cross-check with the official -sensemakr- on FE-demeaned data
+. * NOTE    : The ~2,460 fixed effects are absorbed (Frisch-Waugh-Lovell); all
+. *           statistics use reghdfe's exact residual degrees of freedom.
+. * OUTPUT  : tables/2_1_robustness_values.csv, 2_1_benchmark_bounds.csv
+. *           figures/2_1_contour_estimate_S*.pdf, 2_1_contour_tvalue_S*.pdf
+. *==========================================================================
+. 
+. *--------------------------------------------------------------------------
+. * Program 1: robustness values from a t-statistic and df   (C-H eqs 18-20)
+. *--------------------------------------------------------------------------
+. capture program drop ch_rv
+
+. program define ch_rv, rclass
+  1.     args t df q alpha lambda
+  2.     if "`lambda'" == "" local lambda 1
+  3.     tempname f fq fcrit fqa rv rva
+  4.     scalar `f'     = abs(`t')/sqrt(`df')                      // partial Cohen f of D with Y
+  5.     scalar `fq'    = `q'*`f'
+  6.     scalar `rv'    = 0.5*(sqrt(`fq'^4 + 4*`fq'^2) - `fq'^2)   // eq 18
+  7.     * lambda = clustered SE / classical SE: inflates only the significance
+.     * threshold; the confounding-strength scale (partial R2) is unchanged
+.     scalar `fcrit' = `lambda'*abs(invttail(`df'-1, `alpha'/2))/sqrt(`df'-1)
+  8.     scalar `fqa'   = `fq' - `fcrit'                           // eq 19
+  9.     if `fqa' <= 0 scalar `rva' = 0
+ 10.     else {
+ 11.         scalar `rva' = 0.5*(sqrt(`fqa'^4 + 4*`fqa'^2) - `fqa'^2)   // eq 20
+ 12.         if `rva' <= 1 - 1/`fq'^2 & `fq' > 1 scalar `rva' = (`fq'^2 - `fcrit'^2)/(1 + `fq'^2)
+ 13.     }
+ 14.     return scalar r2yd = `t'^2/(`t'^2 + `df')                 // partial R2 of D with Y
+ 15.     return scalar rv   = `rv'
+ 16.     return scalar rva  = `rva'
+ 17. end
+
+. 
+. *--------------------------------------------------------------------------
+. * Program 2: bound + adjusted estimate for Z "k times" a benchmark
+. *            (C-H eqs 21-22; supplement section B; = sensemakr's bounds)
+. *--------------------------------------------------------------------------
+. capture program drop ch_bound
+
+. program define ch_bound, rclass
+  1.     args r2dxj r2yxj kd ky est se df
+  2.     tempname r2dz r2zxj r2yz bias adj adjse
+  3.     scalar `r2dz'  = `kd'*`r2dxj'/(1 - `r2dxj')
+  4.     scalar `r2zxj' = `kd'*`r2dxj'^2/((1 - `kd'*`r2dxj')*(1 - `r2dxj'))
+  5.     scalar `r2yz'  = ((sqrt(`ky') + sqrt(`r2zxj'))/sqrt(1 - `r2zxj'))^2 * (`r2yxj'/(1 - `r2yxj'))
+  6.     if `r2yz' > 1 scalar `r2yz' = 1
+  7.     * omitted-variable bias (eq 12) and adjusted SE (eq 13)
+.     scalar `bias'  = `se'*sqrt(`r2yz'*`r2dz'/(1 - `r2dz')*`df')
+  8.     scalar `adj'   = sign(`est')*(abs(`est') - `bias')        // Z pushes toward zero
+  9.     scalar `adjse' = `se'*sqrt((1 - `r2yz')/(1 - `r2dz')*`df'/(`df' - 1))
+ 10.     return scalar r2dz  = `r2dz'
+ 11.     return scalar r2yz  = `r2yz'
+ 12.     return scalar adj   = `adj'
+ 13.     return scalar adjse = `adjse'
+ 14.     return scalar adjt  = `adj'/`adjse'
+ 15. end
+
+. 
+. *--------------------------------------------------------------------------
+. use "$SAMPLE", clear
+
+. local fe1 "county year"
+
+. local fe2 "county year#urban"
+
+. local nm1 "S1 baseline (county + YM FE)"
+
+. local nm2 "S2 urban x YM FE"
+
+. 
+. tempname RV BD
+
+. postfile `RV' str32 spec double(est se_classical t_classical df R2_YD RV_q1 RV_q1_a05 ///
+>     se_clustered t_clustered G lambda RV_q1_a05_clustered) using "$T2/tables/rv_tmp.dta", replace
+(file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/02_Task2_Sensitivity/tables/rv_tmp.dta not
+    found)
+
+. postfile `BD' str32 spec str32 benchmark double(k R2_D_X R2_Y_X R2_D_Z R2_Y_Z adj_est adj_se adj_t adj_t_clustered) //
+> /
+>     using "$T2/tables/bd_tmp.dta", replace
+(file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/02_Task2_Sensitivity/tables/bd_tmp.dta not
+    found)
+
+. 
+. forvalues s = 1/2 {
+  2.     di as res _n "======================= `nm`s'' ======================="
+  3. 
+.     *---------------- clustered SE first (the paper's inference)
+.     reghdfe ShannonBD PI $control, absorb(`fe`s'') cluster(county)
+  4.     keep if e(sample)
+  5.     scalar secl_`s' = _se[PI]
+  6.     scalar tcl_`s'  = _b[PI]/_se[PI]
+  7.     scalar G_`s'    = e(N_clust)
+  8. 
+.     *---------------- A. sensitivity statistics (classical SE, exact df)
+.     reghdfe ShannonBD PI $control, absorb(`fe`s'') vce(unadjusted)
+  9.     scalar est_`s' = _b[PI]
+ 10.     scalar se_`s'  = _se[PI]
+ 11.     scalar df_`s'  = e(df_r)
+ 12.     scalar t_`s'   = _b[PI]/_se[PI]
+ 13.     scalar lam_`s' = secl_`s'/se_`s'
+ 14.     foreach b in $control {
+ 15.         scalar tY = _b[`b']/_se[`b']
+ 16.         scalar r2y_`b' = tY^2/(tY^2 + df_`s')        // R2 of Y with Xj | D, X-j, FE
+ 17.     }
+ 18.     ch_rv t_`s' df_`s' 1 0.05
+ 19.     scalar r2yd_`s' = r(r2yd)
+ 20.     scalar rv_`s'   = r(rv)
+ 21.     scalar rva_`s'  = r(rva)
+ 22.     di "Partial R2 of PSI with Shannon : " %9.6f r(r2yd)
+ 23.     di "Robustness value RV(q=1)       : " %9.6f r(rv)
+ 24.     di "Robustness value RV(q=1,a=.05) : " %9.6f r(rva)
+ 25. 
+.     reghdfe PI $control, absorb(`fe`s'') vce(unadjusted)
+ 26.     scalar rssD_`s' = e(rss)
+ 27.     foreach b in $control {
+ 28.         scalar tD = _b[`b']/_se[`b']
+ 29.         scalar r2d_`b' = tD^2/(tD^2 + e(df_r))       // R2 of D with Xj | X-j, FE
+ 30.     }
+ 31. 
+.     *---------------- B. benchmark bounds
+.     foreach b in $control {
+ 32.         foreach k in 1 2 3 {
+ 33.             ch_bound r2d_`b' r2y_`b' `k' `k' est_`s' se_`s' df_`s'
+ 34.             post `BD' ("`nm`s''") ("`b'") (`k') (r2d_`b') (r2y_`b') (r(r2dz)) (r(r2yz)) ///
+>                 (r(adj)) (r(adjse)) (r(adjt)) (r(adjt)/lam_`s')
+ 35.             di "`b' k=`k': R2_DZ=" %7.4f r(r2dz) " R2_YZ=" %7.4f r(r2yz) ///
+>                " adj.est=" %9.5f r(adj) " adj.t=" %6.2f r(adjt)
+ 36.         }
+ 37.     }
+ 38. 
+.     *---------------- D. clustered variant: same partial R2s, significance
+.     *                   threshold inflated by lambda = clustered/classical SE
+.     ch_rv t_`s' df_`s' 1 0.05 lam_`s'
+ 39.     scalar rvacl_`s' = r(rva)
+ 40.     di "Clustered t = " %6.3f tcl_`s' "  lambda = " %5.3f lam_`s' ///
+>        "  RV(q=1,a=.05, clustered) = " %8.6f r(rva)
+ 41. 
+.     post `RV' ("`nm`s''") (est_`s') (se_`s') (t_`s') (df_`s') (r2yd_`s') (rv_`s') (rva_`s') ///
+>         (secl_`s') (tcl_`s') (G_`s') (lam_`s') (rvacl_`s')
+ 42.     use "$SAMPLE", clear
+ 43. }
+
+======================= S1 baseline (county + YM FE) =======================
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      88.45
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3372
+                                                  Adj R-squared   =     0.2999
+                                                  Within R-sq.    =     0.0398
+Number of clusters (county)  =      2,344         Root MSE        =     0.8208
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0125283   .0036551    -3.43   0.001    -.0196958   -.0053607
+        Temp |   -.007307   .0180907    -0.40   0.686    -.0427824    .0281685
+        Wind |   .0434958    .073623     0.59   0.555    -.1008772    .1878688
+         Pop |  -.0885085   .1286504    -0.69   0.492    -.3407889    .1637719
+    Duration |   .1638102   .0057239    28.62   0.000     .1525857    .1750346
+      Carbon |  -.1117558   .0430827    -2.59   0.010    -.1962399   -.0272716
+       Water |   -1.27986   1.126966    -1.14   0.256    -3.489814    .9300936
+       Green |   1.151814   .9518596     1.21   0.226     -.714761    3.018388
+        Farm |   .0657308   .7087708     0.09   0.926    -1.324153    1.455614
+       Grass |   1.264197   .9469432     1.34   0.182    -.5927372    3.121131
+       _cons |   3.893401   1.140562     3.41   0.001     1.656784    6.130017
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344        2344           0    *|
+        year |       120           1         119     |
+-----------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+(157 observations deleted)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,  43898) =     181.97
+                                                  Prob > F        =     0.0000
+                                                  R-squared       =     0.3372
+                                                  Adj R-squared   =     0.2999
+                                                  Within R-sq.    =     0.0398
+                                                  Root MSE        =     0.8208
+
+------------------------------------------------------------------------------
+   ShannonBD | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0125283   .0027334    -4.58   0.000    -.0178858   -.0071708
+        Temp |   -.007307   .0144434    -0.51   0.613    -.0356163    .0210024
+        Wind |   .0434958   .0599719     0.73   0.468    -.0740503    .1610418
+         Pop |  -.0885085   .0857152    -1.03   0.302    -.2565118    .0794949
+    Duration |   .1638102   .0039011    41.99   0.000     .1561639    .1714565
+      Carbon |  -.1117558   .0334118    -3.34   0.001    -.1772434   -.0462681
+       Water |   -1.27986   .6970195    -1.84   0.066    -2.646031    .0863107
+       Green |   1.151814   .6124295     1.88   0.060    -.0485591    2.352186
+        Farm |   .0657308   .4362937     0.15   0.880    -.7894126    .9208742
+       Grass |   1.264197   .6541783     1.93   0.053    -.0180045    2.546398
+       _cons |   3.893401     .80722     4.82   0.000     2.311235    5.475567
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344           0        2344     |
+        year |       120           1         119     |
+-----------------------------------------------------+
+Partial R2 of PSI with Shannon :  0.000478
+Robustness value RV(q=1)       :  0.021638
+Robustness value RV(q=1,a=.05) :  0.012443
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(   9,  43899) =      43.39
+                                                  Prob > F        =     0.0000
+                                                  R-squared       =     0.8852
+                                                  Adj R-squared   =     0.8787
+                                                  Within R-sq.    =     0.0088
+                                                  Root MSE        =     1.4332
+
+------------------------------------------------------------------------------
+          PI | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Temp |   .2133688   .0251992     8.47   0.000     .1639778    .2627597
+        Wind |    .589089   .1046799     5.63   0.000     .3839146    .7942634
+         Pop |  -.0375412   .1496681    -0.25   0.802    -.3308935     .255811
+    Duration |   -.036039   .0068096    -5.29   0.000    -.0493861    -.022692
+      Carbon |  -.0854929   .0583392    -1.47   0.143    -.1998389     .028853
+       Water |   15.69015   1.214767    12.92   0.000     13.30919    18.07112
+       Green |   8.270469   1.068641     7.74   0.000     6.175913    10.36502
+        Farm |    7.47328   .7609816     9.82   0.000     5.981742    8.964817
+       Grass |   3.948597   1.142112     3.46   0.001     1.710036    6.187157
+       _cons |  -6.692974   1.409133    -4.75   0.000    -9.454902   -3.931047
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344           0        2344     |
+        year |       120           1         119     |
+-----------------------------------------------------+
+Temp k=1: R2_DZ= 0.0016 R2_YZ= 0.0000 adj.est= -0.01247 adj.t= -4.56
+Temp k=2: R2_DZ= 0.0033 R2_YZ= 0.0000 adj.est= -0.01242 adj.t= -4.53
+Temp k=3: R2_DZ= 0.0049 R2_YZ= 0.0000 adj.est= -0.01236 adj.t= -4.51
+Wind k=1: R2_DZ= 0.0007 R2_YZ= 0.0000 adj.est= -0.01247 adj.t= -4.56
+Wind k=2: R2_DZ= 0.0014 R2_YZ= 0.0000 adj.est= -0.01242 adj.t= -4.54
+Wind k=3: R2_DZ= 0.0022 R2_YZ= 0.0000 adj.est= -0.01237 adj.t= -4.52
+Pop k=1: R2_DZ= 0.0000 R2_YZ= 0.0000 adj.est= -0.01252 adj.t= -4.58
+Pop k=2: R2_DZ= 0.0000 R2_YZ= 0.0000 adj.est= -0.01252 adj.t= -4.58
+Pop k=3: R2_DZ= 0.0000 R2_YZ= 0.0001 adj.est= -0.01252 adj.t= -4.58
+Duration k=1: R2_DZ= 0.0006 R2_YZ= 0.0402 adj.est= -0.00963 adj.t= -3.59
+Duration k=2: R2_DZ= 0.0013 R2_YZ= 0.0804 adj.est= -0.00672 adj.t= -2.56
+Duration k=3: R2_DZ= 0.0019 R2_YZ= 0.1207 adj.est= -0.00382 adj.t= -1.49
+Carbon k=1: R2_DZ= 0.0000 R2_YZ= 0.0003 adj.est= -0.01246 adj.t= -4.56
+Carbon k=2: R2_DZ= 0.0001 R2_YZ= 0.0005 adj.est= -0.01240 adj.t= -4.54
+Carbon k=3: R2_DZ= 0.0001 R2_YZ= 0.0008 adj.est= -0.01234 adj.t= -4.51
+Water k=1: R2_DZ= 0.0038 R2_YZ= 0.0001 adj.est= -0.01222 adj.t= -4.46
+Water k=2: R2_DZ= 0.0076 R2_YZ= 0.0002 adj.est= -0.01190 adj.t= -4.34
+Water k=3: R2_DZ= 0.0114 R2_YZ= 0.0002 adj.est= -0.01159 adj.t= -4.22
+Green k=1: R2_DZ= 0.0014 R2_YZ= 0.0001 adj.est= -0.01234 adj.t= -4.51
+Green k=2: R2_DZ= 0.0027 R2_YZ= 0.0002 adj.est= -0.01215 adj.t= -4.44
+Green k=3: R2_DZ= 0.0041 R2_YZ= 0.0002 adj.est= -0.01196 adj.t= -4.37
+Farm k=1: R2_DZ= 0.0022 R2_YZ= 0.0000 adj.est= -0.01251 adj.t= -4.57
+Farm k=2: R2_DZ= 0.0044 R2_YZ= 0.0000 adj.est= -0.01249 adj.t= -4.56
+Farm k=3: R2_DZ= 0.0066 R2_YZ= 0.0000 adj.est= -0.01247 adj.t= -4.55
+Grass k=1: R2_DZ= 0.0003 R2_YZ= 0.0001 adj.est= -0.01244 adj.t= -4.55
+Grass k=2: R2_DZ= 0.0005 R2_YZ= 0.0002 adj.est= -0.01235 adj.t= -4.52
+Grass k=3: R2_DZ= 0.0008 R2_YZ= 0.0003 adj.est= -0.01227 adj.t= -4.49
+Clustered t = -3.428  lambda = 1.337  RV(q=1,a=.05, clustered) = 0.009323
+
+======================= S2 urban x YM FE =======================
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,   2343) =      82.34
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.3411
+                                                  Adj R-squared   =     0.3021
+                                                  Within R-sq.    =     0.0381
+Number of clusters (county)  =      2,344         Root MSE        =     0.8195
+
+                             (Std. err. adjusted for 2,344 clusters in county)
+------------------------------------------------------------------------------
+             |               Robust
+   ShannonBD | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   -.002683   .0037065    -0.72   0.469    -.0099514    .0045854
+        Temp |   .0001733   .0181638     0.01   0.992    -.0354454    .0357921
+        Wind |   .0382813   .0731117     0.52   0.601     -.105089    .1816515
+         Pop |  -.0785441   .1273387    -0.62   0.537    -.3282523    .1711641
+    Duration |   .1618188   .0057338    28.22   0.000      .150575    .1730626
+      Carbon |  -.0990999   .0420267    -2.36   0.018    -.1815133   -.0166866
+       Water |  -.2651954   1.120673    -0.24   0.813    -2.462809    1.932418
+       Green |   1.604513   .9068483     1.77   0.077    -.1737954    3.382822
+        Farm |   .8856803   .7060507     1.25   0.210     -.498869    2.270229
+       Grass |   1.896732   .9416102     2.01   0.044     .0502559    3.743208
+       _cons |   2.990337   1.139704     2.62   0.009     .7554047     5.22527
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2344        2344           0    *|
+   year#urban |       240           1         239     |
+------------------------------------------------------+
+* = FE nested within cluster; treated as redundant for DoF computation
+(157 observations deleted)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,  43779) =     173.19
+                                                  Prob > F        =     0.0000
+                                                  R-squared       =     0.3411
+                                                  Adj R-squared   =     0.3021
+                                                  Within R-sq.    =     0.0381
+                                                  Root MSE        =     0.8195
+
+------------------------------------------------------------------------------
+   ShannonBD | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   -.002683   .0029141    -0.92   0.357    -.0083948    .0030287
+        Temp |   .0001733   .0145089     0.01   0.990    -.0282644     .028611
+        Wind |   .0382813    .060063     0.64   0.524    -.0794433    .1560058
+         Pop |  -.0785441   .0857144    -0.92   0.359    -.2465459    .0894577
+    Duration |   .1618188   .0039108    41.38   0.000     .1541536    .1694839
+      Carbon |  -.0990999   .0334709    -2.96   0.003    -.1647035   -.0334963
+       Water |  -.2651954    .705224    -0.38   0.707    -1.647447    1.117056
+       Green |   1.604513   .6146777     2.61   0.009     .3997338    2.809293
+        Farm |   .8856803   .4456754     1.99   0.047     .0121483    1.759212
+       Grass |   1.896732   .6568345     2.89   0.004     .6093244     3.18414
+       _cons |   2.990337   .8124007     3.68   0.000     1.398017    4.582658
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2344           0        2344     |
+   year#urban |       240           2         238     |
+------------------------------------------------------+
+Partial R2 of PSI with Shannon :  0.000019
+Robustness value RV(q=1)       :  0.004391
+Robustness value RV(q=1,a=.05) :  0.000000
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(   9,  43780) =      19.60
+                                                  Prob > F        =     0.0000
+                                                  R-squared       =     0.8993
+                                                  Adj R-squared   =     0.8933
+                                                  Within R-sq.    =     0.0040
+                                                  Root MSE        =     1.3440
+
+------------------------------------------------------------------------------
+          PI | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Temp |   .1052801   .0237899     4.43   0.000     .0586515    .1519086
+        Wind |   .6135566   .0984621     6.23   0.000      .420569    .8065442
+         Pop |  -.0884686   .1405745    -0.63   0.529    -.3639971      .18706
+    Duration |  -.0137277   .0064135    -2.14   0.032    -.0262982   -.0011571
+      Carbon |  -.2309532   .0548826    -4.21   0.000     -.338524   -.1233823
+       Water |   2.078304   1.156554     1.80   0.072    -.1885628     4.34517
+       Green |   2.709311   1.008014     2.69   0.007     .7335857    4.685036
+        Farm |  -2.998415   .7307856    -4.10   0.000    -4.430768   -1.566062
+       Grass |  -3.083259   1.077135    -2.86   0.004    -5.194463   -.9720552
+       _cons |   3.987799   1.332234     2.99   0.003     1.376595    6.599002
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2344           0        2344     |
+   year#urban |       240           2         238     |
+------------------------------------------------------+
+Temp k=1: R2_DZ= 0.0004 R2_YZ= 0.0000 adj.est= -0.00268 adj.t= -0.92
+Temp k=2: R2_DZ= 0.0009 R2_YZ= 0.0000 adj.est= -0.00268 adj.t= -0.92
+Temp k=3: R2_DZ= 0.0013 R2_YZ= 0.0000 adj.est= -0.00268 adj.t= -0.92
+Wind k=1: R2_DZ= 0.0009 R2_YZ= 0.0000 adj.est= -0.00263 adj.t= -0.90
+Wind k=2: R2_DZ= 0.0018 R2_YZ= 0.0000 adj.est= -0.00257 adj.t= -0.88
+Wind k=3: R2_DZ= 0.0027 R2_YZ= 0.0000 adj.est= -0.00252 adj.t= -0.86
+Pop k=1: R2_DZ= 0.0000 R2_YZ= 0.0000 adj.est= -0.00268 adj.t= -0.92
+Pop k=2: R2_DZ= 0.0000 R2_YZ= 0.0000 adj.est= -0.00267 adj.t= -0.92
+Pop k=3: R2_DZ= 0.0000 R2_YZ= 0.0001 adj.est= -0.00266 adj.t= -0.91
+Duration k=1: R2_DZ= 0.0001 R2_YZ= 0.0391 adj.est= -0.00145 adj.t= -0.51
+Duration k=2: R2_DZ= 0.0002 R2_YZ= 0.0782 adj.est= -0.00022 adj.t= -0.08
+Duration k=3: R2_DZ= 0.0003 R2_YZ= 0.1173 adj.est=  0.00102 adj.t=  0.37
+Carbon k=1: R2_DZ= 0.0004 R2_YZ= 0.0002 adj.est= -0.00251 adj.t= -0.86
+Carbon k=2: R2_DZ= 0.0008 R2_YZ= 0.0004 adj.est= -0.00234 adj.t= -0.80
+Carbon k=3: R2_DZ= 0.0012 R2_YZ= 0.0006 adj.est= -0.00216 adj.t= -0.74
+Water k=1: R2_DZ= 0.0001 R2_YZ= 0.0000 adj.est= -0.00267 adj.t= -0.92
+Water k=2: R2_DZ= 0.0001 R2_YZ= 0.0000 adj.est= -0.00266 adj.t= -0.91
+Water k=3: R2_DZ= 0.0002 R2_YZ= 0.0000 adj.est= -0.00265 adj.t= -0.91
+Green k=1: R2_DZ= 0.0002 R2_YZ= 0.0002 adj.est= -0.00259 adj.t= -0.89
+Green k=2: R2_DZ= 0.0003 R2_YZ= 0.0003 adj.est= -0.00249 adj.t= -0.85
+Green k=3: R2_DZ= 0.0005 R2_YZ= 0.0005 adj.est= -0.00239 adj.t= -0.82
+Farm k=1: R2_DZ= 0.0004 R2_YZ= 0.0001 adj.est= -0.00257 adj.t= -0.88
+Farm k=2: R2_DZ= 0.0008 R2_YZ= 0.0002 adj.est= -0.00246 adj.t= -0.84
+Farm k=3: R2_DZ= 0.0012 R2_YZ= 0.0003 adj.est= -0.00234 adj.t= -0.80
+Grass k=1: R2_DZ= 0.0002 R2_YZ= 0.0002 adj.est= -0.00257 adj.t= -0.88
+Grass k=2: R2_DZ= 0.0004 R2_YZ= 0.0004 adj.est= -0.00245 adj.t= -0.84
+Grass k=3: R2_DZ= 0.0006 R2_YZ= 0.0006 adj.est= -0.00234 adj.t= -0.80
+Clustered t = -0.724  lambda = 1.272  RV(q=1,a=.05, clustered) = 0.000000
+
+. 
+. *---------------- C. group benchmark: urban x year-month trends
+. * partial R2 that urban x YM FE add, beyond county + YM FE and controls,
+. *   for PSI (treatment model) and for Shannon given PSI (outcome model)
+. reghdfe PI $control, absorb(county year) vce(unadjusted)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(   9,  43899) =      43.39
+                                                  Prob > F        =     0.0000
+                                                  R-squared       =     0.8852
+                                                  Adj R-squared   =     0.8787
+                                                  Within R-sq.    =     0.0088
+                                                  Root MSE        =     1.4332
+
+------------------------------------------------------------------------------
+          PI | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Temp |   .2133688   .0251992     8.47   0.000     .1639778    .2627597
+        Wind |    .589089   .1046799     5.63   0.000     .3839146    .7942634
+         Pop |  -.0375412   .1496681    -0.25   0.802    -.3308935     .255811
+    Duration |   -.036039   .0068096    -5.29   0.000    -.0493861    -.022692
+      Carbon |  -.0854929   .0583392    -1.47   0.143    -.1998389     .028853
+       Water |   15.69015   1.214767    12.92   0.000     13.30919    18.07112
+       Green |   8.270469   1.068641     7.74   0.000     6.175913    10.36502
+        Farm |    7.47328   .7609816     9.82   0.000     5.981742    8.964817
+       Grass |   3.948597   1.142112     3.46   0.001     1.710036    6.187157
+       _cons |  -6.692974   1.409133    -4.75   0.000    -9.454902   -3.931047
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344           0        2344     |
+        year |       120           1         119     |
+-----------------------------------------------------+
+
+. keep if e(sample)
+(157 observations deleted)
+
+. scalar rr = e(rss)
+
+. reghdfe PI $control, absorb(county year#urban) vce(unadjusted)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(   9,  43780) =      19.60
+                                                  Prob > F        =     0.0000
+                                                  R-squared       =     0.8993
+                                                  Adj R-squared   =     0.8933
+                                                  Within R-sq.    =     0.0040
+                                                  Root MSE        =     1.3440
+
+------------------------------------------------------------------------------
+          PI | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        Temp |   .1052801   .0237899     4.43   0.000     .0586515    .1519086
+        Wind |   .6135566   .0984621     6.23   0.000      .420569    .8065442
+         Pop |  -.0884686   .1405745    -0.63   0.529    -.3639971      .18706
+    Duration |  -.0137277   .0064135    -2.14   0.032    -.0262982   -.0011571
+      Carbon |  -.2309532   .0548826    -4.21   0.000     -.338524   -.1233823
+       Water |   2.078304   1.156554     1.80   0.072    -.1885628     4.34517
+       Green |   2.709311   1.008014     2.69   0.007     .7335857    4.685036
+        Farm |  -2.998415   .7307856    -4.10   0.000    -4.430768   -1.566062
+       Grass |  -3.083259   1.077135    -2.86   0.004    -5.194463   -.9720552
+       _cons |   3.987799   1.332234     2.99   0.003     1.376595    6.599002
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2344           0        2344     |
+   year#urban |       240           2         238     |
+------------------------------------------------------+
+
+. scalar r2d_urb = (rr - e(rss))/rr
+
+. reghdfe ShannonBD PI $control, absorb(county year) vce(unadjusted)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,  43898) =     181.97
+                                                  Prob > F        =     0.0000
+                                                  R-squared       =     0.3372
+                                                  Adj R-squared   =     0.2999
+                                                  Within R-sq.    =     0.0398
+                                                  Root MSE        =     0.8208
+
+------------------------------------------------------------------------------
+   ShannonBD | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0125283   .0027334    -4.58   0.000    -.0178858   -.0071708
+        Temp |   -.007307   .0144434    -0.51   0.613    -.0356163    .0210024
+        Wind |   .0434958   .0599719     0.73   0.468    -.0740503    .1610418
+         Pop |  -.0885085   .0857152    -1.03   0.302    -.2565118    .0794949
+    Duration |   .1638102   .0039011    41.99   0.000     .1561639    .1714565
+      Carbon |  -.1117558   .0334118    -3.34   0.001    -.1772434   -.0462681
+       Water |   -1.27986   .6970195    -1.84   0.066    -2.646031    .0863107
+       Green |   1.151814   .6124295     1.88   0.060    -.0485591    2.352186
+        Farm |   .0657308   .4362937     0.15   0.880    -.7894126    .9208742
+       Grass |   1.264197   .6541783     1.93   0.053    -.0180045    2.546398
+       _cons |   3.893401     .80722     4.82   0.000     2.311235    5.475567
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344           0        2344     |
+        year |       120           1         119     |
+-----------------------------------------------------+
+
+. scalar rr = e(rss)
+
+. reghdfe ShannonBD PI $control, absorb(county year#urban) vce(unadjusted)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,  43779) =     173.19
+                                                  Prob > F        =     0.0000
+                                                  R-squared       =     0.3411
+                                                  Adj R-squared   =     0.3021
+                                                  Within R-sq.    =     0.0381
+                                                  Root MSE        =     0.8195
+
+------------------------------------------------------------------------------
+   ShannonBD | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |   -.002683   .0029141    -0.92   0.357    -.0083948    .0030287
+        Temp |   .0001733   .0145089     0.01   0.990    -.0282644     .028611
+        Wind |   .0382813    .060063     0.64   0.524    -.0794433    .1560058
+         Pop |  -.0785441   .0857144    -0.92   0.359    -.2465459    .0894577
+    Duration |   .1618188   .0039108    41.38   0.000     .1541536    .1694839
+      Carbon |  -.0990999   .0334709    -2.96   0.003    -.1647035   -.0334963
+       Water |  -.2651954    .705224    -0.38   0.707    -1.647447    1.117056
+       Green |   1.604513   .6146777     2.61   0.009     .3997338    2.809293
+        Farm |   .8856803   .4456754     1.99   0.047     .0121483    1.759212
+       Grass |   1.896732   .6568345     2.89   0.004     .6093244     3.18414
+       _cons |   2.990337   .8124007     3.68   0.000     1.398017    4.582658
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+------------------------------------------------------+
+  Absorbed FE | Categories  - Redundant  = Num. Coefs |
+--------------+---------------------------------------|
+       county |      2344           0        2344     |
+   year#urban |       240           2         238     |
+------------------------------------------------------+
+
+. scalar r2y_urb = (rr - e(rss))/rr
+
+. di as res _n "Urban x YM trends: partial R2 with PSI = " %7.4f r2d_urb "   with Shannon | PSI = " %7.4f r2y_urb
+
+Urban x YM trends: partial R2 with PSI =  0.1230   with Shannon | PSI =  0.0059
+
+. foreach k in 0.25 0.5 1 {
+  2.     ch_bound r2d_urb r2y_urb `k' `k' est_1 se_1 df_1
+  3.     post `BD' ("`nm1'") ("Urban x YM trends (group)") (`k') (r2d_urb) (r2y_urb) (r(r2dz)) (r(r2yz)) ///
+>         (r(adj)) (r(adjse)) (r(adjt)) (r(adjt)/lam_1)
+  4.     di "urban x YM k=`k': adj.est=" %9.5f r(adj) "  adj.t=" %6.2f r(adjt)
+  5. }
+urban x YM k=0.25: adj.est= -0.00774  adj.t= -2.78
+urban x YM k=0.5: adj.est= -0.00272  adj.t= -0.96
+urban x YM k=1: adj.est=  0.00806  adj.t=  2.75
+
+. 
+. postclose `RV'
+
+. postclose `BD'
+
+. 
+. use "$T2/tables/rv_tmp.dta", clear
+
+. format est se_classical %9.5f
+
+. format R2_YD RV_q1 RV_q1_a05 RV_q1_a05_clustered %9.5f
+
+. list, noobs sep(0) abbreviate(20)
+
+  +--------------------------------------------------------------------------------------------------------------+
+  |                         spec |      est | se_classical | t_classical |    df |   R2_YD |   RV_q1 | RV_q1_a05 |
+  | S1 baseline (county + YM FE) | -0.01253 |      0.00273 |  -4.5834297 | 43898 | 0.00048 | 0.02164 |   0.01244 |
+  |--------------------------------------------------------------------------------------------------------------|
+  |     se_clustered     |     t_clustered     |        G     |        lambda     |     RV_q1_a05_clustered      |
+  |        .00365509     |      -3.4276286     |     2344     |     1.3372014     |                 0.00932      |
+  +--------------------------------------------------------------------------------------------------------------+
+
+  +--------------------------------------------------------------------------------------------------------------+
+  |                         spec |      est | se_classical | t_classical |    df |   R2_YD |   RV_q1 | RV_q1_a05 |
+  |             S2 urban x YM FE | -0.00268 |      0.00291 |  -.92070317 | 43779 | 0.00002 | 0.00439 |   0.00000 |
+  |--------------------------------------------------------------------------------------------------------------|
+  |     se_clustered     |     t_clustered     |        G     |        lambda     |     RV_q1_a05_clustered      |
+  |        .00370651     |       -.7238711     |     2344     |     1.2719159     |                 0.00000      |
+  +--------------------------------------------------------------------------------------------------------------+
+
+. export delimited using "$T2/tables/2_1_robustness_values.csv", replace
+file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/02_Task2_Sensitivity/tables/2_1_robustness_valu
+> es.csv saved
+
+. erase "$T2/tables/rv_tmp.dta"
+
+. 
+. use "$T2/tables/bd_tmp.dta", clear
+
+. format R2_* %8.5f
+
+. format adj_est adj_se %9.5f
+
+. format adj_t adj_t_clustered %6.2f
+
+. list, noobs sep(0) abbreviate(24)
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                      Temp |   1 | 0.00163 | 0.00001 | 0.00163 | 0.00001 | -0.01247 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00274              |              -4.56               |                        -3.41               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                      Temp |   2 | 0.00163 | 0.00001 | 0.00327 | 0.00001 | -0.01242 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00274              |              -4.53               |                        -3.39               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                      Temp |   3 | 0.00163 | 0.00001 | 0.00490 | 0.00002 | -0.01236 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00274              |              -4.51               |                        -3.37               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                      Wind |   1 | 0.00072 | 0.00001 | 0.00072 | 0.00001 | -0.01247 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00273              |              -4.56               |                        -3.41               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                      Wind |   2 | 0.00072 | 0.00001 | 0.00144 | 0.00002 | -0.01242 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00274              |              -4.54               |                        -3.40               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                      Wind |   3 | 0.00072 | 0.00001 | 0.00216 | 0.00004 | -0.01237 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00274              |              -4.52               |                        -3.38               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                       Pop |   1 | 0.00000 | 0.00002 | 0.00000 | 0.00002 | -0.01252 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00273              |              -4.58               |                        -3.43               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                       Pop |   2 | 0.00000 | 0.00002 | 0.00000 | 0.00005 | -0.01252 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00273              |              -4.58               |                        -3.43               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                       Pop |   3 | 0.00000 | 0.00002 | 0.00000 | 0.00007 | -0.01252 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00273              |              -4.58               |                        -3.42               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                  Duration |   1 | 0.00064 | 0.03861 | 0.00064 | 0.04022 | -0.00963 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00268              |              -3.59               |                        -2.69               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                  Duration |   2 | 0.00064 | 0.03861 | 0.00128 | 0.08043 | -0.00672 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00262              |              -2.56               |                        -1.92               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                  Duration |   3 | 0.00064 | 0.03861 | 0.00191 | 0.12065 | -0.00382 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00257              |              -1.49               |                        -1.11               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                    Carbon |   1 | 0.00005 | 0.00025 | 0.00005 | 0.00025 | -0.01246 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00273              |              -4.56               |                        -3.41               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                    Carbon |   2 | 0.00005 | 0.00025 | 0.00010 | 0.00051 | -0.01240 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00273              |              -4.54               |                        -3.39               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                    Carbon |   3 | 0.00005 | 0.00025 | 0.00015 | 0.00076 | -0.01234 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00273              |              -4.51               |                        -3.38               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                     Water |   1 | 0.00379 | 0.00008 | 0.00380 | 0.00008 | -0.01222 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00274              |              -4.46               |                        -3.34               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                     Water |   2 | 0.00379 | 0.00008 | 0.00760 | 0.00015 | -0.01190 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00274              |              -4.34               |                        -3.24               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                     Water |   3 | 0.00379 | 0.00008 | 0.01140 | 0.00023 | -0.01159 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00275              |              -4.22               |                        -3.15               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                     Green |   1 | 0.00136 | 0.00008 | 0.00136 | 0.00008 | -0.01234 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00274              |              -4.51               |                        -3.37               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                     Green |   2 | 0.00136 | 0.00008 | 0.00273 | 0.00016 | -0.01215 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00274              |              -4.44               |                        -3.32               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                     Green |   3 | 0.00136 | 0.00008 | 0.00409 | 0.00024 | -0.01196 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00274              |              -4.37               |                        -3.26               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                      Farm |   1 | 0.00219 | 0.00000 | 0.00220 | 0.00000 | -0.01251 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00274              |              -4.57               |                        -3.42               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                      Farm |   2 | 0.00219 | 0.00000 | 0.00439 | 0.00000 | -0.01249 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00274              |              -4.56               |                        -3.41               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                      Farm |   3 | 0.00219 | 0.00000 | 0.00659 | 0.00000 | -0.01247 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00274              |              -4.55               |                        -3.40               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                     Grass |   1 | 0.00027 | 0.00009 | 0.00027 | 0.00009 | -0.01244 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00273              |              -4.55               |                        -3.40               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                     Grass |   2 | 0.00027 | 0.00009 | 0.00054 | 0.00017 | -0.01235 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00273              |              -4.52               |                        -3.38               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) |                     Grass |   3 | 0.00027 | 0.00009 | 0.00082 | 0.00026 | -0.01227 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00273              |              -4.49               |                        -3.36               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                      Temp |   1 | 0.00045 | 0.00000 | 0.00045 | 0.00000 | -0.00268 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.92               |                        -0.72               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                      Temp |   2 | 0.00045 | 0.00000 | 0.00089 | 0.00000 | -0.00268 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00292              |              -0.92               |                        -0.72               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                      Temp |   3 | 0.00045 | 0.00000 | 0.00134 | 0.00000 | -0.00268 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00292              |              -0.92               |                        -0.72               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                      Wind |   1 | 0.00089 | 0.00001 | 0.00089 | 0.00001 | -0.00263 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00292              |              -0.90               |                        -0.71               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                      Wind |   2 | 0.00089 | 0.00001 | 0.00177 | 0.00002 | -0.00257 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00292              |              -0.88               |                        -0.69               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                      Wind |   3 | 0.00089 | 0.00001 | 0.00266 | 0.00003 | -0.00252 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00292              |              -0.86               |                        -0.68               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                       Pop |   1 | 0.00001 | 0.00002 | 0.00001 | 0.00002 | -0.00268 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.92               |                        -0.72               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                       Pop |   2 | 0.00001 | 0.00002 | 0.00002 | 0.00004 | -0.00267 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.92               |                        -0.72               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                       Pop |   3 | 0.00001 | 0.00002 | 0.00003 | 0.00006 | -0.00266 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.91               |                        -0.72               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                  Duration |   1 | 0.00010 | 0.03764 | 0.00010 | 0.03912 | -0.00145 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00286              |              -0.51               |                        -0.40               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                  Duration |   2 | 0.00010 | 0.03764 | 0.00021 | 0.07823 | -0.00022 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00280              |              -0.08               |                        -0.06               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                  Duration |   3 | 0.00010 | 0.03764 | 0.00031 | 0.11735 |  0.00102 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00274              |               0.37               |                         0.29               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                    Carbon |   1 | 0.00040 | 0.00020 | 0.00040 | 0.00020 | -0.00251 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.86               |                        -0.68               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                    Carbon |   2 | 0.00040 | 0.00020 | 0.00081 | 0.00040 | -0.00234 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.80               |                        -0.63               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                    Carbon |   3 | 0.00040 | 0.00020 | 0.00121 | 0.00060 | -0.00216 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00292              |              -0.74               |                        -0.58               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                     Water |   1 | 0.00007 | 0.00000 | 0.00007 | 0.00000 | -0.00267 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.92               |                        -0.72               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                     Water |   2 | 0.00007 | 0.00000 | 0.00015 | 0.00001 | -0.00266 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.91               |                        -0.72               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                     Water |   3 | 0.00007 | 0.00000 | 0.00022 | 0.00001 | -0.00265 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.91               |                        -0.72               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                     Green |   1 | 0.00016 | 0.00016 | 0.00017 | 0.00016 | -0.00259 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.89               |                        -0.70               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                     Green |   2 | 0.00016 | 0.00016 | 0.00033 | 0.00031 | -0.00249 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.85               |                        -0.67               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                     Green |   3 | 0.00016 | 0.00016 | 0.00050 | 0.00047 | -0.00239 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.82               |                        -0.64               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                      Farm |   1 | 0.00038 | 0.00009 | 0.00038 | 0.00009 | -0.00257 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.88               |                        -0.69               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                      Farm |   2 | 0.00038 | 0.00009 | 0.00077 | 0.00018 | -0.00246 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00292              |              -0.84               |                        -0.66               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                      Farm |   3 | 0.00038 | 0.00009 | 0.00115 | 0.00027 | -0.00234 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00292              |              -0.80               |                        -0.63               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                     Grass |   1 | 0.00019 | 0.00019 | 0.00019 | 0.00019 | -0.00257 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.88               |                        -0.69               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                     Grass |   2 | 0.00019 | 0.00019 | 0.00037 | 0.00038 | -0.00245 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.84               |                        -0.66               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  |             S2 urban x YM FE |                     Grass |   3 | 0.00019 | 0.00019 | 0.00056 | 0.00057 | -0.00234 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00291              |              -0.80               |                        -0.63               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) | Urban x YM trends (group) | .25 | 0.12304 | 0.00594 | 0.03508 | 0.00193 | -0.00774 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00278              |              -2.78               |                        -2.08               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) | Urban x YM trends (group) |  .5 | 0.12304 | 0.00594 | 0.07015 | 0.00389 | -0.00272 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00283              |              -0.96               |                        -0.72               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+  +-------------------------------------------------------------------------------------------------------------------+
+  |                         spec |                 benchmark |   k |  R2_D_X |  R2_Y_X |  R2_D_Z |  R2_Y_Z |  adj_est |
+  | S1 baseline (county + YM FE) | Urban x YM trends (group) |   1 | 0.12304 | 0.00594 | 0.14030 | 0.00792 |  0.00806 |
+  |-------------------------------------------------------------------------------------------------------------------|
+  |               adj_se              |              adj_t               |              adj_t_clustered               |
+  |              0.00294              |               2.75               |                         2.05               |
+  +-------------------------------------------------------------------------------------------------------------------+
+
+. export delimited using "$T2/tables/2_1_benchmark_bounds.csv", replace
+file /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/02_Task2_Sensitivity/tables/2_1_benchmark_bound
+> s.csv saved
+
+. save "$T2/tables/bounds_for_plot.dta", replace
+(file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/02_Task2_Sensitivity/tables/bounds_for_plot.dta not found)
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/02_Task2_Sensitivity/tables/bounds_for_plot.dta saved
+
+. erase "$T2/tables/bd_tmp.dta"
+
+. 
+. *--------------------------------------------------------------------------
+. * E. Contour plots (adjusted estimate and adjusted t) for each spec
+. *--------------------------------------------------------------------------
+. forvalues s = 1/2 {
+  2.     clear
+  3.     local n = 61
+  4.     set obs `=`n'*`n''
+  5.     gen r2dz = 0.0025*floor((_n-1)/`n')                 // 0 .. 0.15
+  6.     gen r2yz = 0.0025*mod(_n-1, `n')
+  7.     replace r2dz = 0.0001 if r2dz == 0
+  8.     replace r2yz = 0.0001 if r2yz == 0
+  9.     gen bias  = se_`s'*sqrt(r2yz*r2dz/(1 - r2dz)*df_`s')
+ 10.     gen adj   = sign(est_`s')*(abs(est_`s') - bias)
+ 11.     gen adjse = se_`s'*sqrt((1 - r2yz)/(1 - r2dz)*df_`s'/(df_`s' - 1))
+ 12.     gen adjt  = adj/adjse
+ 13.     * benchmark points (Duration k=1,2,3) for spec 1 only
+.     if `s' == 1 {
+ 14.         append using "$T2/tables/bounds_for_plot.dta", keep(benchmark k R2_D_Z R2_Y_Z spec)
+ 15.         keep if missing(spec) | (strpos(spec,"S1") & (benchmark=="Duration" | strpos(benchmark,"Urban")))
+ 16.         gen pt_x = R2_D_Z
+ 17.         gen pt_y = R2_Y_Z
+ 18.         gen str20 pt_lab = cond(benchmark=="Duration", string(k) + "x Duration", ///
+>                             cond(benchmark!="", string(k) + "x urban-YM", ""))
+ 19.         replace pt_x = . if pt_x > 0.15 | pt_y > 0.15
+ 20.     }
+ 21.     else {
+ 22.         gen pt_x = .
+ 23.         gen pt_y = .
+ 24.         gen pt_lab = ""
+ 25.     }
+ 26.     local e = string(est_`s', "%6.4f")
+ 27.     * Contours of the adjusted estimate are closed-form: an adjusted estimate
+.     * equal to share f of the original needs bias = (1-f)|est|, i.e.
+.     *   R2_YZ = B^2 (1 - R2_DZ) / R2_DZ,   B = (1-f)|est| / (se*sqrt(df))
+.     local K = se_`s'*sqrt(df_`s')
+ 28.     local plots ""
+ 29.     local txt ""
+ 30.     foreach f in 0.8 0.6 0.4 0.2 0 {
+ 31.         local B  = (1-`f')*abs(est_`s')/`K'
+ 32.         local x0 = max(0.0002, `B'^2/(0.15 + `B'^2))
+ 33.         local col = cond(`f'==0, "red", "navy")
+ 34.         local pat = cond(`f'==0, "dash", "solid")
+ 35.         local wid = cond(`f'==0, "thick", "medium")
+ 36.         local plots `plots' (function y = (`B')^2*(1-x)/x, range(`x0' 0.15) lcolor(`col') lpattern(`pat') lwidth(`w
+> id'))
+ 37.         local yl = (`B')^2*(0.85)/0.15
+ 38.         if `yl' <= 0.15 local txt `txt' text(`yl' 0.151 "`=round(100*`f')'% left", place(e) size(vsmall) color(`col
+> '))
+ 39.     }
+ 40.     twoway `plots' ///
+>            (scatter pt_y pt_x, msymbol(D) mcolor(black) mlabel(pt_lab) mlabcolor(black) mlabsize(vsmall)), ///
+>         `txt' xscale(range(0 0.17)) ///
+>         xtitle("Partial R{superscript:2} of confounder with PSI") ///
+>         ytitle("Partial R{superscript:2} of confounder with Shannon") ///
+>         title("Adjusted PSI estimate: `nm`s''", size(medium)) ///
+>         subtitle("Estimate = `e'. Curves: share of the estimate left after confounding; red = zero", size(vsmall)) ///
+>         xlabel(0(0.03)0.15) ylabel(0(0.03)0.15) legend(off)
+ 41.     graph export "$T2/figures/2_1_contour_estimate_S`s'.pdf", replace
+ 42.     * t-value: red dashed line where the adjusted t reaches -1.96
+.     twoway (contourline adjt r2yz r2dz if !missing(r2dz), ccuts(-1.96) ///
+>                 ccolors(red) clwidths(thick) clpatterns(dash)) ///
+>            (scatter pt_y pt_x, msymbol(D) mcolor(black) mlabel(pt_lab) mlabcolor(black) mlabsize(vsmall)), ///
+>         xtitle("Partial R{superscript:2} of confounder with PSI") ///
+>         ytitle("Partial R{superscript:2} of confounder with Shannon") ///
+>         title("Statistical significance: `nm`s''", size(medium)) ///
+>         subtitle("Beyond the red dashed line the adjusted estimate is not significant at 5% (classical SE)", size(vsma
+> ll)) ///
+>         xlabel(0(0.03)0.15) ylabel(0(0.03)0.15) legend(off)
+ 43.     graph export "$T2/figures/2_1_contour_tvalue_S`s'.pdf", replace
+ 44. }
+Number of observations (_N) was 0, now 3,721.
+(61 real changes made)
+(61 real changes made)
+(51 observations deleted)
+(3,721 missing values generated)
+(3,721 missing values generated)
+(3,721 missing values generated)
+(0 real changes made)
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/02_Task2_Sensitivity/figures/2_1_contour_estimate_S1.pdf saved as PDF format
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/02_Task2_Sensitivity/figures/2_1_contour_tvalue_S1.pdf saved as PDF format
+Number of observations (_N) was 0, now 3,721.
+(61 real changes made)
+(61 real changes made)
+(3,721 missing values generated)
+(3,721 missing values generated)
+(3,721 missing values generated)
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/02_Task2_Sensitivity/figures/2_1_contour_estimate_S2.pdf saved as PDF format
+file /Users/sahiljangra/Desktop/Johns
+    Hopkins/RA/Solar_Birds_Replication/02_Task2_Sensitivity/figures/2_1_contour_tvalue_S2.pdf saved as PDF format
+
+. erase "$T2/tables/bounds_for_plot.dta"
+
+. 
+. *--------------------------------------------------------------------------
+. * F. Cross-check with the official sensemakr (Stata) on FE-demeaned data.
+. *    Point estimate and SE match exactly by FWL; sensemakr's df ignores the
+. *    absorbed FE (N-k-1), so its RVs differ slightly from Part A.
+. *--------------------------------------------------------------------------
+. use "$SAMPLE", clear
+
+. reghdfe ShannonBD PI $control, absorb(county year) vce(unadjusted)
+(dropped 157 singleton observations)
+(MWFE estimator converged in 7 iterations)
+
+HDFE Linear regression                            Number of obs   =     46,371
+Absorbing 2 HDFE groups                           F(  10,  43898) =     181.97
+                                                  Prob > F        =     0.0000
+                                                  R-squared       =     0.3372
+                                                  Adj R-squared   =     0.2999
+                                                  Within R-sq.    =     0.0398
+                                                  Root MSE        =     0.8208
+
+------------------------------------------------------------------------------
+   ShannonBD | Coefficient  Std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+          PI |  -.0125283   .0027334    -4.58   0.000    -.0178858   -.0071708
+        Temp |   -.007307   .0144434    -0.51   0.613    -.0356163    .0210024
+        Wind |   .0434958   .0599719     0.73   0.468    -.0740503    .1610418
+         Pop |  -.0885085   .0857152    -1.03   0.302    -.2565118    .0794949
+    Duration |   .1638102   .0039011    41.99   0.000     .1561639    .1714565
+      Carbon |  -.1117558   .0334118    -3.34   0.001    -.1772434   -.0462681
+       Water |   -1.27986   .6970195    -1.84   0.066    -2.646031    .0863107
+       Green |   1.151814   .6124295     1.88   0.060    -.0485591    2.352186
+        Farm |   .0657308   .4362937     0.15   0.880    -.7894126    .9208742
+       Grass |   1.264197   .6541783     1.93   0.053    -.0180045    2.546398
+       _cons |   3.893401     .80722     4.82   0.000     2.311235    5.475567
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+      county |      2344           0        2344     |
+        year |       120           1         119     |
+-----------------------------------------------------+
+
+. keep if e(sample)
+(157 observations deleted)
+
+. foreach v in ShannonBD PI $control {
+  2.     quietly reghdfe `v', absorb(county year) resid(r_`v')
+  3. }
+
+. capture noisily sensemakr r_ShannonBD r_PI r_Temp r_Wind r_Pop r_Duration r_Carbon ///
+>     r_Water r_Green r_Farm r_Grass, treat(r_PI) benchmark(r_Duration) kd(1 2 3)
+
+                                                            DOF    =   46360 
+                                                            q      =    1.00 
+                                                            alpha  =    0.05 
+                                                            reduce =    TRUE
+                                                            H0     =       0
+
+ Treatment      |     Coef.      S.E.      t(H0)    R2yd.x     RV_q    RV_qa
+----------------+-----------------------------------------------------------
+           r_PI |   -0.0125    0.0027    -4.7102    0.0005   0.0216   0.0127
+
+ Partial R2 of the treatment with the outcome (R2yd.x): 
+ An extreme confounder (orthogonal to the covariates) that explains 100 percent of the 
+ residual variance of the outcome, would need to explain at least 0.05 percent of the 
+ residual variance of the treatment to fully account for the observed estimated effect. 
+ 
+ Robustness Value, q = 1.00 (RV_q): 
+ Unobserved confounders (orthogonal to the covariates) that explain more than 2.16 percent 
+ of the residual variance of both the treatment and the outcome are strong enough to bring 
+ the point estimate to 0 (a bias of 100 percent of the original estimate). Conversely, 
+ unobserved confounders that do not explain more than 2.16 percent of the residual variance 
+ of both the treatment and the outcome are not strong enough to bring the point estimate 
+ to 0. 
+ 
+ Robustness Value, q = 1.00, alpha = 0.05 (RV_qa): 
+ Unobserved confounders (orthogonal to the covariates) that explain more than 1.27 percent 
+ of the residual variance of both the treatment and the outcome are strong enough to bring 
+ the estimate to a range where it is no longer 'statistically different' from 0 (a bias 
+ of 100 percent of the original estimate), at the significance level of alpha = 0.05. Conversely,
+ unobserved confounders that do not explain more than 1.27 percent of the residual variance 
+ of both the treatment and the outcome are not strong enough to bring the estimate to a 
+ range where it is no longer 'statistically different' from 0, at the significance 
+ level of alpha = 0.05 
+ 
+ Bounds on Omitted Variable Bias: 
+ The table shows the maximum strength of unobserved confounders, bounded by a multiple of the 
+ observed explanatory power of the chosen benchmark covariate(s) with the treatment and the outcome.
+
+ Bound                 |   R2dz.x   R2yz.dx     Coef.      S.E.     t(H0)  Lower CI Upper CI 
+-----------------------+----------------------------------------------------------------------
+ 1.00x      r_Duration |   0.0006    0.0402   -0.0096    0.0026   -3.6930   -0.0147  -0.0045 
+ 2.00x      r_Duration |   0.0013    0.0804   -0.0067    0.0026   -2.6340   -0.0117  -0.0017 
+ 3.00x      r_Duration |   0.0019    0.1207   -0.0038    0.0025   -1.5288   -0.0087   0.0011 
+
+
+ Extreme Bound         |   R2dz.x   R2yz.dx     Coef.
+-----------------------+------------------------------ 
+ 1.00x      r_Duration |   0.0006    1.0000    0.0019 
+ 2.00x      r_Duration |   0.0013    1.0000    0.0079 
+ 3.00x      r_Duration |   0.0019    1.0000    0.0126 
+
+. if _rc di as err "sensemakr cross-check could not run (rc=" _rc "); Part A results stand."
+
+. 
+end of do-file
+
+. log close
+      name:  <unnamed>
+       log:  /Users/sahiljangra/Desktop/Johns Hopkins/RA/Solar_Birds_Replication/02_Task2_Sensitivity/logs/2_1_sensitivi
+> ty_analysis.log
+  log type:  text
+ closed on:   7 Nov 2026, 21:27:12
+------------------------------------------------------------------------------------------------------------------------

@@ -1,0 +1,44 @@
+Table S4. Descriptive statistics.
+
+  ----------- -------- --------- --------- --------- ---------
+              N        Mean      S.D.      Min       Max
+  ShannonBD   46,528   2.4458    0.9814    0.0000    4.3425
+  SimpsonBD   46,528   0.8067    0.2202    0.0000    0.9833
+  PI          46,528   2.6623    4.1159    0.0000    15.5000
+  Temp        46,528   14.8332   5.9125    -3.6423   24.5156
+  Wind        46,528   2.2355    0.8414    0.8092    4.8008
+  Pop         46,528   5.5680    1.8172    0.2308    9.5080
+  Duration    46,528   1.5019    1.1071    0.0000    5.8903
+  Carbon      46,528   14.5589   1.3927    11.3532   17.4598
+  Water       46,528   0.0358    0.0542    0.0001    0.2837
+  Green       46,528   0.3318    0.3197    0.0000    0.9377
+  Farm        46,528   0.3634    0.2457    0.0000    0.8882
+  Grass       46,528   0.0893    0.2108    0.0000    0.9103
+  CCPU        38,241   1.2132    0.7406    0.0908    3.2237
+  lnsun       45,784   7.5535    0.2596    6.9013    8.0227
+  Sun_ccpu    37,503   12.3912   14.5068   2.2081    87.8951
+  ----------- -------- --------- --------- --------- ---------
+
+Table S4. Pearson Correlation Matrix.
+
+  ----------- ------------- ------------- ------------- ------------- ------------- ------------- ------------- ------------- ------------- ------------- ------------ ------------- -------
+              ShannonBD     PI            Temp          Wind          Pop           Duration      Carbon        Water         Green         Farm          Grass        CCPU          lnsun
+  ShannonBD   1.00                                                                                                                                                                   
+  PI          0.02***    1.00                                                                                                                                                     
+  Temp        0.16***    0.11***    1.00                                                                                                                                       
+  Wind        -0.10***   -0.17***   0.09***    1.00                                                                                                                         
+  Pop         0.04***    -0.23***   0.50***    0.32***    1.00                                                                                                           
+  Duration    0.23***    -0.01         -0.01         -0.07***   -0.07***   1.00                                                                                             
+  Carbon      -0.01***   -0.11***   0.12***    0.34***    0.30***    -0.05***   1.00                                                                               
+  Water       0.04***    -0.15***   0.23***    0.35***    0.28***    -0.02***   0.25***    1.00                                                                 
+  Green       0.11***    0.30***    0.17***    -0.52***   -0.40***   0.10***    -0.37***   -0.37***   1.00                                                   
+  Farm        -0.06***   0.01          0.19***    0.30***    0.29***    -0.07***   0.34***    0.18***    -0.59***   1.00                                     
+  Grass       -0.10***   -0.13***   -0.66***   -0.05***   -0.42***   -0.01***   -0.10***   -0.18***   -0.22***   -0.32***   1.00                       
+  CCPU        -0.00         -0.19***   0.01**     0.02***    0.12***    0.07***    0.02***    0.12***    -0.07***   -0.05***   0.03***   1.00          
+  lnsun       -0.16***   -0.23***   -0.54***   0.35***    -0.22***   -0.04***   0.17***    0.02***    -0.33***   -0.08***   0.48***   -0.04***   1.00
+  ----------- ------------- ------------- ------------- ------------- ------------- ------------- ------------- ------------- ------------- ------------- ------------ ------------- -------
+
+Notes: Panel A shows the descriptive statistics for the key variables covering the period from 2014 to 2023. ShannonBD refers to the bird diversity in the sample area (the negative sum of the proportion of each bird species multiplied by its natural logarithm). SimpsonBD refers to the Simpson Diversity Index, an alternative measure of bird diversity in the sample area (one minus the sum of the
+squared proportions of each bird species in the community). PSI refers to the stringency of photovoltaic policies in the sample area (the weighted sum of policies at the provincial, municipal, and county levels). Other control variables include Temp (annual average temperature), Wind (annual average wind speed), Pop (the logarithm of the ratio of total population to regional area), Duration (the
+logarithm of the ratio of birdwatching duration to the number of birdwatchers), Carbon (the logarithm of the carbon emissions), Water (the area of water divided by the total area), Green (the sum of the area of forests and shrubs divided by the total area), Farm (the area of farmland divided by the total area), Grass (the area of the grassland divided by the total area). Panel B shows the
+correlation matrix of the main variables in this study. Each cell shows the Pearson correlation coefficient between the two variables.
