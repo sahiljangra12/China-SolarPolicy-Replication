@@ -5,7 +5,7 @@ Zhang et al. (2026), *Science* 393, 831 ([doi:10.1126/science.aee0747](https://d
 Work by Sahil, research assistant to Prof. Paul J. Ferraro, Johns Hopkins University. All analysis is in Stata (StataNow/BE 19.5), run on the authors' public data.
 
 **Website:** <https://sahiljangra12.github.io/China-SolarPolicy-Replication/>
-It has live tools, the evidence with links to the exact Stata log lines, a claim-by-claim check of the paper, and a library of every output. The site lives in `docs/`.
+It has live tools, the evidence with links to the exact Stata log lines, a claim-by-claim check of the paper, and a library of every output. The site is published from the `gh-pages` branch; `docs/` holds the same files.
 
 ## Short answer
 
