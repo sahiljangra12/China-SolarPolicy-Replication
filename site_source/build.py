@@ -231,8 +231,9 @@ assert imp == {'rural': [9, 1497], 'urban': [694, 847]}, imp
     'flow': flow, 'years': years, 'cohorts': coh, 'imp': imp}, separators=(',', ':')) + ';')
 
 # ---------------------------------------------------------------- pages
-for f in ['site.css', 'site.js', 'lab.js', 'pagecharts.js', 'libpage.js', 'sources.js']: shutil.copy(SRC / f, OUT / 'assets' / f)
+for f in ['site.css', 'site.js', 'lab.js', 'pagecharts.js', 'libpage.js', 'sources.js', 'hero.js']: shutil.copy(SRC / f, OUT / 'assets' / f)
 shutil.copytree(SRC / 'pdfjs', OUT / 'assets/pdfjs')
+shutil.copytree(SRC / 'fonts', OUT / 'assets/fonts')
 NAV = [('index.html', 'Overview'), ('lab.html', 'Live tools'), ('evidence.html', 'Evidence'), ('paper.html', 'Paper check'), ('library.html', 'Library'), ('qa.html', 'Q&A')]
 SHELL = '''<!doctype html>
 <html lang="en">
@@ -242,15 +243,16 @@ SHELL = '''<!doctype html>
 <meta name="robots" content="noindex">
 <title>{title} | Solar Policy and Bird Diversity</title>
 <meta name="description" content="Replication and evaluation of Zhang et al. (2026), China's solar expansion policy reduces bird diversity. Stata analyses, live tools and page-level references.">
+<link rel="preload" href="assets/fonts/bricolage-grotesque-latin-opsz-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/site.css">
 </head>
 <body>
 <header class="top"><div class="in">
-  <a class="brand" href="index.html"><i></i><span>Solar Policy &amp; Bird Diversity</span></a>
+  <a class="brand" href="index.html" aria-label="Solar policy and bird diversity: overview"><i aria-hidden="true"><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b></i><span>Solar policy &amp; bird diversity</span></a>
   <nav class="tabs">{tabs}</nav>
-  <div class="tools"><input id="gsearch" type="search" placeholder="Search  /" aria-label="Search this site" autocomplete="off"><div id="gres"></div><button class="iconbtn" id="themeBtn" type="button">Dark</button></div>
-</div></header>
-<div class="wrap{nosb}">{side}<main>
+  <div class="tools"><button class="iconbtn" id="searchBtn" type="button" aria-label="Search this site">Search <kbd>/</kbd></button><button class="iconbtn" id="themeBtn" type="button">Dark</button></div>
+</div><div id="progress"></div></header>
+{hero}<div class="wrap{nosb}">{side}<main>
 {body}
 </main></div>
 <footer>Independent replication and evaluation of Zhang et al. (2026), <i>Science</i> 393, 831. Not affiliated with the paper's authors or the journal. Code, data and outputs: <a href="''' + REPO + '''">GitHub</a>.</footer>
@@ -259,6 +261,7 @@ SHELL = '''<!doctype html>
 <dialog id="pdfv"><div class="dh"><b id="pdftitle"></b><span class="small" id="pdfpage"></span><button class="iconbtn" id="pdfprev" type="button">&larr;</button><button class="iconbtn" id="pdfnext" type="button">&rarr;</button><button class="iconbtn" id="pdfout" type="button">&minus;</button><button class="iconbtn" id="pdfin" type="button">+</button><button class="iconbtn" id="pdfswap" type="button">Change file</button><button class="iconbtn" data-close type="button">Close</button></div>
   <div id="pdfbody"><div id="pdfask" class="card" style="max-width:560px;margin:40px auto;text-align:left;display:none"><p id="pdfmsg"></p><input type="file" id="pdffile" accept="application/pdf,.pdf"></div><canvas id="pdfcanvas"></canvas></div></dialog>
 <dialog id="lightbox"><img alt=""><p></p></dialog>
+<dialog id="cmdk"><input id="cmdin" type="search" placeholder="Search pages, reports, logs, tables and code" aria-label="Search this site" autocomplete="off"><div id="cmdres"></div></dialog>
 <script src="assets/data.js"></script>
 <script src="assets/sources.js"></script>
 <script src="assets/search.js"></script>
@@ -267,15 +270,18 @@ SHELL = '''<!doctype html>
 </body>
 </html>
 '''
-EXTRA = {'lab.html': ['lab.js'], 'evidence.html': ['pagecharts.js'], 'paper.html': ['pagecharts.js'], 'library.html': ['library.js', 'libpage.js']}
+EXTRA = {'index.html': ['hero.js'], 'lab.html': ['lab.js'], 'evidence.html': ['pagecharts.js'], 'paper.html': ['pagecharts.js'], 'library.html': ['library.js', 'libpage.js']}
 search = []
 def strip(h): return re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', re.sub(r'<(script|svg|select)[\s\S]*?</\1>', ' ', h)))).strip()
 for fn, label in NAV:
     body = (SRC / 'pages' / fn).read_text(encoding='utf-8')
     title = re.search(r'<!--title:(.*?)-->', body).group(1)
     nosb = '<!--nosidebar-->' in body
+    hm = re.search(r'<!--hero-->([\s\S]*?)<!--/hero-->', body)
+    hero = hm.group(1) if hm else ''
+    if hm: body = body.replace(hm.group(0), '')
     tabs = ''.join('<a href="%s"%s>%s</a>' % (f, ' class="on"' if f == fn else '', html.escape(l)) for f, l in NAV)
-    page = SHELL.format(title=html.escape(title), tabs=tabs, nosb=' nosb' if nosb else '', side='' if nosb else '<aside class="side" id="side"></aside>', body=body,
+    page = SHELL.format(title=html.escape(title), tabs=tabs, nosb=' nosb' if nosb else '', side='' if nosb else '<aside class="side" id="side"></aside>', body=body, hero=hero,
                         scripts='\n'.join(f'<script src="assets/{s}"></script>' for s in EXTRA.get(fn, [])))
     (OUT / fn).write_text(page, encoding='utf-8')
     for m in re.finditer(r'<section[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)</section>', body):

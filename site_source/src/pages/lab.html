@@ -14,7 +14,7 @@
 
 <section id="lab-spec" class="lab" data-nav="A. Change the model">
   <div class="kicker">Tool A</div>
-  <h2>Change the model</h2>
+  <h2>A. Change the model</h2>
   <p class="lead"><b>Why this is here.</b> The paper's conclusion rests on one specification. This shows what happens under any other reasonable one.</p>
   <div class="presets">
     <button type="button" data-preset='{}'>Paper's specification</button>
@@ -52,7 +52,7 @@
 
 <section id="lab-sens" class="lab" data-nav="B. Add a confounder">
   <div class="kicker">Tool B</div>
-  <h2>Add a hidden confounder</h2>
+  <h2>B. Add a hidden confounder</h2>
   <p class="lead"><b>Why this is here.</b> No study controls for everything. This asks how strong an unmeasured confounder must be to change the conclusion (Cinelli &amp; Hazlett 2020).</p>
   <div class="controls">
     <label>Starting model<select id="sens_spec"><option value="paper">Paper's specification</option><option value="urbym">Urban &times; year-month effects</option><option value="realpsi">Real PSI only</option></select></label>
@@ -79,7 +79,7 @@
 
 <section id="lab-iv" class="lab" data-nav="C. Relax the instrument">
   <div class="kicker">Tool C</div>
-  <h2>Relax the instrument's key assumption</h2>
+  <h2>C. Relax the instrument's key assumption</h2>
   <p class="lead"><b>Why this is here.</b> The IV estimate is valid only if the instrument affects birds through PSI alone. Where PSI is fixed at 0, the instrument still moves Shannon. This shows the IV estimate for any assumed direct effect (Conley, Hansen &amp; Rossi 2012).</p>
   <div class="controls">
     <label>Standard errors clustered by<select id="iv_cl"><option value="county">County (paper)</option><option value="city">City (level of the policy-uncertainty shock)</option></select></label>
@@ -100,7 +100,7 @@
 
 <section id="lab-es" class="lab" data-nav="D. Compare event studies">
   <div class="kicker">Tool D</div>
-  <h2>Compare event studies</h2>
+  <h2>D. Compare event studies</h2>
   <p class="lead"><b>Why this is here.</b> If adopting a solar policy harmed birds, diversity should fall after adoption and be flat before it. Four estimators, same question.</p>
   <div class="controls">
     <label>Estimator<select id="es_est"></select></label>

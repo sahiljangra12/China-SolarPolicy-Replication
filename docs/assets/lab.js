@@ -71,7 +71,7 @@ function drawCurve(s){
   for(var t=0;t<=4;t++){var v=y0+(y1-y0)*t/4;svg.appendChild(el('line',{x1:m.l,x2:W-m.r,y1:Y(v),y2:Y(v),stroke:line}));svg.appendChild(el('text',{x:m.l-8,y:Y(v)+4,'text-anchor':'end','font-size':11,fill:ink},v.toFixed(Math.abs(y1-y0)<0.5?3:2)));}
   svg.appendChild(el('line',{x1:m.l,x2:W-m.r,y1:Y(0),y2:Y(0),stroke:css('--ink'),'stroke-width':1.2}));
   svg.appendChild(el('text',{x:m.l,y:H-8,'font-size':11,fill:ink},'Each dot is one specification, sorted by estimate. Bars are 95% intervals. Click a dot to load it.'));
-  all.forEach(function(x,i){var col=x[8]<0.05?(x[6]<0?css('--bad'):css('--good')):css('--muted'),isSel=(x===s);
+  all.forEach(function(x,i){var col=x[8]<0.05?(x[6]<0?css('--neg'):css('--pos')):css('--muted'),isSel=(x===s);
     svg.appendChild(el('line',{x1:X(i),x2:X(i),y1:Y(x[6]-1.96*x[7]),y2:Y(x[6]+1.96*x[7]),stroke:col,'stroke-width':isSel?2.5:1,opacity:isSel?1:0.45}));
     var c=el('circle',{cx:X(i),cy:Y(x[6]),r:isSel?6.5:3,fill:col,stroke:isSel?css('--ink'):'none','stroke-width':2,style:'cursor:pointer'});
     c.appendChild(el('title',{},fmt(x[6])+' (p '+fmtp(x[8])+') | '+L.fe[x[2]]+' | '+L.smp[x[3]]+' | '+L.ctrl[x[4]]+' | cluster: '+x[5]));
@@ -120,7 +120,7 @@ function drawSens(){
   if(Math.abs(s.b/s.se)>1.96)contour(function(a){return s.b<0?(a.est+1.96*a.se>0):(a.est-1.96*a.se<0);},css('--warn'),'6 4');
   contour(function(a){return (a.est>0)!==(s.b>0)||a.est===0;},css('--bad'));
   for(var k2=1;k2<=5;k2++){var bp=bench(s,k2);if(bp[0]<=xm&&bp[1]<=ym){svg.appendChild(el('rect',{x:X(bp[0])-4,y:Y(bp[1])-4,width:8,height:8,fill:css('--brand'),transform:'rotate(45 '+X(bp[0])+' '+Y(bp[1])+')'}));svg.appendChild(el('text',{x:X(bp[0])+9,y:Y(bp[1])+13,'font-size':11,fill:css('--brand')},k2+'× Duration'));}}
-  svg.appendChild(el('circle',{cx:X(pt[0]),cy:Y(pt[1]),r:8,fill:css('--accent'),stroke:css('--ink'),'stroke-width':2}));
+  svg.appendChild(el('circle',{cx:X(pt[0]),cy:Y(pt[1]),r:8,fill:css('--accent-fill'),stroke:css('--ink'),'stroke-width':2}));
   svg.appendChild(el('text',{x:W-m.r-4,y:m.t+14,'text-anchor':'end','font-size':11,fill:css('--bad')},'Solid line: estimate reaches zero'));
   svg.appendChild(el('text',{x:W-m.r-4,y:m.t+29,'text-anchor':'end','font-size':11,fill:css('--warn')},'Dashed line: estimate stops being significant'));
 }
@@ -151,8 +151,8 @@ function drawIV(){
   svg.appendChild(el('path',{d:arr.map(function(a,i){return (i?'L':'M')+X(a[0])+' '+Y(a[1]);}).join(''),fill:'none',stroke:css('--brand'),'stroke-width':2.2}));
   svg.appendChild(el('line',{x1:m.l,x2:W-m.r,y1:Y(0),y2:Y(0),stroke:css('--ink'),'stroke-width':1.2}));
   [[0,'paper'],[D.ghat,'estimated']].forEach(function(v){svg.appendChild(el('line',{x1:X(v[0]),x2:X(v[0]),y1:m.t,y2:H-m.b,stroke:ink,'stroke-dasharray':'4 4'}));svg.appendChild(el('text',{x:X(v[0])+4,y:m.t+12,'font-size':11,fill:ink},v[1]));});
-  svg.appendChild(el('line',{x1:X(r[0]),x2:X(r[0]),y1:Y(lo),y2:Y(hi),stroke:css('--accent'),'stroke-width':3}));
-  svg.appendChild(el('circle',{cx:X(r[0]),cy:Y(r[1]),r:7,fill:css('--accent'),stroke:css('--ink'),'stroke-width':2}));
+  svg.appendChild(el('line',{x1:X(r[0]),x2:X(r[0]),y1:Y(lo),y2:Y(hi),stroke:css('--accent-fill'),'stroke-width':3}));
+  svg.appendChild(el('circle',{cx:X(r[0]),cy:Y(r[1]),r:7,fill:css('--accent-fill'),stroke:css('--ink'),'stroke-width':2}));
 }
 
 /* ================= D. event-study viewer ================= */
@@ -178,7 +178,7 @@ function drawES(){
   svg.appendChild(el('line',{x1:m.l,x2:W-m.r,y1:Y(0),y2:Y(0),stroke:css('--ink'),'stroke-width':1.2}));
   var sorted=pts.slice().sort(function(a,b){return a[0]-b[0];});
   svg.appendChild(el('path',{d:sorted.map(function(p,i){return (i?'L':'M')+X(p[0])+' '+Y(p[1]);}).join(''),fill:'none',stroke:css('--brand'),'stroke-width':1.6,opacity:0.6}));
-  sorted.forEach(function(p){var isSig=p[2]>0&&Math.abs(p[1]/p[2])>1.96,col=isSig?css('--accent'):css('--brand');
+  sorted.forEach(function(p){var isSig=p[2]>0&&Math.abs(p[1]/p[2])>1.96,col=isSig?css('--accent-fill'):css('--brand');
     if(p[2]>0)svg.appendChild(el('line',{x1:X(p[0]),x2:X(p[0]),y1:Y(p[1]-1.96*p[2]),y2:Y(p[1]+1.96*p[2]),stroke:col,'stroke-width':2}));
     var c=el('circle',{cx:X(p[0]),cy:Y(p[1]),r:5,fill:p[2]>0?col:css('--panel'),stroke:col,'stroke-width':2});c.appendChild(el('title',{},'Year '+p[0]+': '+fmt(p[1],3)+(p[2]>0?' (SE '+p[2].toFixed(3)+')':' (reference year)')));svg.appendChild(c);});
 }

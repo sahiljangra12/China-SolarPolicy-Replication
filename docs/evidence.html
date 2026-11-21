@@ -6,25 +6,26 @@
 <meta name="robots" content="noindex">
 <title>Evidence | Solar Policy and Bird Diversity</title>
 <meta name="description" content="Replication and evaluation of Zhang et al. (2026), China's solar expansion policy reduces bird diversity. Stata analyses, live tools and page-level references.">
+<link rel="preload" href="assets/fonts/bricolage-grotesque-latin-opsz-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/site.css">
 </head>
 <body>
 <header class="top"><div class="in">
-  <a class="brand" href="index.html"><i></i><span>Solar Policy &amp; Bird Diversity</span></a>
+  <a class="brand" href="index.html" aria-label="Solar policy and bird diversity: overview"><i aria-hidden="true"><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b></i><span>Solar policy &amp; bird diversity</span></a>
   <nav class="tabs"><a href="index.html">Overview</a><a href="lab.html">Live tools</a><a href="evidence.html" class="on">Evidence</a><a href="paper.html">Paper check</a><a href="library.html">Library</a><a href="qa.html">Q&amp;A</a></nav>
-  <div class="tools"><input id="gsearch" type="search" placeholder="Search  /" aria-label="Search this site" autocomplete="off"><div id="gres"></div><button class="iconbtn" id="themeBtn" type="button">Dark</button></div>
-</div></header>
+  <div class="tools"><button class="iconbtn" id="searchBtn" type="button" aria-label="Search this site">Search <kbd>/</kbd></button><button class="iconbtn" id="themeBtn" type="button">Dark</button></div>
+</div><div id="progress"></div></header>
 <div class="wrap"><aside class="side" id="side"></aside><main>
 <!--title:Evidence-->
 <section id="data" data-nav="Paper and data">
   <div class="kicker">Evidence</div>
   <h2>The paper and its data</h2>
-  <div class="box"><b class="h">The paper's claim</b>Counties with stricter solar-promotion policy have lower bird diversity. One more point of the Policy Stringency Index (PSI) lowers the Shannon index by 0.0125 (<a class="ref" data-s="t1">Table 1, p. 832</a>). An instrumental-variable estimate gives &minus;0.126 (<a class="ref" data-s="s7">Table S7, SM p. 33</a>).</div>
+  <div class="box"><b class="h">The paper's claim</b>Counties with stricter solar-promotion policy have lower bird diversity. One more point of the Policy Stringency Index (PSI) lowers the Shannon index by 0.0125 <a class="ref" data-s="t1">Table 1, p. 832</a>. An instrumental-variable estimate gives &minus;0.126 <a class="ref" data-s="s7">Table S7, SM p. 33</a>.</div>
   <ul>
     <li><b>Unit:</b> county-month, 2014&ndash;2023.</li>
-    <li><b>Outcome:</b> Shannon diversity of birds recorded on China Birdreport, a citizen-science platform (<a class="ref" data-s="sm2">SM p. 2</a>). Records are opportunistic, not standardized surveys.</li>
+    <li><b>Outcome:</b> Shannon diversity of birds recorded on China Birdreport, a citizen-science platform <a class="ref" data-s="sm2">SM p. 2</a>. Records are opportunistic, not standardized surveys.</li>
     <li><b>Treatment (PSI):</b> solar-promotion documents scored by how binding they are, summed per county-year (0 to 15.5). Missing for 724 of 2,501 counties and set to 0.</li>
-    <li><b>Controls:</b> temperature, wind, population density, carbon emissions, four land-use shares, and Duration, the log of birding hours per birdwatcher (<a class="ref" data-s="s1">Table S1, SM p. 24</a>).</li>
+    <li><b>Controls:</b> temperature, wind, population density, carbon emissions, four land-use shares, and Duration, the log of birding hours per birdwatcher <a class="ref" data-s="s1">Table S1, SM p. 24</a>.</li>
   </ul>
   <div class="two">
     <div><h3>Sample flow</h3><svg class="chart" id="c_flow" viewBox="0 0 520 250" role="img" aria-label="Sample flow"></svg></div>
@@ -71,7 +72,7 @@
   <ul>
     <li>In the paper's design PSI predicts less effort and fewer observed months. In fair comparisons both links vanish.</li>
     <li>&ldquo;Number of birdwatchers&rdquo; in the authors' file is a count of submitted records, so it measures checklists, not people.</li>
-    <li>The paper's own effort check keeps 17&ndash;58% of the sample, not the 80&ndash;97% its description implies (<a class="ref" data-s="s14">Table S14, SM p. 44</a>).</li>
+    <li>The paper's own effort check keeps 17&ndash;58% of the sample, not the 80&ndash;97% its description implies <a class="ref" data-s="s14">Table S14, SM p. 44</a>.</li>
     <li>Holding records fixed is a diagnostic, not a fix: if birds leave, birdwatchers may follow.</li>
   </ul></div>
   <div class="sources">Sources: <a class="src" data-file="files/06_Followups_Nov19/logs/6_4_extra_checks.log" data-find="reghdfe obs c.trend#i.urban">urban growth (log)</a> <a class="src" data-file="files/05_Followups_Nov13/code/5_1_effort_test.do">effort code</a> <a class="src" data-file="files/05_Followups_Nov13/code/5_4_missingness_test.do">missingness code</a> <a href="reports/Followup_Report.pdf">13 Nov report</a> <a href="lab.html#spec=lnBN|PI|f1|all|c1|county">effort in the tool</a></div>
@@ -93,8 +94,8 @@
   <ul>
     <li><b>For the paper:</b> Area stays negative in the comparison-group checks where PSI does not.</li>
     <li><b>Against:</b> more area goes with 8.4% fewer records per km&sup2;. Holding records fixed removes 85% of the effect. dCDH finds nothing significant.</li>
-    <li><b>Data:</b> licensed plants from the National Energy Administration (<a class="ref" data-s="s2">Table S2, SM p. 26</a>). Area is missing for 1,184 counties and set to 0; only 473 of them also lack PSI. The file has 11,699 true zeros.</li>
-    <li>The paper's positive PSI&ndash;Area correlation (<a class="ref" data-s="r041">r = 0.041, SM p. 12</a>) is across counties. Within a county over time the relation is negative.</li>
+    <li><b>Data:</b> licensed plants from the National Energy Administration <a class="ref" data-s="s2">Table S2, SM p. 26</a>. Area is missing for 1,184 counties and set to 0; only 473 of them also lack PSI. The file has 11,699 true zeros.</li>
+    <li>The paper's positive PSI&ndash;Area correlation <a class="ref" data-s="r041">r = 0.041, SM p. 12</a> is across counties. Within a county over time the relation is negative.</li>
   </ul></div>
   <div class="sources">Sources: <a class="ref" data-s="s12">Table S12, SM p. 41</a> <a class="src" data-file="files/06_Followups_Nov19/logs/6_3_meeting_facts.log" data-find="count if ICtotal == 0">true zeros (log)</a> <a class="src" data-file="files/06_Followups_Nov19/logs/6_3_meeting_facts.log" data-find="tab in_PI_file in_IC_file if tagc">missing overlap (log)</a> <a class="src" data-file="files/05_Followups_Nov13/code/5_5_pv_area_treatment.do">code</a> <a href="lab.html#spec=ShannonBD|Area|f1|all|c1|county">Area in the tool</a></div>
 </section>
@@ -123,7 +124,7 @@
 
 <section id="iv" data-nav="5. Instrumental variable">
   <h2>5. The instrumental variable</h2>
-  <p class="lead">Instrument: ln(long-run sunshine) &divide; city climate-policy uncertainty (<a class="ref" data-s="ivdef">SM p. 8</a>). The IV estimate is ten times the main estimate.</p>
+  <p class="lead">Instrument: ln(long-run sunshine) &divide; city climate-policy uncertainty <a class="ref" data-s="ivdef">SM p. 8</a>. The IV estimate is ten times the main estimate.</p>
   <div class="tablewrap"><table>
     <tr><th>Clustering</th><th class="n">Instrument F</th><th>Benchmark 23.1</th><th>95% Anderson&ndash;Rubin set</th><th>Stata log</th></tr>
     <tr><td>County (paper)</td><td class="n">30.2</td><td>passes</td><td>[&minus;0.217, &minus;0.069]</td><td><a class="src" data-file="files/05_Followups_Nov13/logs/5_6_weak_iv_anderson_rubin.log" data-find="AR 95% set, cluster(county) fe(county year) :">open</a></td></tr>
@@ -221,6 +222,7 @@
 <dialog id="pdfv"><div class="dh"><b id="pdftitle"></b><span class="small" id="pdfpage"></span><button class="iconbtn" id="pdfprev" type="button">&larr;</button><button class="iconbtn" id="pdfnext" type="button">&rarr;</button><button class="iconbtn" id="pdfout" type="button">&minus;</button><button class="iconbtn" id="pdfin" type="button">+</button><button class="iconbtn" id="pdfswap" type="button">Change file</button><button class="iconbtn" data-close type="button">Close</button></div>
   <div id="pdfbody"><div id="pdfask" class="card" style="max-width:560px;margin:40px auto;text-align:left;display:none"><p id="pdfmsg"></p><input type="file" id="pdffile" accept="application/pdf,.pdf"></div><canvas id="pdfcanvas"></canvas></div></dialog>
 <dialog id="lightbox"><img alt=""><p></p></dialog>
+<dialog id="cmdk"><input id="cmdin" type="search" placeholder="Search pages, reports, logs, tables and code" aria-label="Search this site" autocomplete="off"><div id="cmdres"></div></dialog>
 <script src="assets/data.js"></script>
 <script src="assets/sources.js"></script>
 <script src="assets/search.js"></script>

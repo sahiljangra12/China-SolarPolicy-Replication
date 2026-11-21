@@ -34,21 +34,36 @@ if(side){
   if('IntersectionObserver' in window){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){links.forEach(function(a){a.classList.remove('on');});if(map[e.target.id])map[e.target.id].classList.add('on');}});},{rootMargin:'-12% 0px -72% 0px'});secs.forEach(function(s){io.observe(s);});}
 }
 
-/* ---------- site search ---------- */
-var gs=$('gsearch'),gr=$('gres');
-function runSearch(){
-  var q=gs.value.trim().toLowerCase();if(q.length<2||!window.SEARCH){gr.style.display='none';return;}
-  var terms=q.split(/\s+/),out=[];
-  window.SEARCH.forEach(function(it){var t=it.t.toLowerCase(),x=it.x.toLowerCase(),score=0;
-    for(var i=0;i<terms.length;i++){var a=t.indexOf(terms[i])>-1,b=x.indexOf(terms[i])>-1;if(!a&&!b)return;score+=a?5:1;}
-    var k=x.indexOf(terms[0]);var snip=k>-1?it.x.slice(Math.max(0,k-40),k+90):it.x.slice(0,120);out.push({it:it,score:score,snip:snip});});
-  out.sort(function(a,b){return b.score-a.score;});
-  gr.innerHTML=out.slice(0,9).map(function(o){return '<a href="'+o.it.p+'"><b>'+esc(o.it.t)+'</b> <span>'+esc(o.it.pg)+' &middot; &hellip;'+esc(o.snip)+'&hellip;</span></a>';}).join('')||'<a><span>No match. Try a method name, a number or a table.</span></a>';
-  gr.style.display='block';
+/* ---------- command palette: search every page, report, log, table and code file ---------- */
+var cmdk=$('cmdk'),cin=$('cmdin'),cres=$('cmdres'),cact=0,cout=[];
+var PAGES=[['index.html','Overview','Summary, the evidence sorted, project record'],['lab.html','Live tools','Change the model, add a confounder, relax the instrument, compare event studies'],['evidence.html','Evidence','Main estimate, effort, solar area, sensitivity, IV, staggered DiD, dCDH'],['paper.html','Paper check','Claims tied to pages, reproduction check, checklist, index of the Supplementary Materials'],['library.html','Library','Reports, figures, tables, logs, code, data'],['qa.html','Q&A','Questions answered, glossary, references']];
+function paintCmd(){
+  var q=cin.value.trim().toLowerCase();cout=[];
+  if(q.length<2){cout=PAGES.map(function(p){return {p:p[0],t:p[1],pg:'Page',snip:p[2]};});}
+  else{var terms=q.split(/\s+/);(window.SEARCH||[]).forEach(function(it){var t=it.t.toLowerCase(),x=it.x.toLowerCase(),score=0;
+      for(var i=0;i<terms.length;i++){var a=t.indexOf(terms[i])>-1,b=x.indexOf(terms[i])>-1;if(!a&&!b)return;score+=a?5:1;}
+      var k=x.indexOf(terms[0]);cout.push({p:it.p,t:it.t,pg:it.pg,score:score,snip:k>-1?it.x.slice(Math.max(0,k-40),k+110):it.x.slice(0,130)});});
+    cout.sort(function(a,b){return b.score-a.score;});cout=cout.slice(0,12);}
+  cact=0;
+  cres.innerHTML=cout.length?cout.map(function(o,i){return '<a href="'+esc(o.p)+'"'+(i===0?' class="act"':'')+'><b>'+esc(o.t)+'</b> <span>'+esc(o.pg)+': '+esc(o.snip)+'</span></a>';}).join(''):'<div class="empty">Nothing matches. Try a method, a table number or a file name.</div>';
 }
-gs.addEventListener('input',runSearch);gs.addEventListener('focus',runSearch);
-document.addEventListener('click',function(e){if(!e.target.closest('.tools'))gr.style.display='none';});
-document.addEventListener('keydown',function(e){if(e.key==='/'&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){e.preventDefault();gs.focus();}});
+function moveCmd(d){var as=cres.querySelectorAll('a');if(!as.length)return;as[cact].classList.remove('act');cact=(cact+d+as.length)%as.length;as[cact].classList.add('act');as[cact].scrollIntoView({block:'nearest'});}
+function openCmd(){if(!cmdk.open)cmdk.showModal();cin.value='';paintCmd();cin.focus();}
+function goCmd(h){cmdk.close();var here=location.pathname.split('/').pop()||'index.html';
+  if(h.split('#')[0]===here&&h.indexOf('#')>-1){if(location.hash==='#'+h.split('#')[1])fromHash();else location.hash=h.split('#')[1];}else location.href=h;}
+cin.addEventListener('input',paintCmd);
+cin.addEventListener('keydown',function(e){if(e.key==='ArrowDown'){e.preventDefault();moveCmd(1);}else if(e.key==='ArrowUp'){e.preventDefault();moveCmd(-1);}
+  else if(e.key==='Enter'){var as=cres.querySelectorAll('a');if(as[cact]){e.preventDefault();goCmd(as[cact].getAttribute('href'));}}});
+cres.addEventListener('click',function(e){var a=e.target.closest('a');if(a){e.preventDefault();goCmd(a.getAttribute('href'));}});
+cmdk.addEventListener('click',function(e){if(e.target===cmdk)cmdk.close();});
+$('searchBtn').addEventListener('click',openCmd);
+document.addEventListener('keydown',function(e){var typing=/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  if((e.key==='k'&&(e.metaKey||e.ctrlKey))||(e.key==='/'&&!typing)){e.preventDefault();openCmd();}});
+
+/* ---------- reading progress ---------- */
+var prog=$('progress');
+function onScroll(){var h=document.documentElement,max=h.scrollHeight-h.clientHeight;prog.style.width=(max>0?Math.min(100,h.scrollTop/max*100):0)+'%';}
+document.addEventListener('scroll',onScroll,{passive:true});onScroll();
 
 /* ---------- lightbox ---------- */
 var lb=$('lightbox');
@@ -97,7 +112,7 @@ var drawer=$('drawer');
 SB.ref=function(id){
   var s=(window.SOURCES||{})[id];if(!s)return;
   var docName=DOCS[s.doc].name;
-  var h='<div class="loc">'+esc(docName)+' &middot; '+esc(s.loc)+'</div><h3>'+esc(s.title)+'</h3>';
+  var h='<div class="loc">'+esc(docName)+', '+esc(s.loc)+'</div><h3>'+esc(s.title)+'</h3>';
   h+='<div class="blk"><h4>What the paper reports here</h4>'+s.says+'</div>';
   if(s.found)h+='<div class="blk"><h4>What we find</h4>'+s.found+'</div>';
   if(s.links&&s.links.length)h+='<div class="blk"><h4>Check it</h4>'+s.links.map(function(l){return l.file?'<a class="src" data-file="'+esc(l.file)+'" data-find="'+esc(l.find||'')+'">'+esc(l.label)+'</a>':'<a href="'+esc(l.href)+'">'+esc(l.label)+'</a>';}).join(' ')+'</div>';
@@ -108,6 +123,7 @@ SB.ref=function(id){
   if(!drawer.open)drawer.showModal();
 };
 document.addEventListener('click',function(e){var a=e.target.closest('a.ref');if(!a)return;e.preventDefault();SB.ref(a.getAttribute('data-s'));});
+document.addEventListener('click',function(e){var a=e.target.closest('a.pg');if(!a)return;e.preventDefault();SB.pdf(a.getAttribute('data-doc'),+a.getAttribute('data-p'));});
 [].forEach.call(document.querySelectorAll('dialog [data-close]'),function(b){b.addEventListener('click',function(){b.closest('dialog').close();});});
 [drawer,viewer,$('pdfv')].forEach(function(d){d.addEventListener('click',function(e){if(e.target===d)d.close();});});
 
@@ -126,7 +142,7 @@ function openBuffer(key,buf){
       var info={doc:doc,first:1,warn:''};
       var ex=DOCS[key].pages;
       if(key==='main')info.first=/editor.?s note/i.test(t1)?2:1;
-      if(doc.numPages<ex[0]||doc.numPages>ex[1])info.warn='This file has '+doc.numPages+' pages; the '+DOCS[key].name.toLowerCase()+' should have '+(ex[0]===ex[1]?ex[0]:'about 7')+', so page positions may be off.';
+      if(doc.numPages<ex[0]||doc.numPages>ex[1])info.warn='This file has '+doc.numPages+' pages. The '+DOCS[key].name.toLowerCase()+' should have '+(ex[0]===ex[1]?ex[0]:'about 7')+', so page positions may be off.';
       pdfDocs[key]=info;return info;});});
 }
 function target(key,page){var info=pdfDocs[key];var n=key==='main'?(page-831+info.first):page;return Math.max(1,Math.min(info.doc.numPages,n));}
@@ -147,7 +163,7 @@ function askFile(key,page,msg){
 function show(key,page){
   var info=pdfDocs[key];pdfState.key=key;pdfState.page=target(key,page);
   $('pdfask').style.display='none';$('pdfcanvas').style.display='';
-  $('pdftitle').textContent=DOCS[key].name+(info.warn?' — '+info.warn:'');
+  $('pdftitle').textContent=DOCS[key].name+(info.warn?'. '+info.warn:'');
   renderPdf();
 }
 SB.pdf=function(key,page){

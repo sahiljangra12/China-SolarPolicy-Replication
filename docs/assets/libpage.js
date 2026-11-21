@@ -7,7 +7,7 @@ var esc=SB.esc;
 function kb(n){return n>1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';}
 function grouped(items,render){var g={},order=[];items.forEach(function(it){if(!g[it.group]){g[it.group]=[];order.push(it.group);}g[it.group].push(it);});
   return order.map(function(k){return '<div class="grp">'+esc(k)+'</div>'+g[k].map(render).join('');}).join('');}
-$('p_reports').innerHTML='<div class="grid">'+LIB.reports.map(function(r){return '<div class="doc"><b>'+esc(r.title)+'</b><span>'+esc(r.desc)+'</span><div class="meta">'+r.pages+' pages &middot; '+esc(r.when)+'</div><div><a class="btn sm" href="'+r.file+'">Open PDF</a> '+(r.tex?'<a class="btn sm alt" href="'+SB.REPO+'/blob/main/'+r.tex+'" target="_blank" rel="noopener">LaTeX source</a>':'')+'</div></div>';}).join('')+'</div>';
+$('p_reports').innerHTML='<div class="grid">'+LIB.reports.map(function(r){return '<div class="doc"><b>'+esc(r.title)+'</b><span>'+esc(r.desc)+'</span><div class="meta">'+r.pages+' pages, '+esc(r.when)+'</div><div><a class="btn sm" href="'+r.file+'">Open PDF</a> '+(r.tex?'<a class="btn sm alt" href="'+SB.REPO+'/blob/main/'+r.tex+'" target="_blank" rel="noopener">LaTeX source</a>':'')+'</div></div>';}).join('')+'</div>';
 $('p_figures').innerHTML='<div class="gal">'+LIB.figures.map(function(f){return '<figure><img loading="lazy" src="'+f.file+'" alt="'+esc(f.cap)+'"><figcaption><b>'+esc(f.name)+'</b><br>'+esc(f.cap)+'</figcaption></figure>';}).join('')+'</div>';
 function flist(id,items,filterId){
   function paint(q){var its=items.filter(function(it){return !q||(it.name+' '+it.desc+' '+it.group).toLowerCase().indexOf(q)>-1;});
