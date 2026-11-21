@@ -9,9 +9,9 @@ function css(v){return getComputedStyle(document.documentElement).getPropertyVal
 function num(n){return Number(n).toLocaleString('en-US');}
 function hbars(svg,rows,opt){ /* rows: [label, value, note] */
   clear(svg);var W=+svg.viewBox.baseVal.width,H=+svg.viewBox.baseVal.height,lw=opt.lw||210,max=Math.max.apply(null,rows.map(function(r){return r[1];})),bh=(H-8)/rows.length;
-  rows.forEach(function(r,i){var y=4+i*bh,w=Math.max(2,(W-lw-110)*r[1]/max);
+  rows.forEach(function(r,i){var y=4+i*bh,w=Math.max(2,(W-lw-190)*r[1]/max);
     svg.appendChild(el('text',{x:lw-8,y:y+bh/2+4,'text-anchor':'end','font-size':12,fill:css('--ink')},r[0]));
-    svg.appendChild(el('rect',{x:lw,y:y+bh*0.18,width:w,height:bh*0.64,rx:3,fill:i===(opt.hi==null?-1:opt.hi)?css('--accent'):css('--brand')}));
+    svg.appendChild(el('rect',{x:lw,y:y+bh*0.18,width:w,height:bh*0.64,rx:3,fill:i===(opt.hi==null?-1:opt.hi)?css('--accent-fill'):css('--brand')}));
     svg.appendChild(el('text',{x:lw+w+6,y:y+bh/2+4,'font-size':12,fill:css('--muted')},r[2]||num(r[1])));});
 }
 function vbars(svg,rows,opt){ /* rows: [label, value] */
@@ -29,9 +29,9 @@ function draw(){
     [['Urban districts',D.imp.urban,0],['Rural counties',D.imp.rural,1]].forEach(function(g,i){var y=14+i*62,f=g[1][0]/g[1][1];
       svg.appendChild(el('text',{x:lw-10,y:y+24,'text-anchor':'end','font-size':13,fill:css('--ink'),'font-weight':600},g[0]));
       svg.appendChild(el('rect',{x:lw,y:y,width:bw,height:36,rx:4,fill:css('--brand-soft')}));
-      svg.appendChild(el('rect',{x:lw,y:y,width:Math.max(3,bw*f),height:36,rx:4,fill:css('--accent')}));
+      svg.appendChild(el('rect',{x:lw,y:y,width:Math.max(3,bw*f),height:36,rx:4,fill:css('--accent-fill')}));
       svg.appendChild(el('text',{x:lw+Math.max(3,bw*f)+8,y:y+23,'font-size':13,fill:f>0.6?'#fff':css('--ink')},''));
-      svg.appendChild(el('text',{x:f>0.5?lw+12:lw+bw*f+10,y:y+23,'font-size':13,fill:f>0.5?'#fff':css('--ink'),'font-weight':600},num(g[1][0])+' of '+num(g[1][1])+' counties have PSI filled in as 0 ('+(f*100).toFixed(0)+'%)'));});
+      svg.appendChild(el('text',{x:f>0.5?lw+12:lw+bw*f+10,y:y+23,'font-size':13,fill:f>0.5?'#101a33':css('--ink'),'font-weight':600},num(g[1][0])+' of '+num(g[1][1])+' counties have PSI filled in as 0 ('+(f*100).toFixed(0)+'%)'));});
     svg.appendChild(el('text',{x:lw,y:142,'font-size':11,fill:css('--muted')},'Counties in the regression sample. Orange: PSI missing from the policy file and set to 0.'));}
 }
 draw();document.addEventListener('themechange',draw);
