@@ -22,7 +22,7 @@
   <p class="lead">Click a blue chip anywhere on this site. A panel opens with the exact location, what the paper reports there, what we find, and the Stata output behind it.</p>
   <div class="box"><b class="h">Open the exact page in your own copy</b>
   The article and its Supplementary Materials are under copyright (exclusive licensee AAAS), so they cannot be posted here. Instead, choose your own PDFs once. They stay in this browser, nothing is uploaded, and every reference then opens at the exact page inside this site.
-  <p style="margin-bottom:0"><button class="btn sm" onclick="SB.pdf('main',831)">Load my copy of the article</button> <button class="btn sm" onclick="SB.pdf('sm',1)">Load my copy of the Supplementary Materials</button> <a class="btn sm alt" target="_blank" rel="noopener" href="https://doi.org/10.1126/science.aee0747">Publisher's page</a></p></div>
+  <p style="margin-bottom:0"><button class="btn sm" onclick="SB.pdf('main',831)">Load my copy of the article</button> <button class="btn sm" onclick="SB.pdf('sm',1)">Load my copy of the Supplementary Materials</button> <button class="btn sm" onclick="SB.pdf('mdar',1)">Load my copy of the checklist</button> <a class="btn sm alt" target="_blank" rel="noopener" href="https://doi.org/10.1126/science.aee0747">Publisher's page</a></p></div>
 </section>
 
 <section id="claims" data-nav="Claims, checked">
@@ -55,6 +55,21 @@
   <div class="sources">Sources: <a class="src" data-file="files/01_Task1_Replication/tables/1_4_reproduction_check.csv">check table</a> <a class="src" data-file="files/01_Task1_Replication/logs/1_4_reproduction_check.log" data-find="PI |  -.0125283">log</a> <a class="src" data-file="files/01_Task1_Replication/code/1_4_reproduction_check.do">code</a> <a class="src" data-file="files/01_Task1_Replication/tables/authors_tables/baseline.rtf.txt">Table 1 as reproduced</a></div>
 </section>
 
+<section id="mdar" data-nav="Reproducibility checklist">
+  <h2>The reproducibility checklist is blank</h2>
+  <p class="lead">The paper's supplementary files include an MDAR reproducibility checklist. Authors use this form to say where the manuscript reports exclusions, statistical tests, and data and code availability.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Checklist item</th><th>Authors' entry in the posted file</th><th>Why it matters here</th></tr>
+    <tr><td>Attrition: were data points omitted, and why?</td><td>Empty</td><td>PSI is set to 0 for 724 counties; 2,372 rows are dropped for a missing control; Table S14 keeps 17&ndash;58% of the sample.</td></tr>
+    <tr><td>Inclusion and exclusion criteria</td><td>Empty</td><td>The low-activity exclusions do not match their description.</td></tr>
+    <tr><td>Statistics: tests used and why</td><td>Empty</td><td></td></tr>
+    <tr><td>Data availability</td><td>Empty</td><td>The data are public on the authors' GitHub, so the paper itself covers this.</td></tr>
+    <tr><td>Code availability</td><td>Empty</td><td>The code is public too.</td></tr>
+  </table></div>
+  <p>All five pages have no entries (<a class="ref" data-s="mdar">MDAR checklist, p. 4</a>). We can speak only to the file as posted: a completed form may exist that was not posted.</p>
+  <div class="sources">Sources: <a class="src" data-file="files/05_Followups_Nov13/tables/5_3_sample_flow.csv">sample flow</a> <a class="src" data-file="files/06_Followups_Nov19/logs/6_3_meeting_facts.log" data-find="83.06">who has PSI set to 0 (log)</a></div>
+</section>
+
 <section id="map" data-nav="Where things are">
   <h2>Where things are in the paper</h2>
   <div class="tablewrap"><table>
@@ -74,6 +89,7 @@
     <tr><td>Table S11: matching</td><td>SM p. 40</td><td><a class="ref" data-s="s11">Table S11</a></td></tr>
     <tr><td>Table S12: alternative measures, including Area</td><td>SM p. 41</td><td><a class="ref" data-s="s12">Table S12</a></td></tr>
     <tr><td>Table S14: low-effort exclusions</td><td>SM p. 44</td><td><a class="ref" data-s="s14">Table S14</a></td></tr>
+    <tr><td>Reproducibility checklist (MDAR)</td><td>Separate file, 5 pages</td><td><a class="ref" data-s="mdar">Checklist</a></td></tr>
   </table></div>
   <p class="small">Every table the authors' code produces is also in the <a href="library.html#tables">Library</a>, as reproduced by our Stata run.</p>
 </section>
