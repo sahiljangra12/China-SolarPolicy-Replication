@@ -5,6 +5,7 @@ var $=function(id){return document.getElementById(id);};
 var root=document.documentElement;
 var REPO='https://github.com/sahiljangra12/China-SolarPolicy-Replication';
 var PUB={main:'https://www.science.org/doi/10.1126/science.aee0747',sm:'https://www.science.org/doi/suppl/10.1126/science.aee0747/suppl_file/science.aee0747_sm.pdf'};
+var DOCS={main:{name:'Article',pick:'article PDF',pages:[6,12]},sm:{name:'Supplementary Materials',pick:'Supplementary Materials PDF',pages:[58,58]},mdar:{name:'Reproducibility checklist',pick:'reproducibility checklist (MDAR) PDF',pages:[5,5]}};
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 window.SB={esc:esc,REPO:REPO};
 
@@ -95,7 +96,7 @@ document.addEventListener('click',function(e){var a=e.target.closest('a.src,[dat
 var drawer=$('drawer');
 SB.ref=function(id){
   var s=(window.SOURCES||{})[id];if(!s)return;
-  var docName=s.doc==='main'?'Article':'Supplementary Materials';
+  var docName=DOCS[s.doc].name;
   var h='<div class="loc">'+esc(docName)+' &middot; '+esc(s.loc)+'</div><h3>'+esc(s.title)+'</h3>';
   h+='<div class="blk"><h4>What the paper reports here</h4>'+s.says+'</div>';
   if(s.found)h+='<div class="blk"><h4>What we find</h4>'+s.found+'</div>';
@@ -123,8 +124,9 @@ function openBuffer(key,buf){
   return loadLib().then(function(){return window.pdfjsLib.getDocument({data:buf.slice(0)}).promise;}).then(function(doc){
     return pageText(doc,1).then(function(t1){
       var info={doc:doc,first:1,warn:''};
-      if(key==='main'){info.first=/editor.?s note/i.test(t1)?2:1;if(doc.numPages<6||doc.numPages>12)info.warn='This file has '+doc.numPages+' pages. The article is about 7 pages, so page positions may be off.';}
-      else if(doc.numPages!==58)info.warn='This file has '+doc.numPages+' pages. The Supplementary Materials have 58, so page positions may be off.';
+      var ex=DOCS[key].pages;
+      if(key==='main')info.first=/editor.?s note/i.test(t1)?2:1;
+      if(doc.numPages<ex[0]||doc.numPages>ex[1])info.warn='This file has '+doc.numPages+' pages; the '+DOCS[key].name.toLowerCase()+' should have '+(ex[0]===ex[1]?ex[0]:'about 7')+', so page positions may be off.';
       pdfDocs[key]=info;return info;});});
 }
 function target(key,page){var info=pdfDocs[key];var n=key==='main'?(page-831+info.first):page;return Math.max(1,Math.min(info.doc.numPages,n));}
@@ -138,14 +140,14 @@ function renderPdf(){
 }
 function askFile(key,page,msg){
   $('pdfask').style.display='';$('pdfcanvas').style.display='none';
-  $('pdfmsg').innerHTML=(msg?'<b>'+esc(msg)+'</b><br>':'')+'Choose your copy of the <b>'+(key==='main'?'article PDF':'Supplementary Materials PDF')+'</b> (Zhang et al. 2026). It is read on this device only and is never uploaded.';
+  $('pdfmsg').innerHTML=(msg?'<b>'+esc(msg)+'</b><br>':'')+'Choose your copy of the <b>'+DOCS[key].pick+'</b> (Zhang et al. 2026). It is read on this device only and is never uploaded.';
   var inp=$('pdffile');inp.value='';inp.onchange=function(){var f=inp.files[0];if(!f)return;f.arrayBuffer().then(function(buf){
       return openBuffer(key,buf).then(function(){idbSet(key,buf);show(key,page);});}).catch(function(){askFile(key,page,'That file could not be read as a PDF.');});};
 }
 function show(key,page){
   var info=pdfDocs[key];pdfState.key=key;pdfState.page=target(key,page);
   $('pdfask').style.display='none';$('pdfcanvas').style.display='';
-  $('pdftitle').textContent=(key==='main'?'Article':'Supplementary Materials')+(info.warn?' — '+info.warn:'');
+  $('pdftitle').textContent=DOCS[key].name+(info.warn?' — '+info.warn:'');
   renderPdf();
 }
 SB.pdf=function(key,page){
