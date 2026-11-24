@@ -263,3 +263,6 @@ footer{max-width:1240px;margin:0 auto;padding:0 22px 44px;font-size:13.5px;color
   .result .wide{grid-column:1/-1}.result .big b{font-size:32px}
 }
 @media print{.top,.side,.presets,.sources,dialog,.seg{display:none!important}.wrap{display:block}.hero{background:#fff;color:#000}.hero h1{color:#000}}
+
+/* Phones: finger-sized header buttons */
+@media (max-width:640px){.iconbtn{min-height:44px}.brand{min-height:44px}.btn.sm{min-height:44px;display:inline-flex;align-items:center}}
