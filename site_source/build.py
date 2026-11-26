@@ -270,6 +270,7 @@ SHELL = '''<!doctype html>
 <script src="assets/search.js"></script>
 <script src="assets/site.js"></script>
 {scripts}
+<script defer src="https://sahiljangra12.github.io/ask/ask.js" data-site="Solar Policy and Bird Diversity"></script>
 </body>
 </html>
 '''
